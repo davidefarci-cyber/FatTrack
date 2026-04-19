@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FatTrack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="android-frame.jsx"></script>
+<script type="text/babel" src="fattrack-ui.jsx"></script>
+<script type="text/babel" src="fattrack-screens.jsx"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: linear-gradient(135deg, #0f1923 0%, #1a2744 50%, #0f2535 100%);
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+  ::-webkit-scrollbar { width: 0; }
+  @keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+<script type="text/babel">
+
+const INITIAL_MEALS = {
+  breakfast: [
+    { id:1, name:"Fiocchi d'avena",       grams:80,  kcalPer100:368 },
+    { id:2, name:"Latte parz. scremato",  grams:200, kcalPer100:46  },
+    { id:3, name:"Yogurt greco 0%",       grams:150, kcalPer100:57  },
+  ],
+  lunch: [
+    { id:4, name:"Petto di pollo",        grams:150, kcalPer100:165 },
+    { id:5, name:"Riso (secco)",          grams:80,  kcalPer100:360 },
+    { id:6, name:"Broccoli",              grams:150, kcalPer100:34  },
+  ],
+  dinner: [
+    { id:7, name:"Salmone fresco",        grams:180, kcalPer100:208 },
+    { id:8, name:"Patate lesse",          grams:200, kcalPer100:77  },
+  ],
+  snack: [
+    { id:9, name:"Banana",               grams:120, kcalPer100:89  },
+    { id:10,name:"Mandorle",             grams:30,  kcalPer100:579 },
+  ],
+};
+
+const INITIAL_FAVORITES = [
+  { id:1, name:"Pranzo settimanale",      totalKcal:588, foods:[] },
+  { id:2, name:"Post-allenamento",        totalKcal:380, foods:[] },
+  { id:3, name:"Colazione fit",           totalKcal:472, foods:[] },
+  { id:4, name:"Cena leggera",            totalKcal:328, foods:[] },
+];
+
+const INITIAL_USER = { weight:75, height:175, age:30, gender:'M', activity:'moderate', weeklyGoal:0.5, sideDishKcal:50 };
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "#06C167",
+  "showOnboarding": false
+}/*EDITMODE-END*/;
+
+function App() {
+  const [tweaks, setTweaks] = React.useState(() => {
+    try { return { ...TWEAK_DEFAULTS, ...JSON.parse(localStorage.getItem('ft_tweaks')||'{}') }; }
+    catch { return TWEAK_DEFAULTS; }
+  });
+  const [showTweaks, setShowTweaks] = React.useState(false);
+
+  const [onboarding, setOnboarding] = React.useState(() => {
+    if (tweaks.showOnboarding) return true;
+    return !localStorage.getItem('ft_onboarding_done');
+  });
+  const [screen, setScreen]   = React.useState(() => localStorage.getItem('ft_screen') || 'home');
+  const [addFood, setAddFood] = React.useState(null);
+  const [user, setUser]       = React.useState(() => {
+    try { return { ...INITIAL_USER, ...JSON.parse(localStorage.getItem('ft_user')||'{}') }; }
+    catch { return INITIAL_USER; }
+  });
+  const [meals, setMeals]         = React.useState(INITIAL_MEALS);
+  const [favorites, setFavorites] = React.useState(INITIAL_FAVORITES);
+
+  React.useEffect(() => { localStorage.setItem('ft_screen', screen); }, [screen]);
+  React.useEffect(() => { localStorage.setItem('ft_user', JSON.stringify(user)); }, [user]);
+
+  const { bmr, tdee, dailyTarget } = React.useMemo(() => calcTarget(user), [user]);
+  const totalKcal = React.useMemo(
+    () => Object.values(meals).flat().reduce((s,f) => s + calcKcal(f.grams, f.kcalPer100), 0),
+    [meals]
+  );
+
+  const addFoodToMeal = (meal, food) => {
+    setMeals(p => ({ ...p, [meal]: [...p[meal], { ...food, id: Date.now() }] }));
+    setAddFood(null);
+  };
+  const removeFoodFromMeal = (meal, id) => {
+    setMeals(p => ({ ...p, [meal]: p[meal].filter(f => f.id !== id) }));
+  };
+
+  // Tweaks
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (e.data?.type === '__activate_edit_mode')   setShowTweaks(true);
+      if (e.data?.type === '__deactivate_edit_mode') setShowTweaks(false);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  const applyTweak = (key, val) => {
+    const updated = { ...tweaks, [key]: val };
+    setTweaks(updated);
+    localStorage.setItem('ft_tweaks', JSON.stringify(updated));
+    window.parent.postMessage({ type:'__edit_mode_set_keys', edits: { [key]: val } }, '*');
+    if (key === 'showOnboarding' && val) { setOnboarding(true); localStorage.removeItem('ft_onboarding_done'); }
+  };
+
+  const completeOnboarding = (userData) => {
+    setUser(p => ({ ...p, ...userData }));
+    setOnboarding(false);
+    localStorage.setItem('ft_onboarding_done', '1');
+  };
+
+  const deviceContent = (
+    <div style={{ height:'100%', display:'flex', flexDirection:'column', background:FT.bg, position:'relative', overflow:'hidden' }}>
+      <div style={{ flex:1, overflowY:'auto', overflowX:'hidden', WebkitOverflowScrolling:'touch' }}>
+        {screen==='home'      && <HomeScreen meals={meals} totalKcal={totalKcal} dailyTarget={dailyTarget} onAddFood={setAddFood} onRemoveFood={removeFoodFromMeal}/>}
+        {screen==='favorites' && <FavoritesScreen favorites={favorites} setFavorites={setFavorites} onAddToLog={() => {}}/>}
+        {screen==='barcode'   && <BarcodeScreen onAddFood={(meal, food) => addFoodToMeal(meal, food)}/>}
+        {screen==='history'   && <HistoryScreen dailyTarget={dailyTarget}/>}
+        {screen==='settings'  && <SettingsScreen user={user} setUser={setUser} bmr={bmr} tdee={tdee} dailyTarget={dailyTarget}/>}
+      </div>
+      <BottomTabBar active={screen} onChange={setScreen}/>
+      {addFood && (
+        <AddFoodModal meal={addFood} onClose={() => setAddFood(null)} onAdd={(food) => addFoodToMeal(addFood, food)}/>
+      )}
+    </div>
+  );
+
+  const onboardingContent = (
+    <div style={{ height:'100%' }}>
+      <OnboardingScreen onComplete={completeOnboarding}/>
+    </div>
+  );
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'100vh', padding:20, gap:12 }}>
+      {/* Badge app */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+        <div style={{ width:36, height:36, borderRadius:10, background:'#06C167', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <span style={{ fontSize:18 }}>🥗</span>
+        </div>
+        <span style={{ fontSize:20, fontWeight:400, color:'white', fontFamily:"'Plus Jakarta Sans', sans-serif", letterSpacing:-0.5 }}>FatTrack</span>
+      </div>
+
+      <AndroidDevice dark={false}>
+        {onboarding ? onboardingContent : deviceContent}
+      </AndroidDevice>
+
+      {/* Tweaks panel */}
+      {showTweaks && (
+        <div style={{
+          position:'fixed', bottom:24, right:24, background:'white', borderRadius:16,
+          padding:'16px 18px', boxShadow:'0 8px 40px rgba(0,0,0,0.18)', zIndex:9999,
+          fontFamily:"'Plus Jakarta Sans', sans-serif", minWidth:220,
+        }}>
+          <div style={{ fontSize:13, fontWeight:800, color:'#1E2532', marginBottom:12 }}>Tweaks</div>
+          <div style={{ fontSize:11, color:'#8892A4', fontWeight:600, marginBottom:6, textTransform:'uppercase', letterSpacing:0.5 }}>Colore accento</div>
+          <div style={{ display:'flex', gap:8, marginBottom:14 }}>
+            {['#06C167','#4C6EF5','#FF9F43','#CC5DE8'].map(c => (
+              <div key={c} onClick={() => applyTweak('accentColor', c)} style={{
+                width:28, height:28, borderRadius:'50%', background:c, cursor:'pointer',
+                border: tweaks.accentColor===c ? '3px solid #1E2532' : '3px solid transparent',
+              }}/>
+            ))}
+          </div>
+          <div style={{ fontSize:11, color:'#8892A4', fontWeight:600, marginBottom:8, textTransform:'uppercase', letterSpacing:0.5 }}>Azioni</div>
+          <button onClick={() => applyTweak('showOnboarding', true)} style={{
+            width:'100%', height:34, borderRadius:8, border:'1.5px solid #EDF0F7',
+            background:'white', cursor:'pointer', fontSize:12, fontWeight:600, color:'#1E2532',
+            fontFamily:"'Plus Jakarta Sans', sans-serif",
+          }}>
+            Rivedi onboarding
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
+</script>
+<div id="root"></div>
+</body>
+</html>
