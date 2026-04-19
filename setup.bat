@@ -12,7 +12,7 @@ rem ============================================================
 
 set "REPO_URL=https://github.com/davidefarci-cyber/fattrack.git"
 set "REPO_DIR=FatTrack"
-set "BRANCH=claude/init-fattrack-project-3XYHC"
+set "BRANCH=main"
 
 echo ============================================================
 echo  FatTrack - Setup / Update

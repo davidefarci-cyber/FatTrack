@@ -45,7 +45,7 @@ Scarica lo script in una cartella di lavoro (es. `C:\dev`) e lancialo:
 
 ```powershell
 # da PowerShell, nella cartella di lavoro in cui vuoi clonare
-iwr -Uri https://raw.githubusercontent.com/davidefarci-cyber/fattrack/claude/init-fattrack-project-3XYHC/setup.bat -OutFile setup.bat
+iwr -Uri https://raw.githubusercontent.com/davidefarci-cyber/fattrack/main/setup.bat -OutFile setup.bat
 .\setup.bat
 ```
 
