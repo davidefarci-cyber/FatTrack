@@ -23,7 +23,7 @@ export async function getSettings(): Promise<DailySettings> {
 
   // Safety net: migrations already insert the singleton, but reinsert if missing.
   await db.runAsync(
-    `INSERT OR IGNORE INTO daily_settings (id, target_calories, side_dish_calories) VALUES (1, 2000, 0)`,
+    `INSERT OR IGNORE INTO daily_settings (id, target_calories, side_dish_calories) VALUES (1, 2000, 50)`,
   );
   const reloaded = await db.getFirstAsync<DailySettings>(
     `SELECT ${COLUMNS} FROM daily_settings WHERE id = 1`,

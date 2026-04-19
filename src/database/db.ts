@@ -60,7 +60,7 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     CREATE TABLE IF NOT EXISTS daily_settings (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       target_calories REAL NOT NULL DEFAULT 2000,
-      side_dish_calories REAL NOT NULL DEFAULT 0,
+      side_dish_calories REAL NOT NULL DEFAULT 50,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -78,7 +78,7 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   `);
 
   await db.runAsync(
-    `INSERT OR IGNORE INTO daily_settings (id, target_calories, side_dish_calories) VALUES (1, 2000, 0)`,
+    `INSERT OR IGNORE INTO daily_settings (id, target_calories, side_dish_calories) VALUES (1, 2000, 50)`,
   );
 }
 

@@ -1,16 +1,18 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { BottomTabBar } from '@/components/BottomTabBar';
 import { getDatabase } from '@/database';
 import { useFonts } from '@/hooks/useFonts';
+import { useProfile } from '@/hooks/useProfile';
 import BarcodeScreen from '@/screens/BarcodeScreen';
 import FavoritesScreen from '@/screens/FavoritesScreen';
 import HistoryScreen from '@/screens/HistoryScreen';
 import HomeScreen from '@/screens/HomeScreen';
+import OnboardingScreen from '@/screens/OnboardingScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
 import type { TabParamList } from '@/types';
 
@@ -18,6 +20,8 @@ const Tab = createBottomTabNavigator<TabParamList>();
 
 export default function App() {
   const { fontsLoaded, fontError } = useFonts();
+  const { profile, loading: profileLoading } = useProfile();
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
 
   useEffect(() => {
     getDatabase().catch((err) => console.warn('DB init failed', err));
@@ -30,21 +34,33 @@ export default function App() {
     return null;
   }
 
+  // Il profilo è obbligatorio per calcolare il target calorico; finché
+  // non è stato creato mostriamo l'onboarding al posto della tab bar.
+  if (profileLoading) {
+    return <SafeAreaProvider />;
+  }
+
+  const needsOnboarding = !profile && !onboardingComplete;
+
   return (
     <SafeAreaProvider>
       <NavigationContainer>
         <StatusBar style="dark" />
-        <Tab.Navigator
-          initialRouteName="Home"
-          tabBar={(props) => <BottomTabBar {...props} />}
-          screenOptions={{ headerShown: false }}
-        >
-          <Tab.Screen name="Barcode" component={BarcodeScreen} />
-          <Tab.Screen name="Favorites" component={FavoritesScreen} />
-          <Tab.Screen name="Home" component={HomeScreen} />
-          <Tab.Screen name="History" component={HistoryScreen} />
-          <Tab.Screen name="Settings" component={SettingsScreen} />
-        </Tab.Navigator>
+        {needsOnboarding ? (
+          <OnboardingScreen onComplete={() => setOnboardingComplete(true)} />
+        ) : (
+          <Tab.Navigator
+            initialRouteName="Home"
+            tabBar={(props) => <BottomTabBar {...props} />}
+            screenOptions={{ headerShown: false }}
+          >
+            <Tab.Screen name="Barcode" component={BarcodeScreen} />
+            <Tab.Screen name="Favorites" component={FavoritesScreen} />
+            <Tab.Screen name="Home" component={HomeScreen} />
+            <Tab.Screen name="History" component={HistoryScreen} />
+            <Tab.Screen name="Settings" component={SettingsScreen} />
+          </Tab.Navigator>
+        )}
       </NavigationContainer>
     </SafeAreaProvider>
   );
