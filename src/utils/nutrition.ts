@@ -1,9 +1,9 @@
-import type { Product } from '@/types';
+import type { Food } from '@/database';
 
-export function kcalForServing(product: Product, grams: number): number {
-  return (product.kcalPer100g * grams) / 100;
+export function caloriesForGrams(caloriesPer100g: number, grams: number): number {
+  return (caloriesPer100g * grams) / 100;
 }
 
-export function fatForServing(product: Product, grams: number): number {
-  return (product.fatPer100g * grams) / 100;
+export function caloriesForFood(food: Food, grams: number): number {
+  return caloriesForGrams(food.caloriesPer100g, grams);
 }
