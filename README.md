@@ -24,13 +24,19 @@ FatTrack/
 ├── tsconfig.json
 ├── .env.example
 └── src/
-    ├── screens/            # Schermate (Home, Diary, Stats, Settings, Scanner, ProductDetail)
-    ├── components/         # Componenti UI riutilizzabili
-    ├── database/           # Apertura DB SQLite + migrazioni
-    ├── hooks/              # Custom hooks (es. usePreferences)
+    ├── screens/            # Schermate (Barcode, Favorites, Home, History, Settings)
+    ├── components/         # Primitives del design system (Icon, Card, Input, ScreenHeader, CalorieRing, BottomTabBar)
+    ├── theme/              # Design tokens (colors, typography, spacing, ecc.) — fonte di verità stilistica
+    ├── database/           # Apertura DB SQLite + migrazioni + CRUD per entità
+    ├── hooks/              # Custom hooks (useFonts, useProfile, usePreferences)
     ├── utils/              # Funzioni di utilità (calcoli nutrizionali, ecc.)
     └── types/              # Tipi condivisi
 ```
+
+> **Stai sviluppando una nuova feature?** Leggi prima [`CLAUDE.md`](./CLAUDE.md)
+> (regole di progetto, priorità del design system) e
+> [`design/README.md`](./design/README.md) (mappatura design ↔ codice).
+> Il design handoff ha **priorità assoluta** su ogni nuova UI.
 
 ---
 
