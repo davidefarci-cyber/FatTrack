@@ -65,6 +65,17 @@ export async function searchFoods(query: string, limit = 50): Promise<Food[]> {
   );
 }
 
+// Match case-insensitive sul nome esatto: usato per deduplicare quando si
+// sta per salvare un alimento proveniente da un'API esterna (Open Food Facts).
+export async function findByName(name: string): Promise<Food | null> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<Food>(
+    `SELECT ${COLUMNS} FROM foods WHERE LOWER(name) = LOWER(?) LIMIT 1`,
+    name.trim(),
+  );
+  return row ?? null;
+}
+
 export async function updateFood(
   id: number,
   patch: Partial<NewFood>,

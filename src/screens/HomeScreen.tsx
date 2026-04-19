@@ -1,9 +1,12 @@
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { useFocusEffect } from '@react-navigation/native';
+import type { CompositeScreenProps } from '@react-navigation/native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AddFoodModal } from '@/components/AddFoodModal';
 import { Card } from '@/components/Card';
 import { FavoritesModal } from '@/components/FavoritesModal';
 import { Icon } from '@/components/Icon';
@@ -15,28 +18,46 @@ import { useDailyLog } from '@/hooks/useDailyLog';
 import type { NewMealInput } from '@/hooks/useDailyLog';
 import { useProfile } from '@/hooks/useProfile';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
+import type { RootStackParamList, TabParamList } from '@/types';
 
 const FALLBACK_TARGET_KCAL = 2000;
 
-export default function HomeScreen() {
+// Composite props perché HomeScreen vive nel BottomTab dentro lo stack nativo:
+// la navigation qui deve saper raggiungere sia i sibling tab sia gli screen
+// del RootStack (es. AddFood).
+type HomeScreenProps = CompositeScreenProps<
+  BottomTabScreenProps<TabParamList, 'Home'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
+
+export default function HomeScreen({ navigation }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
   const { targetCalories } = useProfile();
   const {
+    date,
     dateLabel,
     isToday,
     loading,
     mealsByType,
     totalCalories,
-    addMeal,
     addMeals,
     removeMeal,
     goToPreviousDay,
     goToNextDay,
     goToToday,
+    reload,
   } = useDailyLog();
 
-  const [addFoodMeal, setAddFoodMeal] = useState<MealType | null>(null);
   const [favoritesMeal, setFavoritesMeal] = useState<MealType | null>(null);
+
+  // Quando si torna dal flusso AddFood (navigation.goBack) ricarichiamo i
+  // pasti del giorno corrente: AddFoodScreen scrive direttamente su SQLite,
+  // quindi qui basta leggere di nuovo.
+  useFocusEffect(
+    useCallback(() => {
+      reload();
+    }, [reload]),
+  );
 
   const target = targetCalories ?? FALLBACK_TARGET_KCAL;
   const totalRounded = Math.round(totalCalories);
@@ -46,14 +67,11 @@ export default function HomeScreen() {
 
   const handleDelete = useCallback((id: number) => removeMeal(id), [removeMeal]);
 
-  const handleAddFood = useCallback(
-    async (
-      mealType: MealType,
-      input: Omit<NewMealInput, 'mealType'>,
-    ) => {
-      await addMeal({ ...input, mealType });
+  const openAddFood = useCallback(
+    (mealType: MealType) => {
+      navigation.navigate('AddFood', { mealType, date });
     },
-    [addMeal],
+    [navigation, date],
   );
 
   const handleAddFavorite = useCallback(
@@ -126,21 +144,13 @@ export default function HomeScreen() {
             mealType={mealType}
             meals={mealsByType[mealType]}
             loading={loading}
-            onAdd={() => setAddFoodMeal(mealType)}
+            onAdd={() => openAddFood(mealType)}
             onAddFavorite={() => setFavoritesMeal(mealType)}
             onDelete={handleDelete}
           />
         ))}
       </ScrollView>
 
-      <AddFoodModal
-        visible={addFoodMeal !== null}
-        mealType={addFoodMeal ?? 'colazione'}
-        onClose={() => setAddFoodMeal(null)}
-        onAdd={(input) =>
-          addFoodMeal ? handleAddFood(addFoodMeal, input) : Promise.resolve()
-        }
-      />
       <FavoritesModal
         visible={favoritesMeal !== null}
         mealType={favoritesMeal ?? 'colazione'}
