@@ -34,7 +34,29 @@ FatTrack/
 
 ---
 
-## 1. Setup ambiente
+## 0. Setup rapido su Windows (script)
+
+Se sei su Windows 10/11 e hai solo VS Code installato, puoi usare lo script
+`setup.bat` incluso nel repo. Fa tutto da solo: installa **Git**, **Node.js
+LTS** (via `winget`), **EAS CLI**, clona il repo e lancia `npm install`.
+Rilanciandolo in seguito, esegue `git pull` e aggiorna le dipendenze.
+
+Scarica lo script in una cartella di lavoro (es. `C:\dev`) e lancialo:
+
+```powershell
+# da PowerShell, nella cartella di lavoro in cui vuoi clonare
+iwr -Uri https://raw.githubusercontent.com/davidefarci-cyber/fattrack/claude/init-fattrack-project-3XYHC/setup.bat -OutFile setup.bat
+.\setup.bat
+```
+
+> Se `winget` non è installato, lo script ti manda al link di "App Installer"
+> sul Microsoft Store; installa e rilancia. Dopo che Git o Node.js vengono
+> installati la prima volta, chiudi il prompt, riaprilo, e rilancia lo script:
+> serve perché il `PATH` aggiornato è visibile solo ai **nuovi** prompt.
+
+---
+
+## 1. Setup ambiente (manuale)
 
 ### 1.1 Node.js
 
