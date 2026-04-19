@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "FatTrack",
+    "slug": "fattrack",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "fattrack",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fattrack.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "FatTrack usa la fotocamera per scansionare i codici a barre dei prodotti alimentari."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.fattrack.app",
+      "permissions": ["CAMERA"]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "FatTrack usa la fotocamera per scansionare i codici a barre dei prodotti alimentari."
+        }
+      ],
+      [
+        "expo-barcode-scanner",
+        {
+          "cameraPermission": "FatTrack usa la fotocamera per scansionare i codici a barre dei prodotti alimentari."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
+    }
+  }
+}

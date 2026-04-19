@@ -1,0 +1,72 @@
+# Dipendenze
+node_modules/
+.pnp/
+.pnp.js
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+web-build/
+expo-env.d.ts
+
+# Metro
+.metro-health-check*
+.haste_cache/
+
+# Build artefatti (Android / iOS / EAS)
+*.apk
+*.aab
+*.ipa
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+android/
+ios/
+
+# EAS
+.easignore
+
+# Env / segreti
+.env
+.env.*
+!.env.example
+
+# Native prebuild cache
+*.tsbuildinfo
+
+# Logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+logs/
+*.log
+
+# macOS / Windows / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Coverage / test
+coverage/
+.nyc_output/
+
+# Cache vari
+.cache/
+.eslintcache
+.parcel-cache/
+
+# TypeScript
+*.tsbuildinfo
