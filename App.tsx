@@ -1,49 +1,51 @@
-import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import DiaryScreen from '@/screens/DiaryScreen';
-import HomeScreen from '@/screens/HomeScreen';
-import ProductDetailScreen from '@/screens/ProductDetailScreen';
-import ScannerScreen from '@/screens/ScannerScreen';
-import SettingsScreen from '@/screens/SettingsScreen';
-import StatsScreen from '@/screens/StatsScreen';
+import { BottomTabBar } from '@/components/BottomTabBar';
 import { getDatabase } from '@/database';
-import type { RootStackParamList, TabParamList } from '@/types';
+import { useFonts } from '@/hooks/useFonts';
+import BarcodeScreen from '@/screens/BarcodeScreen';
+import FavoritesScreen from '@/screens/FavoritesScreen';
+import HistoryScreen from '@/screens/HistoryScreen';
+import HomeScreen from '@/screens/HomeScreen';
+import SettingsScreen from '@/screens/SettingsScreen';
+import type { TabParamList } from '@/types';
 
 const Tab = createBottomTabNavigator<TabParamList>();
-const Stack = createNativeStackNavigator<RootStackParamList>();
-
-function Tabs() {
-  return (
-    <Tab.Navigator>
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Diary" component={DiaryScreen} options={{ title: 'Diario' }} />
-      <Tab.Screen name="Stats" component={StatsScreen} options={{ title: 'Statistiche' }} />
-      <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Impostazioni' }} />
-    </Tab.Navigator>
-  );
-}
 
 export default function App() {
+  const { fontsLoaded, fontError } = useFonts();
+
   useEffect(() => {
     getDatabase().catch((err) => console.warn('DB init failed', err));
   }, []);
 
+  // Niente UI finché i font del design non sono pronti: evita il flash
+  // con il font di sistema. In caso di errore font procediamo comunque,
+  // meglio un fallback che un'app bloccata.
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
+
   return (
-    <NavigationContainer>
-      <StatusBar style="auto" />
-      <Stack.Navigator>
-        <Stack.Screen name="Tabs" component={Tabs} options={{ headerShown: false }} />
-        <Stack.Screen name="Scanner" component={ScannerScreen} options={{ title: 'Scansione' }} />
-        <Stack.Screen
-          name="ProductDetail"
-          component={ProductDetailScreen}
-          options={{ title: 'Dettaglio prodotto' }}
-        />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <StatusBar style="dark" />
+        <Tab.Navigator
+          initialRouteName="Home"
+          tabBar={(props) => <BottomTabBar {...props} />}
+          screenOptions={{ headerShown: false }}
+        >
+          <Tab.Screen name="Barcode" component={BarcodeScreen} />
+          <Tab.Screen name="Favorites" component={FavoritesScreen} />
+          <Tab.Screen name="Home" component={HomeScreen} />
+          <Tab.Screen name="History" component={HistoryScreen} />
+          <Tab.Screen name="Settings" component={SettingsScreen} />
+        </Tab.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
