@@ -2,6 +2,11 @@
 setlocal EnableDelayedExpansion
 chcp 65001 >nul
 
+rem Lavora sempre nella cartella in cui si trova questo .bat,
+rem anche se lanciato "come amministratore" (che imposta CWD su
+rem C:\Windows\System32) o da un altro path.
+cd /d "%~dp0"
+
 rem ============================================================
 rem  FatTrack - Setup / Update (Windows)
 rem  - Installa Git e Node.js LTS via winget se mancanti
