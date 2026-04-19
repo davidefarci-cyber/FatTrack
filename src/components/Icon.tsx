@@ -11,12 +11,15 @@ export type IconName =
   | 'trash'
   | 'chevron-down'
   | 'chevron-up'
+  | 'chevron-left'
+  | 'chevron-right'
   | 'search'
   | 'barcode'
   | 'pencil'
   | 'heart'
   | 'target'
-  | 'check';
+  | 'check'
+  | 'close';
 
 export type IconProps = {
   name: IconName;
@@ -120,6 +123,30 @@ export function Icon({ name, size = 22, color = colors.textSec, filled = false }
           />
         </Svg>
       );
+    case 'chevron-left':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 14 14" fill="none">
+          <Path
+            d="M9 3l-4 4 4 4"
+            stroke={color}
+            strokeWidth={1.6}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </Svg>
+      );
+    case 'chevron-right':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 14 14" fill="none">
+          <Path
+            d="M5 3l4 4-4 4"
+            stroke={color}
+            strokeWidth={1.6}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </Svg>
+      );
     case 'search':
       return (
         <Svg width={size} height={size} viewBox="0 0 17 17" fill="none">
@@ -173,6 +200,17 @@ export function Icon({ name, size = 22, color = colors.textSec, filled = false }
             strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
+          />
+        </Svg>
+      );
+    case 'close':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+          <Path
+            d="M4 4l8 8M12 4l-8 8"
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
           />
         </Svg>
       );

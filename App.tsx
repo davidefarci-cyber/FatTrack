@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { BottomTabBar } from '@/components/BottomTabBar';
@@ -37,31 +38,37 @@ export default function App() {
   // Il profilo è obbligatorio per calcolare il target calorico; finché
   // non è stato creato mostriamo l'onboarding al posto della tab bar.
   if (profileLoading) {
-    return <SafeAreaProvider />;
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider />
+      </GestureHandlerRootView>
+    );
   }
 
   const needsOnboarding = !profile && !onboardingComplete;
 
   return (
-    <SafeAreaProvider>
-      <NavigationContainer>
-        <StatusBar style="dark" />
-        {needsOnboarding ? (
-          <OnboardingScreen onComplete={() => setOnboardingComplete(true)} />
-        ) : (
-          <Tab.Navigator
-            initialRouteName="Home"
-            tabBar={(props) => <BottomTabBar {...props} />}
-            screenOptions={{ headerShown: false }}
-          >
-            <Tab.Screen name="Barcode" component={BarcodeScreen} />
-            <Tab.Screen name="Favorites" component={FavoritesScreen} />
-            <Tab.Screen name="Home" component={HomeScreen} />
-            <Tab.Screen name="History" component={HistoryScreen} />
-            <Tab.Screen name="Settings" component={SettingsScreen} />
-          </Tab.Navigator>
-        )}
-      </NavigationContainer>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <NavigationContainer>
+          <StatusBar style="dark" />
+          {needsOnboarding ? (
+            <OnboardingScreen onComplete={() => setOnboardingComplete(true)} />
+          ) : (
+            <Tab.Navigator
+              initialRouteName="Home"
+              tabBar={(props) => <BottomTabBar {...props} />}
+              screenOptions={{ headerShown: false }}
+            >
+              <Tab.Screen name="Barcode" component={BarcodeScreen} />
+              <Tab.Screen name="Favorites" component={FavoritesScreen} />
+              <Tab.Screen name="Home" component={HomeScreen} />
+              <Tab.Screen name="History" component={HistoryScreen} />
+              <Tab.Screen name="Settings" component={SettingsScreen} />
+            </Tab.Navigator>
+          )}
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
