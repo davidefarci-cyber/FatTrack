@@ -30,9 +30,9 @@ import { colors, radii, spacing, typography } from '@/theme';
 import { calculateMealCalories } from '@/utils/calorieCalculator';
 import { offByBarcode, offSearch } from '@/utils/openFoodFacts';
 import type { OffProduct } from '@/utils/openFoodFacts';
-import type { RootStackParamList } from '@/types';
+import type { HomeStackParamList } from '@/types';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'AddFood'>;
+type Props = NativeStackScreenProps<HomeStackParamList, 'AddFood'>;
 
 type TabKey = 'search' | 'barcode' | 'manual';
 
