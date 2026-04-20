@@ -9,11 +9,12 @@ import type { IconName } from './Icon';
 
 type TabConfig = { routeName: string; label: string; icon: IconName };
 
-// Ordine del design: Scansiona · Preferiti · Home (centrale) · Storico · Impostazioni.
+// Tab bar a 4 voci: Home (FAB centrale) · Preferiti · Storico · Impostazioni.
+// L'ordine nel TabParamList segue Home come initialRoute; qui restiamo
+// consistenti con il design, che vuole la Home al centro visivo.
 const TAB_CONFIG: Record<string, TabConfig> = {
-  Barcode: { routeName: 'Barcode', label: 'Scansiona', icon: 'barcode' },
-  Favorites: { routeName: 'Favorites', label: 'Preferiti', icon: 'star' },
   Home: { routeName: 'Home', label: 'Home', icon: 'home' },
+  Favorites: { routeName: 'Favorites', label: 'Preferiti', icon: 'star' },
   History: { routeName: 'History', label: 'Storico', icon: 'chart' },
   Settings: { routeName: 'Settings', label: 'Impostazioni', icon: 'cog' },
 };

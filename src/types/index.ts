@@ -2,21 +2,23 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 
 import type { MealType } from '@/database';
 
-// Navigazione: il design FatTrack ha un singolo bottom-tab navigator a 5 tab,
-// ordine da design Scansiona · Preferiti · Home (FAB centrale) · Storico · Impostazioni.
-export type TabParamList = {
-  Barcode: undefined;
-  Favorites: undefined;
-  Home: undefined;
-  History: undefined;
-  Settings: undefined;
+// Stack della tab Home: HomeMain è la schermata diario, AddFood è il flusso
+// di aggiunta alimento raggiunto via navigation.navigate('AddFood', …).
+// Restare dentro lo stack della Home consente di mantenere la tab bar visibile
+// quando serve e di evitare un RootStack globale solo per un detail screen.
+export type HomeStackParamList = {
+  HomeMain: undefined;
+  AddFood: { mealType: MealType; date: string };
 };
 
-// Stack radice: racchiude il bottom-tab e aggiunge schermate full-screen
-// raggiungibili via navigation.navigate (es. AddFood dal + di ogni pasto).
-export type RootStackParamList = {
-  MainTabs: NavigatorScreenParams<TabParamList> | undefined;
-  AddFood: { mealType: MealType; date: string };
+// Bottom tab a 4 voci (design aggiornato): Home · Preferiti · Storico · Impostazioni.
+// Home è nested con il proprio stack (HomeStackParamList) perché contiene
+// il detail AddFood.
+export type TabParamList = {
+  Home: NavigatorScreenParams<HomeStackParamList> | undefined;
+  Favorites: undefined;
+  History: undefined;
+  Settings: undefined;
 };
 
 export type UserPreferences = {

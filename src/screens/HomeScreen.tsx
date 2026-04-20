@@ -1,6 +1,4 @@
-import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
-import type { CompositeScreenProps } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -18,17 +16,13 @@ import { useDailyLog } from '@/hooks/useDailyLog';
 import type { NewMealInput } from '@/hooks/useDailyLog';
 import { useProfile } from '@/hooks/useProfile';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
-import type { RootStackParamList, TabParamList } from '@/types';
+import type { HomeStackParamList } from '@/types';
 
 const FALLBACK_TARGET_KCAL = 2000;
 
-// Composite props perché HomeScreen vive nel BottomTab dentro lo stack nativo:
-// la navigation qui deve saper raggiungere sia i sibling tab sia gli screen
-// del RootStack (es. AddFood).
-type HomeScreenProps = CompositeScreenProps<
-  BottomTabScreenProps<TabParamList, 'Home'>,
-  NativeStackScreenProps<RootStackParamList>
->;
+// HomeScreen è la root del HomeStackNavigator: da qui possiamo navigare
+// verso AddFood restando nello stesso stack (la tab bar rimane visibile).
+type HomeScreenProps = NativeStackScreenProps<HomeStackParamList, 'HomeMain'>;
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
