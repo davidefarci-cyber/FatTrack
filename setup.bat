@@ -126,10 +126,25 @@ if not exist "%REPO_DIR%\.git" (
     )
     git pull --ff-only
     if errorlevel 1 (
-        echo [!] git pull fallito ^(potrebbe servire un merge manuale^).
-        popd
-        pause
-        exit /b 1
+        echo [!] git pull fallito al primo tentativo.
+        echo [ ] Rimuovo i file non tracciati che esistono anche nel branch remoto
+        echo     ^(es. package-lock.json rigenerato da npm install^)...
+        for /f "usebackq delims=" %%f in (`git ls-files --others --exclude-standard`) do (
+            git cat-file -e "origin/%BRANCH%:%%f" 2>nul
+            if not errorlevel 1 (
+                set "RM_PATH=%%f"
+                set "RM_PATH=!RM_PATH:/=\!"
+                echo     elimino "!RM_PATH!"
+                del /f /q "!RM_PATH!" >nul 2>nul
+            )
+        )
+        git pull --ff-only
+        if errorlevel 1 (
+            echo [!] git pull fallito anche dopo la pulizia ^(merge manuale necessario^).
+            popd
+            pause
+            exit /b 1
+        )
     )
     popd
 )
