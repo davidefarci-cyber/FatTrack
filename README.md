@@ -240,6 +240,55 @@ ritorno in foreground, a seconda della configurazione di `expo-updates`).
 
 ---
 
+## 6. Notifica aggiornamenti in-app
+
+FatTrack ha un check versione leggero che gira una volta per sessione al lancio
+dell'app. Confronta la versione locale (`app.json → expo.version`) con il file
+remoto `version.json` pubblicato sul branch `main` di GitHub; se la remota è
+maggiore mostra un `Alert` con pulsanti **Aggiorna** (apre l'URL dell'APK) e
+**Dopo**. Offline o errori di rete vengono ignorati silenziosamente.
+
+Implementazione: [`src/utils/updateChecker.ts`](./src/utils/updateChecker.ts).
+
+### 6.1 Pubblicare una nuova versione
+
+Quando hai pronto un APK da distribuire:
+
+1. **Incrementa la versione** in `app.json` (campo `expo.version`) e, se è una
+   release production, anche `expo.android.versionCode`.
+2. **Builda l'APK** con EAS (vedi §3): `npm run build:android:production`.
+3. **Crea una GitHub Release** con lo stesso tag di versione (es. `v1.0.1`) e
+   carica l'APK come asset:
+   ```bash
+   gh release create v1.0.1 ./fattrack-production.apk \
+     --title "FatTrack 1.0.1" \
+     --notes "Bugfix e miglioramenti."
+   ```
+   In alternativa via UI: **Releases → Draft a new release → Upload APK**.
+4. **Aggiorna `version.json`** nella root del repo:
+   ```json
+   {
+     "version": "1.0.1",
+     "apk_url": "https://github.com/davidefarci-cyber/fattrack/releases/latest"
+   }
+   ```
+   Committa e pusha su `main`:
+   ```bash
+   git add version.json
+   git commit -m "chore: bump version.json a 1.0.1"
+   git push origin main
+   ```
+5. Gli utenti con la versione precedente vedranno l'alert al prossimo lancio.
+
+> L'URL di download punta di default a `/releases/latest`, così non serve
+> aggiornare `apk_url` ad ogni release. Se hai bisogno di forzare una release
+> specifica, sostituisci l'URL con quello del `.apk` diretto.
+
+> `version.json` usa il pattern `MAJOR.MINOR.PATCH`. Il confronto è numerico
+> per segmento: ricorda di usare solo cifre (niente `1.0.1-beta`).
+
+---
+
 ## Script disponibili
 
 | Script | Descrizione |
