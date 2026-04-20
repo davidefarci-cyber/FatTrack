@@ -1,0 +1,16 @@
+@echo off
+rem ============================================================
+rem  FatTrack - setup.local.bat (TEMPLATE)
+rem
+rem  Copia questo file in "setup.local.bat" e incolla il tuo
+rem  GitHub Personal Access Token al posto del placeholder.
+rem
+rem  IMPORTANTE: "setup.local.bat" e' git-ignored. NON committarlo.
+rem
+rem  Come creare un PAT:
+rem    https://github.com/settings/tokens
+rem    - Classic: scope "repo"
+rem    - Fine-grained: permesso "Contents: Read-only" sul repo fattrack
+rem ============================================================
+
+set "GITHUB_TOKEN=INCOLLA_QUI_IL_TUO_TOKEN"

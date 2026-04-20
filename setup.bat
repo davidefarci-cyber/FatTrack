@@ -15,9 +15,11 @@ rem  - Clona il repo la prima volta, altrimenti fa git pull
 rem  - Esegue npm install
 rem ============================================================
 
-set "REPO_URL=https://github.com/davidefarci-cyber/fattrack.git"
+set "REPO_OWNER=davidefarci-cyber"
+set "REPO_NAME=fattrack"
 set "REPO_DIR=FatTrack"
 set "BRANCH=main"
+set "REPO_URL=https://github.com/%REPO_OWNER%/%REPO_NAME%.git"
 
 echo ============================================================
 echo  FatTrack - Setup / Update
@@ -103,13 +105,48 @@ if errorlevel 1 (
     for /f "delims=" %%v in ('eas --version') do echo [OK] EAS CLI %%v
 )
 
+rem --- Token GitHub per repo privato ---
+rem Priorita': 1) variabile d'ambiente GITHUB_TOKEN gia' settata
+rem            2) file "setup.local.bat" nella stessa cartella (git-ignored)
+rem            3) prompt interattivo (input nascosto via PowerShell),
+rem               poi salvataggio in setup.local.bat per le volte successive
+if not defined GITHUB_TOKEN (
+    if exist "setup.local.bat" call "setup.local.bat"
+)
+
+if not defined GITHUB_TOKEN (
+    echo.
+    echo [ ] Il repository "%REPO_OWNER%/%REPO_NAME%" e' privato.
+    echo     Serve un GitHub Personal Access Token ^(PAT^).
+    echo     Crealo qui: https://github.com/settings/tokens
+    echo       - Classic: scope "repo"
+    echo       - Fine-grained: permesso "Contents: Read-only" sul repo %REPO_NAME%
+    echo.
+    for /f "usebackq delims=" %%t in (`powershell -NoProfile -Command "$s = Read-Host -AsSecureString 'Incolla il token (input nascosto)'; [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s))"`) do set "GITHUB_TOKEN=%%t"
+
+    if not defined GITHUB_TOKEN (
+        echo [!] Nessun token fornito. Uscita.
+        pause
+        exit /b 1
+    )
+
+    rem Salva per esecuzioni future (file git-ignored)
+    > "setup.local.bat" echo @echo off
+    >> "setup.local.bat" echo rem File generato automaticamente da setup.bat - NON committare
+    >> "setup.local.bat" echo set "GITHUB_TOKEN=!GITHUB_TOKEN!"
+    echo [OK] Token salvato in "setup.local.bat"
+)
+
+set "AUTH_REPO_URL=https://oauth2:!GITHUB_TOKEN!@github.com/%REPO_OWNER%/%REPO_NAME%.git"
+
 rem --- Repository: clone oppure pull ---
 if not exist "%REPO_DIR%\.git" (
     echo.
     echo [ ] Clono il repository in "%REPO_DIR%" ^(branch %BRANCH%^)...
-    git clone --branch "%BRANCH%" "%REPO_URL%" "%REPO_DIR%"
+    git clone --branch "%BRANCH%" "!AUTH_REPO_URL!" "%REPO_DIR%"
     if errorlevel 1 (
-        echo [!] git clone fallito.
+        echo [!] git clone fallito ^(token scaduto o permessi insufficienti?^).
+        echo     Rigenera il PAT e cancella "setup.local.bat" per reinserirlo.
         pause
         exit /b 1
     )
@@ -117,9 +154,11 @@ if not exist "%REPO_DIR%\.git" (
     echo.
     echo [ ] Aggiorno il repository "%REPO_DIR%" ^(git pull --ff-only^)...
     pushd "%REPO_DIR%"
+    rem Aggiorna la URL di origin con il token corrente (utile se il PAT e' stato ruotato)
+    git remote set-url origin "!AUTH_REPO_URL!"
     git fetch origin
     if errorlevel 1 (
-        echo [!] git fetch fallito.
+        echo [!] git fetch fallito ^(token scaduto o permessi insufficienti?^).
         popd
         pause
         exit /b 1
@@ -174,14 +213,9 @@ echo.
 echo ============================================================
 echo  Setup completato!
 echo.
-echo  Prossimi passi:
-echo    cd %REPO_DIR%
-echo    npm run start              ^(avvia Expo dev server^)
-echo.
-echo  Per la prima build APK ^(cloud^):
-echo    eas login
-echo    eas build:configure
-echo    npm run build:android:preview
+echo  Prossimi passi ^(dentro "%REPO_DIR%\"^):
+echo    avvia-dev.bat    -^> test con Expo Go ^(QR code + hot reload^)
+echo    crea-apk.bat     -^> build APK installabile ^(cloud EAS^)
 echo.
 echo  Rilancia questo script in qualunque momento per aggiornare
 echo  il repo ^(git pull^) e reinstallare le dipendenze.
