@@ -40,6 +40,7 @@ ios/
 .env
 .env.*
 !.env.example
+setup.local.bat
 
 # Native prebuild cache
 *.tsbuildinfo
