@@ -14,27 +14,40 @@ if not exist "node_modules" (
     exit /b 1
 )
 
-rem --- Auto-detect IP LAN (adapter attivo con gateway di default) ---
-rem Serve per evitare che Metro scelga 127.0.0.1 quando il PC ha piu'
-rem schede di rete (Wi-Fi + Ethernet + VPN + virtual adapters Docker/VMware).
-for /f "usebackq delims=" %%i in (`powershell -NoProfile -Command "(Get-NetIPConfiguration ^| Where-Object { $_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq 'Up' } ^| Select-Object -First 1).IPv4Address.IPAddress"`) do set "LAN_IP=%%i"
+rem --- Auto-detect IP LAN ---
+set "LAN_IP="
+for /f "usebackq tokens=* delims=" %%i in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\detect-lan-ip.ps1" 2^>nul`) do set "LAN_IP=%%i"
 
+rem Trim di sicurezza su eventuali spazi/tab
 if defined LAN_IP (
+    for /f "tokens=* delims= 	" %%x in ("!LAN_IP!") do set "LAN_IP=%%x"
+)
+
+if not "!LAN_IP!"=="" (
     echo [OK] IP LAN rilevato: !LAN_IP!
     set "REACT_NATIVE_PACKAGER_HOSTNAME=!LAN_IP!"
+    echo     Il telefono si connettera' a: exp://!LAN_IP!:8081
 ) else (
-    echo [!] IP LAN non rilevato. Expo provera' da solo.
-    echo     Se il QR fa "Failed to download remote update" usa "avvia-dev-tunnel.bat".
+    echo [!] IP LAN non rilevato automaticamente.
+    echo.
+    echo     Apri una finestra cmd e lancia:  ipconfig
+    echo     Cerca l'IPv4 della tua scheda Wi-Fi ^(tipo 192.168.x.x^).
+    echo.
+    set /p "LAN_IP=    Incolla qui l'IP (o premi invio per usare tunnel): "
+    if not "!LAN_IP!"=="" (
+        set "REACT_NATIVE_PACKAGER_HOSTNAME=!LAN_IP!"
+        echo     OK, uso !LAN_IP!
+    ) else (
+        echo     Nessun IP: lancio modalita' tunnel ^(piu' lenta, ma funziona ovunque^).
+        call npx expo start --tunnel
+        endlocal
+        exit /b 0
+    )
 )
 
 echo.
-echo  1. Installa "Expo Go" sul telefono ^(Play Store / App Store^)
-echo  2. Telefono e PC sulla stessa rete Wi-Fi
-echo  3. Scansiona il QR code
-if defined LAN_IP (
-    echo.
-    echo  Il telefono si connettera' a: exp://!LAN_IP!:8081
-)
+echo  1. Apri Expo Go sul telefono ^(stessa Wi-Fi del PC^)
+echo  2. Scansiona il QR qui sotto
 echo.
 echo ============================================================
 echo.
