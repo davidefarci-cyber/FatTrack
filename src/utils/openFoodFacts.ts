@@ -14,6 +14,10 @@ export type OffProduct = {
   name: string;
   brand: string | null;
   caloriesPer100g: number;
+  // Macros per 100 g (null quando non esposti dall'API OFF).
+  proteinPer100g: number | null;
+  carbsPer100g: number | null;
+  fatPer100g: number | null;
 };
 
 type OffRaw = {
@@ -28,6 +32,9 @@ type OffRaw = {
     'energy-kcal'?: number | string;
     'energy_100g'?: number | string;
     energy_unit?: string;
+    proteins_100g?: number | string;
+    carbohydrates_100g?: number | string;
+    fat_100g?: number | string;
   };
 };
 
@@ -83,7 +90,16 @@ function normalizeProduct(raw: OffRaw | undefined): OffProduct | null {
     name,
     brand: firstNonEmpty(raw.brands) ?? null,
     caloriesPer100g: Math.round(kcal),
+    proteinPer100g: roundMacro(raw.nutriments?.proteins_100g),
+    carbsPer100g: roundMacro(raw.nutriments?.carbohydrates_100g),
+    fatPer100g: roundMacro(raw.nutriments?.fat_100g),
   };
+}
+
+function roundMacro(v: unknown): number | null {
+  const n = toNumber(v);
+  if (n === null || n < 0) return null;
+  return Math.round(n * 10) / 10;
 }
 
 function extractKcalPer100g(n: OffRaw['nutriments']): number | null {

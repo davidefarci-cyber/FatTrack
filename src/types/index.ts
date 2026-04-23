@@ -8,10 +8,3 @@ export type TabParamList = {
   History: undefined;
   Settings: undefined;
 };
-
-export type UserPreferences = {
-  dailyKcalTarget: number;
-  dailyFatTargetG: number;
-  units: 'metric' | 'imperial';
-  theme: 'light' | 'dark' | 'system';
-};
