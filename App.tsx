@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ToastProvider } from '@/components/Toast';
 import { getDatabase } from '@/database';
 import { useFonts } from '@/hooks/useFonts';
 import { RootNavigator } from '@/navigation';
@@ -28,8 +29,10 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <RootNavigator />
+        <ToastProvider>
+          <StatusBar style="dark" />
+          <RootNavigator />
+        </ToastProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

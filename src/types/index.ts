@@ -1,22 +1,10 @@
-import type { NavigatorScreenParams } from '@react-navigation/native';
-
-import type { MealType } from '@/database';
-
-// Stack della tab Home: HomeMain è la schermata diario, AddFood è il flusso
-// di aggiunta alimento raggiunto via navigation.navigate('AddFood', …).
-// Restare dentro lo stack della Home consente di mantenere la tab bar visibile
-// quando serve e di evitare un RootStack globale solo per un detail screen.
-export type HomeStackParamList = {
-  HomeMain: undefined;
-  AddFood: { mealType: MealType; date: string };
-};
-
-// Bottom tab a 4 voci (design aggiornato): Home · Preferiti · Storico · Impostazioni.
-// Home è nested con il proprio stack (HomeStackParamList) perché contiene
-// il detail AddFood.
+// Bottom tab a 5 voci (design originale): Barcode · Preferiti · Home · Storico · Impostazioni.
+// La Home è centrale nell'UI e ha uno stato locale per aprire il bottom-sheet
+// AddFood — non è più nested in uno stack dedicato.
 export type TabParamList = {
-  Home: NavigatorScreenParams<HomeStackParamList> | undefined;
+  Barcode: undefined;
   Favorites: undefined;
+  Home: undefined;
   History: undefined;
   Settings: undefined;
 };

@@ -1,10 +1,9 @@
-import { useFocusEffect } from '@react-navigation/native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, Text, UIManager, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AddFoodSheet } from '@/components/AddFoodSheet';
 import { Card } from '@/components/Card';
 import { FavoritesModal } from '@/components/FavoritesModal';
 import { Icon } from '@/components/Icon';
@@ -16,15 +15,18 @@ import { useDailyLog } from '@/hooks/useDailyLog';
 import type { NewMealInput } from '@/hooks/useDailyLog';
 import { useProfile } from '@/hooks/useProfile';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
-import type { HomeStackParamList } from '@/types';
 
 const FALLBACK_TARGET_KCAL = 2000;
 
-// HomeScreen è la root del HomeStackNavigator: da qui possiamo navigare
-// verso AddFood restando nello stesso stack (la tab bar rimane visibile).
-type HomeScreenProps = NativeStackScreenProps<HomeStackParamList, 'HomeMain'>;
+// Abilita LayoutAnimation su Android (di default è off) per il collapse animato.
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
-export default function HomeScreen({ navigation }: HomeScreenProps) {
+// HomeScreen: diario del giorno. Host del bottom-sheet AddFood e del modal
+// dei preferiti. Non dipende più da un HomeStackNavigator: entrambe le
+// interazioni sono gestite con state locale e renderizzate qui.
+export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { targetCalories } = useProfile();
   const {
@@ -42,16 +44,19 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     reload,
   } = useDailyLog();
 
+  const [addFoodMeal, setAddFoodMeal] = useState<MealType | null>(null);
   const [favoritesMeal, setFavoritesMeal] = useState<MealType | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<MealType, boolean>>({
+    colazione: false,
+    pranzo: false,
+    cena: false,
+    spuntino: false,
+  });
 
-  // Quando si torna dal flusso AddFood (navigation.goBack) ricarichiamo i
-  // pasti del giorno corrente: AddFoodScreen scrive direttamente su SQLite,
-  // quindi qui basta leggere di nuovo.
-  useFocusEffect(
-    useCallback(() => {
-      reload();
-    }, [reload]),
-  );
+  const toggleCollapse = useCallback((mealType: MealType) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setCollapsed((prev) => ({ ...prev, [mealType]: !prev[mealType] }));
+  }, []);
 
   const target = targetCalories ?? FALLBACK_TARGET_KCAL;
   const totalRounded = Math.round(totalCalories);
@@ -60,13 +65,6 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const isOver = totalCalories > target && target > 0;
 
   const handleDelete = useCallback((id: number) => removeMeal(id), [removeMeal]);
-
-  const openAddFood = useCallback(
-    (mealType: MealType) => {
-      navigation.navigate('AddFood', { mealType, date });
-    },
-    [navigation, date],
-  );
 
   const handleAddFavorite = useCallback(
     async (mealType: MealType, favorite: Favorite) => {
@@ -117,7 +115,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <View style={styles.summaryFooter}>
             <Text style={typography.caption}>
               {totalRounded.toLocaleString('it-IT')} /{' '}
-              {target.toLocaleString('it-IT')} kcal \u00b7 {percent}%
+              {target.toLocaleString('it-IT')} kcal · {percent}%
             </Text>
             <Text
               style={[
@@ -130,6 +128,22 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                 : `${remaining.toLocaleString('it-IT')} kcal rimanenti`}
             </Text>
           </View>
+
+          <View
+            style={[
+              styles.alertBox,
+              {
+                borderLeftColor: isOver ? colors.red : colors.green,
+                backgroundColor: isOver ? colors.redLight : colors.greenLight,
+              },
+            ]}
+          >
+            <Text style={[typography.bodyBold, { color: isOver ? colors.red : colors.green }]}>
+              {isOver
+                ? `Superate ${Math.abs(remaining).toLocaleString('it-IT')} kcal`
+                : `Rimanenti ${remaining.toLocaleString('it-IT')} kcal`}
+            </Text>
+          </View>
         </Card>
 
         {MEAL_ORDER.map((mealType) => (
@@ -138,12 +152,22 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             mealType={mealType}
             meals={mealsByType[mealType]}
             loading={loading}
-            onAdd={() => openAddFood(mealType)}
+            collapsed={collapsed[mealType]}
+            onToggleCollapse={() => toggleCollapse(mealType)}
+            onAdd={() => setAddFoodMeal(mealType)}
             onAddFavorite={() => setFavoritesMeal(mealType)}
             onDelete={handleDelete}
           />
         ))}
       </ScrollView>
+
+      <AddFoodSheet
+        visible={addFoodMeal !== null}
+        mealType={addFoodMeal ?? 'colazione'}
+        date={date}
+        onClose={() => setAddFoodMeal(null)}
+        onAdded={reload}
+      />
 
       <FavoritesModal
         visible={favoritesMeal !== null}
@@ -192,6 +216,8 @@ function MealSection({
   mealType,
   meals,
   loading,
+  collapsed,
+  onToggleCollapse,
   onAdd,
   onAddFavorite,
   onDelete,
@@ -199,74 +225,84 @@ function MealSection({
   mealType: MealType;
   meals: Meal[];
   loading: boolean;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
   onAdd: () => void;
   onAddFavorite: () => void;
   onDelete: (id: number) => void;
 }) {
   const info = MEAL_INFO[mealType];
-  const subtotal = Math.round(
-    meals.reduce((sum, m) => sum + m.caloriesTotal, 0),
-  );
+  const subtotal = Math.round(meals.reduce((sum, m) => sum + m.caloriesTotal, 0));
 
   return (
     <Card style={styles.mealCard}>
-      <View style={styles.mealHeader}>
+      <Pressable
+        onPress={onToggleCollapse}
+        style={styles.mealHeader}
+        accessibilityRole="button"
+        accessibilityLabel={`${info.label}: ${collapsed ? 'espandi' : 'comprimi'}`}
+      >
         <View style={styles.mealHeaderLeft}>
           <View style={[styles.mealDot, { backgroundColor: info.color }]} />
-          <View>
+          <View style={styles.mealHeaderText}>
             <Text style={[typography.body, { color: info.color }]}>
               {info.label}
             </Text>
             <Text style={typography.caption}>
               {meals.length === 0
                 ? 'Nessun alimento'
-                : `${subtotal.toLocaleString('it-IT')} kcal \u00b7 ${meals.length} ${
+                : `${subtotal.toLocaleString('it-IT')} kcal · ${meals.length} ${
                     meals.length === 1 ? 'voce' : 'voci'
                   }`}
             </Text>
           </View>
         </View>
-        <Pressable
-          onPress={onAdd}
-          style={[styles.addBtn, { backgroundColor: info.bg }]}
-          hitSlop={6}
-          accessibilityLabel={`Aggiungi alimento a ${info.label}`}
-        >
-          <Icon name="plus" size={16} color={info.color} />
-        </Pressable>
-      </View>
-
-      <View style={styles.mealList}>
-        {loading && meals.length === 0 ? (
-          <Text style={[typography.caption, styles.mealEmpty]}>
-            Caricamento\u2026
-          </Text>
-        ) : meals.length === 0 ? (
-          <Text style={[typography.caption, styles.mealEmpty]}>
-            Aggiungi il tuo primo alimento per {info.label.toLowerCase()}.
-          </Text>
-        ) : (
-          meals.map((meal, idx) => (
-            <MealRow
-              key={meal.id}
-              meal={meal}
-              onDelete={onDelete}
-              isLast={idx === meals.length - 1}
-            />
-          ))
-        )}
-      </View>
-
-      <Pressable
-        onPress={onAddFavorite}
-        style={styles.favoriteBtn}
-        accessibilityRole="button"
-      >
-        <Icon name="star" size={14} color={info.color} />
-        <Text style={[typography.bodyBold, { color: info.color }]}>
-          Aggiungi da preferiti
-        </Text>
+        <Icon name={collapsed ? 'chevron-down' : 'chevron-up'} size={14} color={colors.textSec} />
       </Pressable>
+
+      {!collapsed ? (
+        <>
+          <View style={styles.mealList}>
+            {loading && meals.length === 0 ? (
+              <Text style={[typography.caption, styles.mealEmpty]}>Caricamento…</Text>
+            ) : meals.length === 0 ? (
+              <Text style={[typography.caption, styles.mealEmpty]}>
+                Nessun alimento registrato
+              </Text>
+            ) : (
+              meals.map((meal, idx) => (
+                <MealRow
+                  key={meal.id}
+                  meal={meal}
+                  onDelete={onDelete}
+                  isLast={idx === meals.length - 1}
+                />
+              ))
+            )}
+          </View>
+
+          <View style={styles.mealActions}>
+            <Pressable
+              onPress={onAdd}
+              style={[styles.primaryActionBtn, { backgroundColor: info.color }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Aggiungi alimento a ${info.label}`}
+            >
+              <Icon name="plus" size={14} color={colors.card} />
+              <Text style={[typography.bodyBold, { color: colors.card }]}>Aggiungi</Text>
+            </Pressable>
+            <Pressable
+              onPress={onAddFavorite}
+              style={[styles.secondaryActionBtn, { borderColor: info.color }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Dai preferiti a ${info.label}`}
+            >
+              <Icon name="star" size={14} color={info.color} />
+              <Text style={[typography.bodyBold, { color: info.color }]}>Dai preferiti</Text>
+            </Pressable>
+          </View>
+        </>
+      ) : null}
     </Card>
   );
 }
@@ -290,9 +326,7 @@ function MealRow({
           accessibilityLabel={`Elimina ${meal.foodName}`}
         >
           <Icon name="trash" size={16} color={colors.card} />
-          <Text style={[typography.bodyBold, { color: colors.card }]}>
-            Elimina
-          </Text>
+          <Text style={[typography.bodyBold, { color: colors.card }]}>Elimina</Text>
         </Pressable>
       )}
       overshootRight={false}
@@ -307,9 +341,7 @@ function MealRow({
           <Text style={typography.body} numberOfLines={1}>
             {meal.foodName}
           </Text>
-          <Text style={typography.caption}>
-            {formatGrams(meal.grams)} g
-          </Text>
+          <Text style={typography.caption}>{formatGrams(meal.grams)} g</Text>
         </View>
         <Text style={typography.bodyBold}>
           {Math.round(meal.caloriesTotal).toLocaleString('it-IT')} kcal
@@ -380,6 +412,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  alertBox: {
+    borderLeftWidth: 3,
+    borderRadius: radii.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+  },
   mealCard: {
     padding: spacing.screen,
     gap: spacing.xl,
@@ -388,29 +426,52 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.xl,
   },
   mealHeaderLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xl,
+  },
+  mealHeaderText: {
+    flex: 1,
+    gap: spacing.xxs,
   },
   mealDot: {
     width: 10,
     height: 10,
     borderRadius: radii.round,
   },
-  addBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: radii.round,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   mealList: {
     gap: 0,
   },
   mealEmpty: {
     paddingVertical: spacing.md,
+  },
+  mealActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  primaryActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
+    borderRadius: radii.md,
+  },
+  secondaryActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    backgroundColor: 'transparent',
   },
   mealRow: {
     flexDirection: 'row',
@@ -435,16 +496,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.xs,
     ...shadows.sm,
-  },
-  favoriteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.lg,
-    backgroundColor: colors.bg,
-    borderRadius: radii.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
   },
 });

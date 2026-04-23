@@ -1,11 +1,8 @@
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { BarCodeScanner } from 'expo-barcode-scanner';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
   FlatList,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -14,25 +11,37 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
 import { GramsInputModal } from '@/components/GramsInputModal';
 import type { GramsInputTarget } from '@/components/GramsInputModal';
 import { Icon } from '@/components/Icon';
 import { Input } from '@/components/Input';
 import { MEAL_INFO } from '@/components/mealMeta';
+import { ScannerView } from '@/components/ScannerView';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { useToast } from '@/components/Toast';
 import { foodsDB, mealsDB } from '@/database';
 import type { Food, FoodSource, MealType } from '@/database';
 import { colors, radii, spacing, typography } from '@/theme';
 import { calculateMealCalories } from '@/utils/calorieCalculator';
 import { offByBarcode, offSearch } from '@/utils/openFoodFacts';
 import type { OffProduct } from '@/utils/openFoodFacts';
-import type { HomeStackParamList } from '@/types';
 
-type Props = NativeStackScreenProps<HomeStackParamList, 'AddFood'>;
+// Bottom-sheet per l'aggiunta di un alimento al diario.
+// Ospita 3 tab (Cerca / Barcode / Manuale) riutilizzando i componenti
+// condivisi: `SegmentedControl`, `ScannerView` (variante compact),
+// `GramsInputModal` e `Input`. La persistenza passa sempre da
+// `mealsDB.createMeal`; a conferma il sheet si chiude e mostra un toast.
+
+type AddFoodSheetProps = {
+  visible: boolean;
+  mealType: MealType;
+  date: string;
+  onClose: () => void;
+  onAdded?: () => void;
+};
 
 type TabKey = 'search' | 'barcode' | 'manual';
 
@@ -44,16 +53,16 @@ const TAB_OPTIONS: ReadonlyArray<{ value: TabKey; label: string }> = [
 
 const SEARCH_DEBOUNCE_MS = 400;
 
-export default function AddFoodScreen({ route, navigation }: Props) {
-  const { mealType, date } = route.params;
-  const insets = useSafeAreaInsets();
+export function AddFoodSheet({ visible, mealType, date, onClose, onAdded }: AddFoodSheetProps) {
+  const toast = useToast();
   const [tab, setTab] = useState<TabKey>('search');
-
   const info = MEAL_INFO[mealType];
 
-  // Persistenza condivisa: ogni tab chiama questa funzione al momento della
-  // conferma. Se l'alimento non esiste ancora lo salviamo in `foods` (futura
-  // ricerca più veloce e source tracciabile), poi creiamo il record pasto.
+  // Reset tab alla riapertura così l'utente parte sempre dalla ricerca.
+  useEffect(() => {
+    if (visible) setTab('search');
+  }, [visible]);
+
   const commitMeal = useCallback(
     async (args: {
       foodName: string;
@@ -62,7 +71,7 @@ export default function AddFoodScreen({ route, navigation }: Props) {
       caloriesTotal: number;
       source: FoodSource;
       existingFoodId?: number | null;
-    }): Promise<void> => {
+    }) => {
       let foodId: number | null = args.existingFoodId ?? null;
       if (foodId === null) {
         const existing = await foodsDB.findByName(args.foodName);
@@ -85,34 +94,32 @@ export default function AddFoodScreen({ route, navigation }: Props) {
         grams: args.grams,
         caloriesTotal: args.caloriesTotal,
       });
+      toast.show('Aggiunto!');
+      onAdded?.();
+      onClose();
     },
-    [date, mealType],
-  );
-
-  const handleCommitAndGoBack = useCallback(
-    async (args: Parameters<typeof commitMeal>[0]) => {
-      await commitMeal(args);
-      navigation.goBack();
-    },
-    [commitMeal, navigation],
+    [date, mealType, onAdded, onClose, toast],
   );
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
+    <BottomSheet visible={visible} onClose={onClose}>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <View style={[styles.headerDot, { backgroundColor: info.color }]} />
+          <View>
+            <Text style={typography.label}>Aggiungi a</Text>
+            <Text style={[typography.h1, { color: info.color }]}>{info.label}</Text>
+          </View>
+        </View>
         <Pressable
-          onPress={() => navigation.goBack()}
-          style={styles.backBtn}
+          onPress={onClose}
+          style={styles.closeBtn}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel="Indietro"
+          accessibilityLabel="Chiudi"
         >
-          <Icon name="chevron-left" size={20} color={colors.text} />
+          <Icon name="close" size={16} color={colors.textSec} />
         </Pressable>
-        <View style={styles.headerText}>
-          <Text style={typography.label}>Aggiungi a</Text>
-          <Text style={[typography.h1, { color: info.color }]}>{info.label}</Text>
-        </View>
       </View>
 
       <View style={styles.tabs}>
@@ -121,19 +128,19 @@ export default function AddFoodScreen({ route, navigation }: Props) {
 
       <View style={styles.content}>
         {tab === 'search' ? (
-          <SearchTab mealType={mealType} onCommit={handleCommitAndGoBack} />
+          <SearchTab mealType={mealType} onCommit={commitMeal} />
         ) : tab === 'barcode' ? (
-          <BarcodeTab mealType={mealType} onCommit={handleCommitAndGoBack} />
+          <BarcodeTab visible={visible && tab === 'barcode'} mealType={mealType} onCommit={commitMeal} />
         ) : (
-          <ManualTab mealType={mealType} onCommit={handleCommitAndGoBack} />
+          <ManualTab onCommit={commitMeal} />
         )}
       </View>
-    </View>
+    </BottomSheet>
   );
 }
 
 // -----------------------------------------------------------------------------
-// Tab: ricerca (locale + Open Food Facts)
+// Tab: Cerca
 // -----------------------------------------------------------------------------
 
 type CommitArgs = {
@@ -158,13 +165,7 @@ type Selected =
   | { source: 'local'; food: Food }
   | { source: 'remote'; product: OffProduct };
 
-function SearchTab({
-  mealType,
-  onCommit,
-}: {
-  mealType: MealType;
-  onCommit: CommitFn;
-}) {
+function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: CommitFn }) {
   const [query, setQuery] = useState('');
   const [localResults, setLocalResults] = useState<Food[]>([]);
   const [remoteResults, setRemoteResults] = useState<OffProduct[]>([]);
@@ -172,7 +173,6 @@ function SearchTab({
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Selected | null>(null);
 
-  // Ricerca locale immediata: la query su SQLite è istantanea.
   useEffect(() => {
     let active = true;
     const trimmed = query.trim();
@@ -191,9 +191,6 @@ function SearchTab({
     };
   }, [query]);
 
-  // Ricerca OFF con debounce + AbortController: cancelliamo la fetch precedente
-  // quando l'utente continua a digitare, altrimenti la race ci farebbe vedere
-  // risultati obsoleti.
   useEffect(() => {
     const trimmed = query.trim();
     if (trimmed.length < 2) {
@@ -250,7 +247,6 @@ function SearchTab({
     } else if (remoteError) {
       out.push({ kind: 'empty', message: remoteError, key: 'empty-remote-error' });
     } else {
-      // Dedupe: se un prodotto remoto ha lo stesso nome di uno locale, saltiamolo.
       const localNames = new Set(localResults.map((f) => f.name.toLowerCase()));
       const filtered = remoteResults.filter(
         (p) => !localNames.has(p.name.toLowerCase()),
@@ -317,10 +313,7 @@ function SearchTab({
   );
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.tabContainer}
-    >
+    <View style={styles.tabContainer}>
       <View style={styles.searchField}>
         <Icon name="search" size={16} color={colors.textSec} />
         <TextInput
@@ -343,23 +336,19 @@ function SearchTab({
         renderItem={({ item }) => {
           if (item.kind === 'section') {
             return (
-              <Text style={[typography.label, styles.sectionTitle]}>
-                {item.title}
-              </Text>
+              <Text style={[typography.label, styles.sectionTitle]}>{item.title}</Text>
             );
           }
           if (item.kind === 'empty') {
             return (
-              <Text style={[typography.caption, styles.emptyText]}>
-                {item.message}
-              </Text>
+              <Text style={[typography.caption, styles.emptyText]}>{item.message}</Text>
             );
           }
           if (item.kind === 'loading') {
             return (
               <View style={styles.loadingRow}>
                 <ActivityIndicator color={colors.textSec} />
-                <Text style={typography.caption}>Cercando su Open Food Facts\u2026</Text>
+                <Text style={typography.caption}>Cercando su Open Food Facts…</Text>
               </View>
             );
           }
@@ -367,7 +356,7 @@ function SearchTab({
             return (
               <ResultRow
                 title={item.food.name}
-                subtitle={`${item.food.caloriesPer100g} kcal / 100 g \u00b7 ${sourceLabel(
+                subtitle={`${item.food.caloriesPer100g} kcal / 100 g · ${sourceLabel(
                   item.food.source,
                 )}`}
                 onPress={() => setSelected({ source: 'local', food: item.food })}
@@ -377,7 +366,7 @@ function SearchTab({
           return (
             <ResultRow
               title={item.product.name}
-              subtitle={`${item.product.caloriesPer100g} kcal / 100 g \u00b7 ${
+              subtitle={`${item.product.caloriesPer100g} kcal / 100 g · ${
                 item.product.brand ?? 'Open Food Facts'
               }`}
               badge="OFF"
@@ -394,7 +383,7 @@ function SearchTab({
         onClose={() => setSelected(null)}
         onConfirm={handleConfirm}
       />
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -445,67 +434,59 @@ function sourceLabel(source: FoodSource): string {
 }
 
 // -----------------------------------------------------------------------------
-// Tab: barcode
+// Tab: Barcode
 // -----------------------------------------------------------------------------
 
 function BarcodeTab({
+  visible,
   mealType,
   onCommit,
 }: {
+  visible: boolean;
   mealType: MealType;
   onCommit: CommitFn;
 }) {
-  const [permission, setPermission] = useState<'pending' | 'granted' | 'denied'>('pending');
   const [scannedCode, setScannedCode] = useState<string | null>(null);
   const [product, setProduct] = useState<OffProduct | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [looking, setLooking] = useState(false);
-  // Evitiamo re-scan dello stesso codice: lo scanner emette a ripetizione.
-  const lastCodeRef = useRef<string | null>(null);
+  const handledRef = useRef<string | null>(null);
 
+  // Reset dello stato quando il tab cambia visibilità: evita di mostrare
+  // l'ultimo prodotto scansionato tornando sul tab più tardi.
   useEffect(() => {
-    let active = true;
-    BarCodeScanner.requestPermissionsAsync()
-      .then(({ status }) => {
-        if (!active) return;
-        setPermission(status === 'granted' ? 'granted' : 'denied');
-      })
-      .catch(() => {
-        if (active) setPermission('denied');
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const handleScanned = useCallback(
-    async ({ data }: { data: string }) => {
-      if (!data || lastCodeRef.current === data) return;
-      lastCodeRef.current = data;
-      setScannedCode(data);
+    if (!visible) {
+      setScannedCode(null);
       setProduct(null);
       setLookupError(null);
-      setLooking(true);
-      try {
-        const found = await offByBarcode(data);
-        if (!found) {
-          setLookupError('Prodotto non trovato su Open Food Facts');
-        } else {
-          setProduct(found);
-        }
-      } catch (err) {
-        setLookupError(
-          err instanceof Error ? err.message : 'Errore contattando Open Food Facts',
-        );
-      } finally {
-        setLooking(false);
+      setLooking(false);
+      handledRef.current = null;
+    }
+  }, [visible]);
+
+  const handleScan = useCallback(async (code: string) => {
+    if (handledRef.current === code) return;
+    handledRef.current = code;
+    setScannedCode(code);
+    setProduct(null);
+    setLookupError(null);
+    setLooking(true);
+    try {
+      const found = await offByBarcode(code);
+      if (!found) {
+        setLookupError('Prodotto non trovato su Open Food Facts');
+      } else {
+        setProduct(found);
       }
-    },
-    [],
-  );
+    } catch (err) {
+      setLookupError(err instanceof Error ? err.message : 'Errore contattando Open Food Facts');
+    } finally {
+      setLooking(false);
+    }
+  }, []);
 
   const resetScanner = useCallback(() => {
-    lastCodeRef.current = null;
+    handledRef.current = null;
     setScannedCode(null);
     setProduct(null);
     setLookupError(null);
@@ -535,38 +516,14 @@ function BarcodeTab({
     [onCommit, product, resetScanner],
   );
 
-  if (permission === 'pending') {
-    return (
-      <View style={styles.statusBox}>
-        <ActivityIndicator color={colors.textSec} />
-        <Text style={typography.caption}>Controllo dei permessi\u2026</Text>
-      </View>
-    );
-  }
-
-  if (permission === 'denied') {
-    return (
-      <View style={styles.statusBox}>
-        <Text style={typography.body}>Accesso fotocamera negato</Text>
-        <Text style={typography.caption}>
-          Abilita la fotocamera nelle impostazioni del sistema per scansionare i
-          codici a barre.
-        </Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.tabContainer}>
-      <View style={styles.scannerWrap}>
-        <BarCodeScanner
-          onBarCodeScanned={scannedCode ? undefined : handleScanned}
-          style={StyleSheet.absoluteFillObject}
-        />
-        <View pointerEvents="none" style={styles.scannerOverlay}>
-          <View style={styles.scannerFrame} />
-        </View>
-      </View>
+      <ScannerView
+        variant="compact"
+        onScan={handleScan}
+        paused={scannedCode !== null}
+        helperText={scannedCode === null ? 'Inquadra il codice a barre' : undefined}
+      />
 
       <View style={styles.scannerStatus}>
         {!scannedCode ? (
@@ -576,9 +533,7 @@ function BarcodeTab({
         ) : looking ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color={colors.textSec} />
-            <Text style={typography.caption}>
-              Lettura di {scannedCode}\u2026
-            </Text>
+            <Text style={typography.caption}>Lettura di {scannedCode}…</Text>
           </View>
         ) : lookupError ? (
           <View style={styles.scannerResult}>
@@ -591,7 +546,7 @@ function BarcodeTab({
             <Text style={typography.body}>{product.name}</Text>
             <Text style={typography.caption}>
               {product.caloriesPer100g} kcal / 100 g
-              {product.brand ? ` \u00b7 ${product.brand}` : ''}
+              {product.brand ? ` · ${product.brand}` : ''}
             </Text>
             <Text style={typography.caption}>Codice: {scannedCode}</Text>
             <Button label="Scansiona di nuovo" variant="secondary" onPress={resetScanner} />
@@ -611,7 +566,7 @@ function BarcodeTab({
 }
 
 // -----------------------------------------------------------------------------
-// Tab: manuale
+// Tab: Manuale
 // -----------------------------------------------------------------------------
 
 type ManualForm = {
@@ -620,14 +575,7 @@ type ManualForm = {
   grams: string;
 };
 
-function ManualTab({
-  mealType,
-  onCommit,
-}: {
-  mealType: MealType;
-  onCommit: CommitFn;
-}) {
-  const insets = useSafeAreaInsets();
+function ManualTab({ onCommit }: { onCommit: CommitFn }) {
   const [savingFood, setSavingFood] = useState(false);
   const [adding, setAdding] = useState(false);
   const [savedFoodMessage, setSavedFoodMessage] = useState<string | null>(null);
@@ -646,11 +594,7 @@ function ManualTab({
   });
 
   const watched = watch();
-
-  const caloriesNum = useMemo(
-    () => parsePositive(watched.caloriesPer100g),
-    [watched.caloriesPer100g],
-  );
+  const caloriesNum = useMemo(() => parsePositive(watched.caloriesPer100g), [watched.caloriesPer100g]);
   const gramsNum = useMemo(() => parsePositive(watched.grams), [watched.grams]);
 
   const total = useMemo(() => {
@@ -658,9 +602,6 @@ function ManualTab({
     return Math.round(calculateMealCalories(caloriesNum, gramsNum));
   }, [caloriesNum, gramsNum]);
 
-  // "Salva negli alimenti" richiede solo nome + kcal/100g: valido anche se i
-  // grammi non sono ancora stati inseriti. `trigger` sui soli campi necessari
-  // evita di bloccare il pulsante per colpa della validazione dei grammi.
   async function handleSaveFood() {
     const ok = await trigger(['name', 'caloriesPer100g']);
     if (!ok) return;
@@ -673,7 +614,7 @@ function ManualTab({
     try {
       const existing = await foodsDB.findByName(name);
       if (existing) {
-        setSavedFoodMessage('Alimento gi\u00e0 presente in archivio');
+        setSavedFoodMessage('Alimento già presente in archivio');
       } else {
         await foodsDB.createFood({ name, caloriesPer100g: kcal, source: 'manual' });
         setSavedFoodMessage('Alimento salvato in archivio');
@@ -704,122 +645,96 @@ function ManualTab({
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.tabContainer}
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={styles.manualScroll}
     >
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[
-          styles.manualScroll,
-          { paddingBottom: insets.bottom + spacing.screen },
-        ]}
-      >
-        <Card style={styles.manualCard}>
-          <Text style={typography.label}>Nuovo alimento</Text>
+      <Text style={typography.label}>Nuovo alimento</Text>
 
-          <Controller
-            control={control}
-            name="name"
-            rules={{
-              validate: (v) => (v.trim().length > 0 ? true : 'Inserisci un nome'),
-            }}
-            render={({ field: { value, onChange, onBlur } }) => (
-              <FieldWrap error={errors.name?.message}>
-                <Input
-                  label="Nome alimento"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  autoCapitalize="sentences"
-                  placeholder="Es. Pasta integrale"
-                />
-              </FieldWrap>
-            )}
-          />
+      <Controller
+        control={control}
+        name="name"
+        rules={{ validate: (v) => (v.trim().length > 0 ? true : 'Inserisci un nome') }}
+        render={({ field: { value, onChange, onBlur } }) => (
+          <FieldWrap error={errors.name?.message}>
+            <Input
+              label="Nome alimento"
+              value={value}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              autoCapitalize="sentences"
+              placeholder="Es. Pasta integrale"
+            />
+          </FieldWrap>
+        )}
+      />
 
-          <Controller
-            control={control}
-            name="caloriesPer100g"
-            rules={{
-              validate: (v) =>
-                parsePositive(v) !== null || 'Inserisci kcal per 100 g validi',
-            }}
-            render={({ field: { value, onChange, onBlur } }) => (
-              <FieldWrap error={errors.caloriesPer100g?.message}>
-                <Input
-                  label="Calorie per 100 g"
-                  unit="kcal"
-                  keyboardType="decimal-pad"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  placeholder="120"
-                />
-              </FieldWrap>
-            )}
-          />
+      <Controller
+        control={control}
+        name="caloriesPer100g"
+        rules={{ validate: (v) => parsePositive(v) !== null || 'Inserisci kcal per 100 g validi' }}
+        render={({ field: { value, onChange, onBlur } }) => (
+          <FieldWrap error={errors.caloriesPer100g?.message}>
+            <Input
+              label="Calorie per 100 g"
+              unit="kcal"
+              keyboardType="decimal-pad"
+              value={value}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              placeholder="120"
+            />
+          </FieldWrap>
+        )}
+      />
 
-          <Controller
-            control={control}
-            name="grams"
-            rules={{
-              validate: (v) =>
-                parsePositive(v) !== null || 'Inserisci un valore in grammi',
-            }}
-            render={({ field: { value, onChange, onBlur } }) => (
-              <FieldWrap error={errors.grams?.message}>
-                <Input
-                  label="Quantit\u00e0"
-                  unit="g"
-                  keyboardType="decimal-pad"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                />
-              </FieldWrap>
-            )}
-          />
+      <Controller
+        control={control}
+        name="grams"
+        rules={{ validate: (v) => parsePositive(v) !== null || 'Inserisci un valore in grammi' }}
+        render={({ field: { value, onChange, onBlur } }) => (
+          <FieldWrap error={errors.grams?.message}>
+            <Input
+              label="Quantità"
+              unit="g"
+              keyboardType="decimal-pad"
+              value={value}
+              onChangeText={onChange}
+              onBlur={onBlur}
+            />
+          </FieldWrap>
+        )}
+      />
 
-          <View style={styles.totalRow}>
-            <Text style={typography.label}>Totale calcolato</Text>
-            <Text style={typography.value}>
-              {total !== null ? `${total} kcal` : '\u2014'}
-            </Text>
-          </View>
-        </Card>
+      <View style={styles.totalRow}>
+        <Text style={typography.label}>Totale calcolato</Text>
+        <Text style={typography.value}>
+          {total !== null ? `${total} kcal` : '—'}
+        </Text>
+      </View>
 
-        {savedFoodMessage ? (
-          <Text style={[typography.caption, { color: colors.green }]}>
-            {savedFoodMessage}
-          </Text>
-        ) : null}
+      {savedFoodMessage ? (
+        <Text style={[typography.caption, { color: colors.green }]}>{savedFoodMessage}</Text>
+      ) : null}
 
-        <View style={styles.manualActions}>
-          <Button
-            label="Salva negli alimenti"
-            variant="secondary"
-            onPress={handleSubmit(handleSaveFood)}
-            loading={savingFood}
-          />
-          <Button
-            label="Aggiungi al log"
-            onPress={handleSubmit(handleAddToLog)}
-            loading={adding}
-          />
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <View style={styles.manualActions}>
+        <Button
+          label="Salva negli alimenti"
+          variant="secondary"
+          onPress={handleSubmit(handleSaveFood)}
+          loading={savingFood}
+        />
+        <Button
+          label="Aggiungi al log"
+          onPress={handleSubmit(handleAddToLog)}
+          loading={adding}
+        />
+      </View>
+    </ScrollView>
   );
 }
 
-function FieldWrap({
-  children,
-  error,
-}: {
-  children: React.ReactNode;
-  error?: string;
-}) {
+function FieldWrap({ children, error }: { children: React.ReactNode; error?: string }) {
   return (
     <View style={styles.fieldWrap}>
       {children}
@@ -840,35 +755,31 @@ function parsePositive(raw: string): number | null {
 // -----------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
   header: {
-    backgroundColor: colors.card,
-    paddingHorizontal: spacing.screen,
-    paddingBottom: spacing.xxl,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingBottom: spacing.md,
+  },
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xl,
   },
-  backBtn: {
-    width: 36,
-    height: 36,
+  headerDot: {
+    width: 10,
+    height: 10,
+    borderRadius: radii.round,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
     borderRadius: radii.round,
     backgroundColor: colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerText: {
-    flex: 1,
-    gap: spacing.xxs,
-  },
   tabs: {
-    paddingHorizontal: spacing.screen,
-    paddingTop: spacing.xl,
     paddingBottom: spacing.xl,
   },
   content: {
@@ -876,14 +787,13 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flex: 1,
-    paddingHorizontal: spacing.screen,
     gap: spacing.xl,
   },
   searchField: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.card,
+    backgroundColor: colors.bg,
     borderRadius: radii.md,
     borderWidth: 1.5,
     borderColor: colors.border,
@@ -891,7 +801,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    paddingVertical: spacing.lg,
+    paddingVertical: Platform.OS === 'ios' ? spacing.lg : spacing.md,
     fontSize: 14,
     color: colors.text,
     fontFamily: typography.body.fontFamily,
@@ -901,7 +811,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   sectionTitle: {
-    marginTop: spacing.xl,
+    marginTop: spacing.md,
     marginBottom: spacing.sm,
   },
   emptyText: {
@@ -934,50 +844,20 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     backgroundColor: colors.blueLight,
   },
-  scannerWrap: {
-    height: 280,
-    borderRadius: radii.xxl,
-    overflow: 'hidden',
-    backgroundColor: colors.text,
-  },
-  scannerOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scannerFrame: {
-    width: '70%',
-    height: 140,
-    borderRadius: radii.md,
-    borderWidth: 2,
-    borderColor: colors.card,
-  },
   scannerStatus: {
     gap: spacing.md,
   },
   scannerResult: {
     gap: spacing.md,
-    backgroundColor: colors.card,
+    backgroundColor: colors.bg,
     borderRadius: radii.md,
     padding: spacing.xl,
     borderWidth: 1.5,
     borderColor: colors.border,
   },
-  statusBox: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.screen,
-  },
   manualScroll: {
-    padding: spacing.screen,
-    paddingTop: 0,
     gap: spacing.xl,
-  },
-  manualCard: {
-    padding: spacing.screen,
-    gap: spacing.xl,
+    paddingBottom: spacing.screen,
   },
   fieldWrap: {
     gap: spacing.xs,
