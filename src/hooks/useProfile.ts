@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
 import { profileDB } from '@/database';
 import type { ActivityLevel, Gender, UserProfile } from '@/database';
@@ -29,62 +29,102 @@ type UseProfileResult = {
   reload: () => Promise<void>;
 };
 
-export function useProfile(): UseProfileResult {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+// Stato condiviso a livello di modulo: così tutti i consumer di useProfile
+// (RootNavigator, OnboardingScreen, SettingsScreen, ...) leggono lo stesso
+// oggetto. Sottoscrizione via `useSyncExternalStore`. È fondamentale per
+// far funzionare sia l'onboarding (salvo → passo ai tab senza flag locali)
+// sia il reset (delete → torno all'onboarding).
 
-  const reload = useCallback(async () => {
-    setLoading(true);
-    try {
-      setProfile(await profileDB.getProfile());
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+type Snapshot = {
+  profile: UserProfile | null;
+  loading: boolean;
+  error: Error | null;
+};
 
-  useEffect(() => {
-    reload();
-  }, [reload]);
+let snapshot: Snapshot = { profile: null, loading: true, error: null };
+const listeners = new Set<() => void>();
 
-  const saveProfile = useCallback(async (input: ProfileInput): Promise<UserProfile> => {
-    const bmr = calculateBMR(input.weightKg, input.heightCm, input.age, input.gender);
-    const tdee = calculateTDEE(bmr, input.activityLevel);
-    const targetCalories = calculateTarget(tdee, input.weeklyGoalKg);
-    const saved = await profileDB.upsertProfile({
-      ...input,
-      tdee,
-      targetCalories,
+function setSnapshot(next: Snapshot) {
+  snapshot = next;
+  for (const fn of listeners) fn();
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+async function reload(): Promise<void> {
+  setSnapshot({ ...snapshot, loading: true });
+  try {
+    const profile = await profileDB.getProfile();
+    setSnapshot({ profile, loading: false, error: null });
+  } catch (err) {
+    setSnapshot({
+      profile: snapshot.profile,
+      loading: false,
+      error: err instanceof Error ? err : new Error(String(err)),
     });
-    setProfile(saved);
-    return saved;
-  }, []);
+  }
+}
 
-  const deleteProfile = useCallback(async () => {
-    await profileDB.deleteProfile();
-    setProfile(null);
-  }, []);
+let initialized = false;
+function ensureInitialized() {
+  if (initialized) return;
+  initialized = true;
+  void reload();
+}
+
+async function saveProfile(input: ProfileInput): Promise<UserProfile> {
+  const bmr = calculateBMR(input.weightKg, input.heightCm, input.age, input.gender);
+  const tdee = calculateTDEE(bmr, input.activityLevel);
+  const targetCalories = calculateTarget(tdee, input.weeklyGoalKg);
+  const saved = await profileDB.upsertProfile({
+    ...input,
+    tdee,
+    targetCalories,
+  });
+  setSnapshot({ profile: saved, loading: false, error: null });
+  return saved;
+}
+
+async function deleteProfile(): Promise<void> {
+  await profileDB.deleteProfile();
+  setSnapshot({ profile: null, loading: false, error: null });
+}
+
+export function useProfile(): UseProfileResult {
+  ensureInitialized();
+  const state = useSyncExternalStore(subscribe, () => snapshot);
 
   const bmr = useMemo(
     () =>
-      profile
-        ? calculateBMR(profile.weightKg, profile.heightCm, profile.age, profile.gender)
+      state.profile
+        ? calculateBMR(
+            state.profile.weightKg,
+            state.profile.heightCm,
+            state.profile.age,
+            state.profile.gender,
+          )
         : null,
-    [profile],
+    [state.profile],
   );
 
+  const reloadFn = useCallback(() => reload(), []);
+  const saveFn = useCallback((input: ProfileInput) => saveProfile(input), []);
+  const deleteFn = useCallback(() => deleteProfile(), []);
+
   return {
-    profile,
-    loading,
-    error,
+    profile: state.profile,
+    loading: state.loading,
+    error: state.error,
     bmr,
-    tdee: profile?.tdee ?? null,
-    targetCalories: profile?.targetCalories ?? null,
-    saveProfile,
-    deleteProfile,
-    reload,
+    tdee: state.profile?.tdee ?? null,
+    targetCalories: state.profile?.targetCalories ?? null,
+    saveProfile: saveFn,
+    deleteProfile: deleteFn,
+    reload: reloadFn,
   };
 }

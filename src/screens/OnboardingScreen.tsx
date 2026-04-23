@@ -38,10 +38,6 @@ type ComputedValues = {
   target: number;
 };
 
-type OnboardingScreenProps = {
-  onComplete: () => void;
-};
-
 const DEFAULT_VALUES: FormValues = {
   weightKg: '',
   heightCm: '',
@@ -51,7 +47,7 @@ const DEFAULT_VALUES: FormValues = {
   weeklyGoalKg: null,
 };
 
-export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
+export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const { saveProfile } = useProfile();
   const [computed, setComputed] = useState<ComputedValues | null>(null);
@@ -80,8 +76,9 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     if (!parsed) return;
     setSaving(true);
     try {
+      // saveProfile aggiorna lo stato condiviso: RootNavigator si accorgerà
+      // del nuovo profilo e passerà automaticamente al MainTabNavigator.
       await saveProfile(parsed);
-      onComplete();
     } finally {
       setSaving(false);
     }
