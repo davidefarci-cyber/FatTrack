@@ -1,29 +1,34 @@
-import { useState } from 'react';
-import { Controller, useForm, type SubmitHandler } from 'react-hook-form';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
+import { Icon } from '@/components/Icon';
 import { Input } from '@/components/Input';
-import { OptionSelect } from '@/components/OptionSelect';
-import { ScreenHeader } from '@/components/ScreenHeader';
-import { SegmentedControl } from '@/components/SegmentedControl';
 import type { ActivityLevel, Gender } from '@/database';
 import { useProfile } from '@/hooks/useProfile';
-import { colors, radii, spacing, typography } from '@/theme';
+import { colors, fontFamily, radii, shadows, spacing, typography } from '@/theme';
 import {
   calculateBMR,
   calculateTDEE,
   calculateTarget,
 } from '@/utils/calorieCalculator';
-import {
-  ACTIVITY_OPTIONS,
-  GENDER_OPTIONS,
-  WEEKLY_GOAL_OPTIONS,
-} from '@/utils/profileOptions';
 
-type FormValues = {
+// Onboarding a 4 step in linea col prototipo (design/fattrack/project/
+// fattrack-screens.jsx):
+//   step 0 → Profilo     (arancione)  peso/altezza/età + sesso
+//   step 1 → Attività    (blu)        5 livelli con icona
+//   step 2 → Obiettivo   (viola)      4 obiettivi settimanali
+//   step 3 → Risultato   (verde)      riepilogo BMR/TDEE/deficit + target
+
+type Form = {
   weightKg: string;
   heightCm: string;
   age: string;
@@ -32,13 +37,7 @@ type FormValues = {
   weeklyGoalKg: number | null;
 };
 
-type ComputedValues = {
-  bmr: number;
-  tdee: number;
-  target: number;
-};
-
-const DEFAULT_VALUES: FormValues = {
+const DEFAULT_FORM: Form = {
   weightKg: '',
   heightCm: '',
   age: '',
@@ -47,32 +46,90 @@ const DEFAULT_VALUES: FormValues = {
   weeklyGoalKg: null,
 };
 
+type StepDef = {
+  label: string;
+  title: string;
+  color: string;
+};
+
+const STEPS: ReadonlyArray<StepDef> = [
+  { label: 'Profilo', title: 'Ciao! Parlami di te', color: colors.orange },
+  { label: 'Attività', title: 'Quanto sei attivo?', color: colors.blue },
+  { label: 'Obiettivo', title: 'Qual è il tuo obiettivo?', color: colors.purple },
+  { label: 'Risultato', title: 'Tutto pronto!', color: colors.green },
+];
+
+type ActivityOption = {
+  value: ActivityLevel;
+  icon: string;
+  label: string;
+  description: string;
+};
+
+const ACTIVITIES: ReadonlyArray<ActivityOption> = [
+  { value: 1, icon: '🪑', label: 'Sedentario', description: 'Ufficio, poco moto' },
+  { value: 2, icon: '🚶', label: 'Leggero', description: '1–3 allenamenti/sett' },
+  { value: 3, icon: '🚴', label: 'Moderato', description: '3–5 allenamenti/sett' },
+  { value: 4, icon: '🏋️', label: 'Attivo', description: '6–7 allenamenti/sett' },
+  { value: 5, icon: '⚡', label: 'Intensivo', description: 'Doppi allenamenti' },
+];
+
+type GoalOption = {
+  value: number;
+  label: string;
+  description: string;
+};
+
+const GOALS: ReadonlyArray<GoalOption> = [
+  { value: 0.25, label: '–0,25 kg / settimana', description: 'Lento e costante' },
+  { value: 0.5, label: '–0,5 kg / settimana', description: 'Consigliato' },
+  { value: 0.75, label: '–0,75 kg / settimana', description: 'Impegnativo' },
+  { value: 1, label: '–1 kg / settimana', description: 'Aggressivo' },
+];
+
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const { saveProfile } = useProfile();
-  const [computed, setComputed] = useState<ComputedValues | null>(null);
+  const [step, setStep] = useState(0);
+  const [form, setForm] = useState<Form>(DEFAULT_FORM);
   const [saving, setSaving] = useState(false);
 
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<FormValues>({
-    defaultValues: DEFAULT_VALUES,
-    mode: 'onChange',
-  });
+  const color = STEPS[step].color;
 
-  const handleCalculate: SubmitHandler<FormValues> = (values) => {
-    const parsed = parseFormValues(values);
-    if (!parsed) return;
+  const parsed = useMemo(() => parseForm(form), [form]);
+  const computed = useMemo(() => {
+    if (!parsed) return null;
     const bmr = calculateBMR(parsed.weightKg, parsed.heightCm, parsed.age, parsed.gender);
     const tdee = calculateTDEE(bmr, parsed.activityLevel);
     const target = calculateTarget(tdee, parsed.weeklyGoalKg);
-    setComputed({ bmr, tdee, target });
+    return { bmr, tdee, target };
+  }, [parsed]);
+
+  const canAdvance = useMemo(() => {
+    switch (step) {
+      case 0:
+        return validateStep0(form);
+      case 1:
+        return form.activityLevel !== null;
+      case 2:
+        return form.weeklyGoalKg !== null;
+      case 3:
+        return parsed !== null;
+      default:
+        return false;
+    }
+  }, [form, step, parsed]);
+
+  const update = <K extends keyof Form>(key: K, value: Form[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSave: SubmitHandler<FormValues> = async (values) => {
-    const parsed = parseFormValues(values);
+  const handleNext = async () => {
+    if (!canAdvance) return;
+    if (step < STEPS.length - 1) {
+      setStep((s) => s + 1);
+      return;
+    }
     if (!parsed) return;
     setSaving(true);
     try {
@@ -85,224 +142,374 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <ScreenHeader
-        title="Benvenuto in FatTrack"
-        subtitle="Imposta il tuo profilo per calcolare l'obiettivo calorico"
-        style={{ paddingTop: insets.top + spacing.xl }}
-      />
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={styles.container}
+    >
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: color,
+            paddingTop: insets.top + spacing.xxl,
+            paddingBottom: spacing.screen,
+          },
+        ]}
+      >
+        <View style={styles.progressBar}>
+          {STEPS.map((_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.progressSegment,
+                {
+                  backgroundColor:
+                    i <= step ? colors.card : 'rgba(255, 255, 255, 0.3)',
+                },
+              ]}
+            />
+          ))}
+        </View>
+        <Text style={styles.stepCounter}>
+          Passo {step + 1} di {STEPS.length}
+        </Text>
+        <Text style={styles.stepTitle}>{STEPS[step].title}</Text>
+      </View>
+
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + spacing.screen * 2 }]}
+        contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Card style={styles.card}>
-          <Text style={typography.label}>Dati personali</Text>
-
-          <Controller
-            control={control}
-            name="weightKg"
-            rules={{
-              required: 'Inserisci il peso',
-              validate: (v) => validateNumber(v, 20, 400) || 'Peso non valido (20-400)',
-            }}
-            render={({ field: { value, onChange, onBlur } }) => (
-              <FormField error={errors.weightKg?.message}>
-                <Input
-                  label="Peso"
-                  unit="kg"
-                  keyboardType="decimal-pad"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  placeholder="70"
-                />
-              </FormField>
-            )}
+        {step === 0 ? (
+          <ProfileStep form={form} update={update} color={color} />
+        ) : step === 1 ? (
+          <ActivityStep
+            value={form.activityLevel}
+            onChange={(v) => update('activityLevel', v)}
+            color={color}
           />
-
-          <Controller
-            control={control}
-            name="heightCm"
-            rules={{
-              required: 'Inserisci l\u2019altezza',
-              validate: (v) => validateNumber(v, 100, 250) || 'Altezza non valida (100-250)',
-            }}
-            render={({ field: { value, onChange, onBlur } }) => (
-              <FormField error={errors.heightCm?.message}>
-                <Input
-                  label="Altezza"
-                  unit="cm"
-                  keyboardType="number-pad"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  placeholder="175"
-                />
-              </FormField>
-            )}
+        ) : step === 2 ? (
+          <GoalStep
+            value={form.weeklyGoalKg}
+            onChange={(v) => update('weeklyGoalKg', v)}
+            color={color}
           />
+        ) : (
+          <ResultStep computed={computed} />
+        )}
+      </ScrollView>
 
-          <Controller
-            control={control}
-            name="age"
-            rules={{
-              required: 'Inserisci l\u2019et\u00e0',
-              validate: (v) => validateInteger(v, 10, 120) || 'Et\u00e0 non valida (10-120)',
-            }}
-            render={({ field: { value, onChange, onBlur } }) => (
-              <FormField error={errors.age?.message}>
-                <Input
-                  label="Et\u00e0"
-                  unit="anni"
-                  keyboardType="number-pad"
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  placeholder="30"
-                />
-              </FormField>
-            )}
-          />
+      <View
+        style={[
+          styles.footer,
+          { paddingBottom: insets.bottom + spacing.screen },
+        ]}
+      >
+        {step > 0 ? (
+          <Pressable
+            onPress={() => setStep((s) => s - 1)}
+            style={styles.backBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Passo precedente"
+          >
+            <Icon name="chevron-left" size={18} color={colors.textSec} />
+          </Pressable>
+        ) : null}
+        <Pressable
+          onPress={handleNext}
+          disabled={!canAdvance || saving}
+          style={[
+            styles.primaryBtn,
+            {
+              backgroundColor: color,
+              opacity: canAdvance && !saving ? 1 : 0.5,
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={step === STEPS.length - 1 ? 'Iniziamo' : 'Avanti'}
+        >
+          <Text style={styles.primaryBtnLabel}>
+            {step === STEPS.length - 1 ? 'Iniziamo!' : 'Avanti'}
+          </Text>
+        </Pressable>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
 
-          <Controller
-            control={control}
-            name="gender"
-            rules={{ required: 'Seleziona il sesso' }}
-            render={({ field: { value, onChange } }) => (
-              <FormField label="Sesso" error={errors.gender?.message}>
-                <SegmentedControl
-                  options={GENDER_OPTIONS}
-                  value={value}
-                  onChange={onChange}
-                />
-              </FormField>
-            )}
-          />
-        </Card>
+// -----------------------------------------------------------------------------
+// Step 0 — Profilo
+// -----------------------------------------------------------------------------
 
-        <Card style={styles.card}>
-          <Text style={typography.label}>Livello di attivit\u00e0</Text>
-          <Controller
-            control={control}
-            name="activityLevel"
-            rules={{ required: 'Seleziona il livello di attivit\u00e0' }}
-            render={({ field: { value, onChange } }) => (
-              <FormField error={errors.activityLevel?.message}>
-                <OptionSelect
-                  options={ACTIVITY_OPTIONS}
-                  value={value}
-                  onChange={onChange}
-                />
-              </FormField>
-            )}
-          />
-        </Card>
-
-        <Card style={styles.card}>
-          <Text style={typography.label}>Obiettivo settimanale</Text>
-          <Controller
-            control={control}
-            name="weeklyGoalKg"
-            rules={{ required: 'Seleziona un obiettivo' }}
-            render={({ field: { value, onChange } }) => (
-              <FormField error={errors.weeklyGoalKg?.message}>
-                <OptionSelect
-                  options={WEEKLY_GOAL_OPTIONS}
-                  value={value}
-                  onChange={onChange}
-                />
-              </FormField>
-            )}
-          />
-        </Card>
-
-        {computed ? <ResultsCard values={computed} /> : null}
-
-        <View style={styles.actions}>
-          <Button
-            label="Calcola"
-            variant="secondary"
-            onPress={handleSubmit(handleCalculate)}
-          />
-          <Button
-            label="Salva e inizia"
-            onPress={handleSubmit(handleSave)}
-            loading={saving}
+function ProfileStep({
+  form,
+  update,
+  color,
+}: {
+  form: Form;
+  update: <K extends keyof Form>(key: K, value: Form[K]) => void;
+  color: string;
+}) {
+  return (
+    <View style={styles.stepBody}>
+      <View style={styles.row2}>
+        <View style={{ flex: 1 }}>
+          <Input
+            label="Peso attuale"
+            unit="kg"
+            keyboardType="decimal-pad"
+            value={form.weightKg}
+            onChangeText={(v) => update('weightKg', v)}
+            placeholder="70"
+            containerStyle={styles.noBottomMargin}
           />
         </View>
-      </ScrollView>
+        <View style={{ flex: 1 }}>
+          <Input
+            label="Altezza"
+            unit="cm"
+            keyboardType="number-pad"
+            value={form.heightCm}
+            onChangeText={(v) => update('heightCm', v)}
+            placeholder="170"
+            containerStyle={styles.noBottomMargin}
+          />
+        </View>
+      </View>
+
+      <Input
+        label="Età"
+        unit="anni"
+        keyboardType="number-pad"
+        value={form.age}
+        onChangeText={(v) => update('age', v)}
+        placeholder="30"
+        containerStyle={styles.noBottomMargin}
+      />
+
+      <View style={styles.fieldBlock}>
+        <Text style={typography.label}>Sesso biologico</Text>
+        <View style={styles.row2}>
+          {(['M', 'F'] as const).map((g) => {
+            const selected = form.gender === g;
+            return (
+              <Pressable
+                key={g}
+                onPress={() => update('gender', g)}
+                style={[
+                  styles.genderBtn,
+                  {
+                    borderColor: selected ? color : colors.border,
+                    backgroundColor: selected ? tint(color) : colors.card,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={g === 'M' ? 'Uomo' : 'Donna'}
+              >
+                <Text
+                  style={[
+                    typography.bodyBold,
+                    { color: selected ? color : colors.textSec },
+                  ]}
+                >
+                  {g === 'M' ? 'Uomo' : 'Donna'}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
     </View>
   );
 }
 
-function ResultsCard({ values }: { values: ComputedValues }) {
+// -----------------------------------------------------------------------------
+// Step 1 — Attività
+// -----------------------------------------------------------------------------
+
+function ActivityStep({
+  value,
+  onChange,
+  color,
+}: {
+  value: ActivityLevel | null;
+  onChange: (v: ActivityLevel) => void;
+  color: string;
+}) {
   return (
-    <Card style={styles.resultsCard}>
-      <Text style={typography.label}>Riepilogo calorico</Text>
-      <View style={styles.resultsGrid}>
-        <ResultRow label="BMR" value={`${Math.round(values.bmr)} kcal`} />
-        <ResultRow label="TDEE" value={`${Math.round(values.tdee)} kcal`} />
-        <ResultRow
-          label="Calorie target"
-          value={`${Math.round(values.target)} kcal`}
-          highlight
-        />
-      </View>
-    </Card>
+    <View style={styles.stepBody}>
+      {ACTIVITIES.map((a) => {
+        const selected = value === a.value;
+        return (
+          <Pressable
+            key={a.value}
+            onPress={() => onChange(a.value)}
+            style={[
+              styles.optionRow,
+              {
+                borderColor: selected ? color : colors.border,
+                backgroundColor: selected ? tint(color) : colors.card,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`${a.label}. ${a.description}`}
+          >
+            <Text style={styles.optionIcon}>{a.icon}</Text>
+            <View style={styles.optionText}>
+              <Text style={typography.body}>{a.label}</Text>
+              <Text style={typography.caption}>{a.description}</Text>
+            </View>
+            {selected ? (
+              <View style={[styles.checkDot, { backgroundColor: color }]}>
+                <Icon name="check" size={12} color={colors.card} />
+              </View>
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
-function ResultRow({
+// -----------------------------------------------------------------------------
+// Step 2 — Obiettivo
+// -----------------------------------------------------------------------------
+
+function GoalStep({
+  value,
+  onChange,
+  color,
+}: {
+  value: number | null;
+  onChange: (v: number) => void;
+  color: string;
+}) {
+  return (
+    <View style={styles.stepBody}>
+      {GOALS.map((g) => {
+        const selected = value === g.value;
+        return (
+          <Pressable
+            key={g.value}
+            onPress={() => onChange(g.value)}
+            style={[
+              styles.optionRow,
+              {
+                borderColor: selected ? color : colors.border,
+                backgroundColor: selected ? tint(color) : colors.card,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`${g.label}. ${g.description}`}
+          >
+            <View
+              style={[
+                styles.goalBadge,
+                { backgroundColor: selected ? color : colors.bg },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.goalBadgeText,
+                  { color: selected ? colors.card : colors.textSec },
+                ]}
+              >
+                {g.value}
+              </Text>
+            </View>
+            <View style={styles.optionText}>
+              <Text style={typography.body}>{g.label}</Text>
+              <Text style={typography.caption}>{g.description}</Text>
+            </View>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Step 3 — Risultato
+// -----------------------------------------------------------------------------
+
+function ResultStep({
+  computed,
+}: {
+  computed: { bmr: number; tdee: number; target: number } | null;
+}) {
+  if (!computed) {
+    return (
+      <View style={styles.stepBody}>
+        <Text style={typography.body}>
+          Completa i passi precedenti per vedere l’obiettivo calorico.
+        </Text>
+      </View>
+    );
+  }
+  const target = Math.round(computed.target);
+  const bmr = Math.round(computed.bmr);
+  const tdee = Math.round(computed.tdee);
+  const deficit = Math.max(tdee - target, 0);
+  return (
+    <View style={styles.resultContainer}>
+      <View style={styles.successCircle}>
+        <Icon name="check" size={36} color={colors.green} />
+      </View>
+      <Text style={typography.caption}>
+        Il tuo obiettivo calorico giornaliero è
+      </Text>
+      <Text style={styles.resultTarget}>
+        {target.toLocaleString('it-IT')}
+      </Text>
+      <Text style={styles.resultUnit}>kcal / giorno</Text>
+
+      <View style={styles.resultPills}>
+        <ResultPill label="BMR" value={`${bmr} kcal`} color={colors.orange} bg={colors.orangeLight} />
+        <ResultPill label="TDEE" value={`${tdee} kcal`} color={colors.blue} bg={colors.blueLight} />
+        <ResultPill
+          label="Deficit"
+          value={`${deficit} kcal`}
+          color={colors.purple}
+          bg={colors.purpleLight}
+        />
+      </View>
+    </View>
+  );
+}
+
+function ResultPill({
   label,
   value,
-  highlight = false,
+  color,
+  bg,
 }: {
   label: string;
   value: string;
-  highlight?: boolean;
+  color: string;
+  bg: string;
 }) {
   return (
-    <View style={styles.resultRow}>
-      <Text style={typography.caption}>{label}</Text>
-      <Text
-        style={[
-          typography.value,
-          highlight && { color: colors.green },
-        ]}
-      >
-        {value}
-      </Text>
+    <View style={[styles.resultPill, { backgroundColor: bg }]}>
+      <Text style={[typography.bodyBold, { color }]}>{value}</Text>
+      <Text style={[typography.micro, { color: colors.textSec }]}>{label}</Text>
     </View>
   );
 }
 
-function FormField({
-  children,
-  label,
-  error,
-}: {
-  children: React.ReactNode;
-  label?: string;
-  error?: string;
-}) {
-  return (
-    <View style={styles.field}>
-      {label ? <Text style={styles.fieldLabel}>{label}</Text> : null}
-      {children}
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-    </View>
-  );
-}
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
 
-function validateNumber(raw: string, min: number, max: number): boolean {
-  const n = Number(String(raw).replace(',', '.'));
-  return Number.isFinite(n) && n >= min && n <= max;
-}
-
-function validateInteger(raw: string, min: number, max: number): boolean {
-  const n = Number(raw);
-  return Number.isInteger(n) && n >= min && n <= max;
+function validateStep0(form: Form): boolean {
+  const w = Number(String(form.weightKg).replace(',', '.'));
+  const h = Number(String(form.heightCm).replace(',', '.'));
+  const a = Number(form.age);
+  if (!Number.isFinite(w) || w < 20 || w > 400) return false;
+  if (!Number.isFinite(h) || h < 100 || h > 250) return false;
+  if (!Number.isInteger(a) || a < 10 || a > 120) return false;
+  if (form.gender === null) return false;
+  return true;
 }
 
 type ParsedProfile = {
@@ -314,68 +521,211 @@ type ParsedProfile = {
   weeklyGoalKg: number;
 };
 
-function parseFormValues(values: FormValues): ParsedProfile | null {
-  const weightKg = Number(String(values.weightKg).replace(',', '.'));
-  const heightCm = Number(String(values.heightCm).replace(',', '.'));
-  const age = Number(values.age);
+function parseForm(form: Form): ParsedProfile | null {
+  const weightKg = Number(String(form.weightKg).replace(',', '.'));
+  const heightCm = Number(String(form.heightCm).replace(',', '.'));
+  const age = Number(form.age);
   if (
     !Number.isFinite(weightKg) ||
     !Number.isFinite(heightCm) ||
     !Number.isInteger(age) ||
-    values.gender === null ||
-    values.activityLevel === null ||
-    values.weeklyGoalKg === null
+    form.gender === null ||
+    form.activityLevel === null ||
+    form.weeklyGoalKg === null
   ) {
     return null;
   }
+  if (weightKg < 20 || weightKg > 400) return null;
+  if (heightCm < 100 || heightCm > 250) return null;
+  if (age < 10 || age > 120) return null;
   return {
     weightKg,
     heightCm,
     age,
-    gender: values.gender,
-    activityLevel: values.activityLevel,
-    weeklyGoalKg: values.weeklyGoalKg,
+    gender: form.gender,
+    activityLevel: form.activityLevel,
+    weeklyGoalKg: form.weeklyGoalKg,
   };
+}
+
+// Sfondo tenue (~8% opacity) usando il colore dello step come tinta
+// trasparente. Restiamo negli hex fissi del theme: aggiungiamo il canale
+// alpha con una tabella predefinita per i 4 step, così non introduciamo
+// calcoli runtime su stringhe HSL.
+function tint(stepColor: string): string {
+  switch (stepColor) {
+    case colors.orange:
+      return colors.orangeLight;
+    case colors.blue:
+      return colors.blueLight;
+    case colors.purple:
+      return colors.purpleLight;
+    case colors.green:
+      return colors.greenLight;
+    default:
+      return colors.bg;
+  }
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.card,
+  },
+  header: {
+    paddingHorizontal: spacing.screen,
+    gap: spacing.md,
+  },
+  progressBar: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  progressSegment: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+  },
+  stepCounter: {
+    fontFamily: fontFamily.semibold,
+    fontSize: 11,
+    letterSpacing: 0.5,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  stepTitle: {
+    fontFamily: fontFamily.extrabold,
+    fontSize: 22,
+    lineHeight: 28,
+    color: colors.card,
   },
   scroll: {
     padding: spacing.screen,
-    gap: spacing.screen,
-  },
-  card: {
-    padding: spacing.screen,
     gap: spacing.xl,
+    paddingBottom: spacing.screen * 2,
   },
-  field: {
-    gap: spacing.xs,
+  stepBody: {
+    gap: spacing.md,
   },
-  fieldLabel: {
-    ...typography.label,
-    marginBottom: spacing.xs,
+  row2: {
+    flexDirection: 'row',
+    gap: spacing.md,
   },
-  errorText: {
-    ...typography.caption,
-    color: colors.red,
+  noBottomMargin: {
+    marginBottom: 0,
   },
-  actions: {
-    gap: spacing.xl,
+  fieldBlock: {
+    gap: spacing.sm,
   },
-  resultsCard: {
-    padding: spacing.screen,
-    gap: spacing.xl,
-    borderRadius: radii.xxl,
+  genderBtn: {
+    flex: 1,
+    height: 50,
+    borderRadius: radii.lg,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  resultsGrid: {
-    gap: spacing.lg,
-  },
-  resultRow: {
+  optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: spacing.xl,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radii.xl,
+    borderWidth: 2,
+  },
+  optionIcon: {
+    fontSize: 22,
+  },
+  optionText: {
+    flex: 1,
+    gap: spacing.xxs,
+  },
+  checkDot: {
+    width: 22,
+    height: 22,
+    borderRadius: radii.round,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  goalBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  goalBadgeText: {
+    fontFamily: fontFamily.extrabold,
+    fontSize: 13,
+  },
+  footer: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    paddingHorizontal: spacing.screen,
+    paddingTop: spacing.md,
+    backgroundColor: colors.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.lg,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: radii.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.sm,
+  },
+  primaryBtnLabel: {
+    fontFamily: fontFamily.bold,
+    fontSize: 15,
+    color: colors.card,
+  },
+  resultContainer: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xl,
+  },
+  successCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: radii.round,
+    backgroundColor: colors.greenLight,
+    borderWidth: 3,
+    borderColor: colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xl,
+  },
+  resultTarget: {
+    fontFamily: fontFamily.extrabold,
+    fontSize: 44,
+    lineHeight: 48,
+    color: colors.text,
+  },
+  resultUnit: {
+    ...typography.body,
+    color: colors.textSec,
+    marginBottom: spacing.xl,
+  },
+  resultPills: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  resultPill: {
+    borderRadius: radii.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.xxs,
   },
 });
