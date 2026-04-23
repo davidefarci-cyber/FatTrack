@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { FAB } from '@/components/FAB';
 import { GramsInputModal } from '@/components/GramsInputModal';
 import type { GramsInputTarget } from '@/components/GramsInputModal';
 import { Icon } from '@/components/Icon';
@@ -146,18 +147,13 @@ export default function FavoritesScreen() {
         )}
       </ScrollView>
 
-      <Pressable
+      <FAB
+        icon="plus"
         onPress={() => setEditing('new')}
-        style={[
-          styles.fab,
-          { bottom: insets.bottom + spacing.xxl * 2 },
-          shadows.md,
-        ]}
-        accessibilityRole="button"
+        color={colors.purple}
+        bottom={insets.bottom + spacing.xxl * 2}
         accessibilityLabel="Crea nuovo preferito"
-      >
-        <Icon name="plus" size={20} color={colors.card} />
-      </Pressable>
+      />
 
       <FavoriteEditorModal
         visible={editing !== null}
@@ -228,14 +224,17 @@ function FavoriteRow({
           accessibilityRole="button"
           accessibilityLabel={`Aggiungi ${favorite.name} al diario`}
         >
+          <View style={styles.favoriteBadge}>
+            <Icon name="heart" size={20} color={colors.purple} />
+          </View>
           <View style={styles.favoriteText}>
             <Text style={typography.body} numberOfLines={1}>
               {favorite.name}
             </Text>
             <Text style={typography.caption} numberOfLines={1}>
-              {favorite.items.length}{' '}
-              {favorite.items.length === 1 ? 'alimento' : 'alimenti'} {'\u00b7'}{' '}
-              {totalKcal.toLocaleString('it-IT')} kcal
+              {favorite.items.length === 0
+                ? 'Pasto vuoto'
+                : `${favorite.items.length} ${favorite.items.length === 1 ? 'alimento' : 'alimenti'} \u00b7 ${totalKcal.toLocaleString('it-IT')} kcal`}
             </Text>
           </View>
           <View style={[styles.favoriteChip, { backgroundColor: accentBg }]}>
@@ -624,6 +623,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xl,
   },
+  favoriteBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.round,
+    backgroundColor: colors.purpleLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   favoriteText: {
     flex: 1,
     gap: spacing.xxs,
@@ -652,17 +659,6 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     ...shadows.sm,
   },
-  fab: {
-    position: 'absolute',
-    right: spacing.screen,
-    width: 56,
-    height: 56,
-    borderRadius: radii.round,
-    backgroundColor: colors.green,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
   // Editor modal
   editorRoot: {
     flex: 1,

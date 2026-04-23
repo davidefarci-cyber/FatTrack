@@ -1,25 +1,24 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BarcodeResultCard, BARCODE_SUCCESS_RESET_MS } from '@/components/BarcodeResultCard';
+import type { BarcodeResultCardState } from '@/components/BarcodeResultCard';
 import { Button } from '@/components/Button';
-import { GramsInputModal } from '@/components/GramsInputModal';
-import type { GramsInputTarget } from '@/components/GramsInputModal';
-import { Icon } from '@/components/Icon';
-import { MEAL_INFO, MEAL_ORDER } from '@/components/mealMeta';
+import { Card } from '@/components/Card';
 import { ScannerView } from '@/components/ScannerView';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
 import { foodsDB, mealsDB } from '@/database';
 import type { MealType } from '@/database';
 import { todayISO } from '@/hooks/useDailyLog';
-import { colors, radii, spacing, typography } from '@/theme';
+import { colors, spacing, typography } from '@/theme';
 import { offByBarcode } from '@/utils/openFoodFacts';
 import type { OffProduct } from '@/utils/openFoodFacts';
 
-// Schermata Scansiona standalone: camera a tutta pagina + lookup su OFF.
-// Consente di scegliere il pasto di destinazione (default suggerito in base
-// all'ora); dopo la conferma dei grammi il pasto è salvato direttamente nel
-// diario del giorno corrente.
+// Schermata Scansiona standalone: camera compatta in alto + card risultato
+// inline sotto. La card risultato mostra macros, grammi e pasto di destinazione
+// senza aprire un modale separato, come nel prototipo.
 
 const LOOKUP_STATE = {
   idle: 'idle',
@@ -45,6 +44,7 @@ export default function BarcodeScreen() {
   const [product, setProduct] = useState<OffProduct | null>(null);
   const [lookupState, setLookupState] = useState<LookupState>(LOOKUP_STATE.idle);
   const [error, setError] = useState<string | null>(null);
+  const [confirmState, setConfirmState] = useState<BarcodeResultCardState>('idle');
 
   const handleScan = useCallback(async (code: string) => {
     setScannedCode(code);
@@ -69,181 +69,108 @@ export default function BarcodeScreen() {
     setScannedCode(null);
     setProduct(null);
     setError(null);
+    setConfirmState('idle');
     setLookupState(LOOKUP_STATE.idle);
   }, []);
-
-  const target: GramsInputTarget | null = product
-    ? {
-        foodName: product.name,
-        caloriesPer100g: product.caloriesPer100g,
-        subtitle: product.brand ?? `Barcode ${scannedCode ?? ''}`.trim(),
-      }
-    : null;
 
   const handleConfirm = useCallback(
     async ({ grams, caloriesTotal }: { grams: number; caloriesTotal: number }) => {
       if (!product) return;
-      // Persistiamo l'alimento in archivio così la prossima ricerca è istantanea.
-      let foodId: number | null = null;
-      const existing = await foodsDB.findByName(product.name);
-      if (existing) {
-        foodId = existing.id;
-      } else {
-        const created = await foodsDB.createFood({
-          name: product.name,
-          caloriesPer100g: product.caloriesPer100g,
-          source: 'barcode',
+      setConfirmState('adding');
+      try {
+        let foodId: number | null = null;
+        const existing = await foodsDB.findByName(product.name);
+        if (existing) {
+          foodId = existing.id;
+        } else {
+          const created = await foodsDB.createFood({
+            name: product.name,
+            caloriesPer100g: product.caloriesPer100g,
+            source: 'barcode',
+          });
+          foodId = created.id;
+        }
+        await mealsDB.createMeal({
+          date: todayISO(),
+          mealType,
+          foodId,
+          foodName: product.name,
+          grams,
+          caloriesTotal,
         });
-        foodId = created.id;
+        setConfirmState('added');
+        toast.show('Aggiunto!');
+        setTimeout(reset, BARCODE_SUCCESS_RESET_MS);
+      } catch {
+        setConfirmState('idle');
       }
-      await mealsDB.createMeal({
-        date: todayISO(),
-        mealType,
-        foodId,
-        foodName: product.name,
-        grams,
-        caloriesTotal,
-      });
-      reset();
-      toast.show('Aggiunto!');
     },
     [mealType, product, reset, toast],
   );
 
-  const paused = lookupState !== LOOKUP_STATE.idle;
+  const scannerPaused = lookupState !== LOOKUP_STATE.idle;
 
   return (
     <View style={styles.container}>
-      <ScannerView
-        variant="full"
-        onScan={handleScan}
-        paused={paused}
-        helperText={lookupState === LOOKUP_STATE.idle ? 'Inquadra il codice a barre del prodotto' : undefined}
+      <ScreenHeader
+        title="Scansiona"
+        subtitle="Leggi il barcode di un prodotto"
+        style={{ paddingTop: insets.top + spacing.xl }}
       />
 
-      <View style={[styles.topBar, { paddingTop: insets.top + spacing.md }]}>
-        <Text style={styles.title}>Scansiona</Text>
-        <MealSelectorDropdown value={mealType} onChange={setMealType} />
-      </View>
-
-      {lookupState !== LOOKUP_STATE.idle ? (
-        <View style={[styles.statusCard, { bottom: insets.bottom + spacing.screen }]}>
-          <StatusContent
-            state={lookupState}
-            scannedCode={scannedCode}
-            product={product}
-            error={error}
-            onReset={reset}
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: insets.bottom + spacing.screen * 2 },
+        ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.scannerWrap}>
+          <ScannerView
+            variant="compact"
+            onScan={handleScan}
+            paused={scannerPaused}
+            helperText={
+              lookupState === LOOKUP_STATE.idle
+                ? 'Inquadra il codice a barre'
+                : undefined
+            }
           />
         </View>
-      ) : null}
 
-      <GramsInputModal
-        visible={lookupState === LOOKUP_STATE.product}
-        target={target}
-        mealType={mealType}
-        onClose={reset}
-        onConfirm={handleConfirm}
-      />
-    </View>
-  );
-}
-
-function StatusContent({
-  state,
-  scannedCode,
-  product,
-  error,
-  onReset,
-}: {
-  state: LookupState;
-  scannedCode: string | null;
-  product: OffProduct | null;
-  error: string | null;
-  onReset: () => void;
-}) {
-  if (state === LOOKUP_STATE.loading) {
-    return (
-      <View style={styles.statusRow}>
-        <ActivityIndicator color={colors.textSec} />
-        <Text style={typography.caption}>Lettura di {scannedCode}…</Text>
-      </View>
-    );
-  }
-  if (state === LOOKUP_STATE.error) {
-    return (
-      <View style={styles.statusCol}>
-        <Text style={typography.body}>{error ?? 'Errore'}</Text>
-        {scannedCode ? (
-          <Text style={typography.caption}>Codice letto: {scannedCode}</Text>
+        {lookupState === LOOKUP_STATE.loading ? (
+          <Card style={styles.statusCard}>
+            <View style={styles.statusRow}>
+              <ActivityIndicator color={colors.textSec} />
+              <Text style={typography.caption}>
+                Lettura di {scannedCode ?? '…'}
+              </Text>
+            </View>
+          </Card>
         ) : null}
-        <Button label="Scansiona di nuovo" variant="secondary" onPress={onReset} />
-      </View>
-    );
-  }
-  if (state === LOOKUP_STATE.product && product) {
-    return (
-      <View style={styles.statusCol}>
-        <Text style={typography.body}>{product.name}</Text>
-        <Text style={typography.caption}>
-          {product.caloriesPer100g} kcal / 100 g
-          {product.brand ? ` · ${product.brand}` : ''}
-        </Text>
-      </View>
-    );
-  }
-  return null;
-}
 
-function MealSelectorDropdown({
-  value,
-  onChange,
-}: {
-  value: MealType;
-  onChange: (next: MealType) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const info = MEAL_INFO[value];
+        {lookupState === LOOKUP_STATE.error ? (
+          <Card style={styles.statusCard}>
+            <Text style={typography.body}>{error ?? 'Errore'}</Text>
+            {scannedCode ? (
+              <Text style={typography.caption}>Codice letto: {scannedCode}</Text>
+            ) : null}
+            <Button label="Scansiona di nuovo" variant="secondary" onPress={reset} />
+          </Card>
+        ) : null}
 
-  const options = useMemo(() => MEAL_ORDER, []);
-
-  useEffect(() => {
-    if (!open) return;
-    // Nessun listener globale necessario: il chip si chiude quando si tocca una voce.
-  }, [open]);
-
-  return (
-    <View style={styles.dropdown}>
-      <Pressable
-        onPress={() => setOpen((v) => !v)}
-        style={[styles.dropdownTrigger, { backgroundColor: info.bg }]}
-        accessibilityRole="button"
-        accessibilityLabel={`Seleziona pasto (attuale: ${info.label})`}
-      >
-        <View style={[styles.dropdownDot, { backgroundColor: info.color }]} />
-        <Text style={[typography.bodyBold, { color: info.color }]}>{info.label}</Text>
-        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={14} color={info.color} />
-      </Pressable>
-      {open ? (
-        <View style={styles.dropdownMenu}>
-          {options.map((opt) => {
-            const optInfo = MEAL_INFO[opt];
-            return (
-              <Pressable
-                key={opt}
-                onPress={() => {
-                  onChange(opt);
-                  setOpen(false);
-                }}
-                style={styles.dropdownItem}
-              >
-                <View style={[styles.dropdownDot, { backgroundColor: optInfo.color }]} />
-                <Text style={typography.body}>{optInfo.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
+        {lookupState === LOOKUP_STATE.product && product ? (
+          <BarcodeResultCard
+            product={product}
+            mealType={mealType}
+            onMealChange={setMealType}
+            onConfirm={handleConfirm}
+            onRescan={reset}
+            state={confirmState}
+          />
+        ) : null}
+      </ScrollView>
     </View>
   );
 }
@@ -251,73 +178,23 @@ function MealSelectorDropdown({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.text,
+    backgroundColor: colors.bg,
   },
-  topBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.screen,
-    paddingBottom: spacing.md,
+  scroll: {
+    padding: spacing.screen,
+    gap: spacing.screen,
   },
-  title: {
-    ...typography.h1,
-    color: colors.card,
+  scannerWrap: {
+    aspectRatio: 4 / 3,
+    width: '100%',
   },
   statusCard: {
-    position: 'absolute',
-    left: spacing.screen,
-    right: spacing.screen,
-    backgroundColor: colors.card,
-    borderRadius: radii.xxl,
-    padding: spacing.xl,
+    padding: spacing.screen,
     gap: spacing.md,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-  },
-  statusCol: {
-    gap: spacing.md,
-  },
-  dropdown: {
-    position: 'relative',
-  },
-  dropdownTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: radii.round,
-  },
-  dropdownDot: {
-    width: 8,
-    height: 8,
-    borderRadius: radii.round,
-  },
-  dropdownMenu: {
-    position: 'absolute',
-    top: '100%',
-    right: 0,
-    marginTop: spacing.sm,
-    backgroundColor: colors.card,
-    borderRadius: radii.md,
-    paddingVertical: spacing.sm,
-    minWidth: 160,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  dropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
   },
 });

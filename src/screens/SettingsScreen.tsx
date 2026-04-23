@@ -138,8 +138,6 @@ export default function SettingsScreen() {
           </Card>
         ) : (
           <>
-            <ResultsCard computed={computed} />
-
             <Card style={styles.card}>
               <Text style={typography.label}>Dati personali</Text>
 
@@ -258,8 +256,10 @@ export default function SettingsScreen() {
               />
             </Card>
 
+            <ResultsCard computed={computed} />
+
             <Card style={styles.card}>
-              <Text style={typography.label}>Extra</Text>
+              <Text style={typography.label}>Contorno verdure</Text>
               <Controller
                 control={control}
                 name="sideDishCalories"
@@ -294,7 +294,7 @@ export default function SettingsScreen() {
 function ResultsCard({ computed }: { computed: ReturnType<typeof computeProfile> | null }) {
   return (
     <Card style={styles.resultsCard}>
-      <Text style={typography.label}>Riepilogo calorico</Text>
+      <Text style={typography.label}>Valori calcolati</Text>
       <View style={styles.resultsGrid}>
         <ResultRow
           label="BMR"
