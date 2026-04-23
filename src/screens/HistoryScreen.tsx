@@ -15,7 +15,7 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { useHistory } from '@/hooks/useHistory';
 import type { HistoryDay, HistoryPeriod } from '@/hooks/useHistory';
-import { colors, fontFamily, radii, spacing, typography } from '@/theme';
+import { colors, fontFamily, radii, shadows, spacing, typography } from '@/theme';
 
 const PERIOD_OPTIONS: ReadonlyArray<{ value: HistoryPeriod; label: string }> = [
   { value: 7, label: '7 giorni' },
@@ -105,7 +105,12 @@ export default function HistoryScreen() {
 
         <Card style={styles.chartCard}>
           {selectedDay ? (
-            <View style={styles.chartTooltip}>
+            <Pressable
+              onPress={() => setSelectedDate(null)}
+              style={[styles.chartTooltip, shadows.sm]}
+              accessibilityRole="button"
+              accessibilityLabel="Chiudi dettaglio"
+            >
               <Text style={typography.label}>{selectedDay.fullLabel}</Text>
               <Text style={typography.value}>
                 {selectedDay.calories.toLocaleString('it-IT')} kcal
@@ -124,7 +129,7 @@ export default function HistoryScreen() {
               >
                 {formatDelta(selectedDay.delta)}
               </Text>
-            </View>
+            </Pressable>
           ) : (
             <Text style={typography.caption}>
               Tocca una barra per vedere il dettaglio.
@@ -464,6 +469,13 @@ const styles = StyleSheet.create({
   },
   chartTooltip: {
     gap: spacing.xxs,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.card,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
   },
   listCard: {
     padding: spacing.screen,

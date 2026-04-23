@@ -24,6 +24,7 @@ import { Input } from '@/components/Input';
 import { MEAL_INFO, MEAL_ORDER } from '@/components/mealMeta';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { useToast } from '@/components/Toast';
 import { foodsDB, settingsDB } from '@/database';
 import type { Favorite, FavoriteItem, Food, MealType } from '@/database';
 import { useFavorites } from '@/hooks/useFavorites';
@@ -38,6 +39,7 @@ const MEAL_OPTIONS: ReadonlyArray<{ value: MealType; label: string }> = MEAL_ORD
 
 export default function FavoritesScreen() {
   const insets = useSafeAreaInsets();
+  const toast = useToast();
   const {
     favorites,
     loading,
@@ -68,11 +70,12 @@ export default function FavoritesScreen() {
       setSubmittingId(favorite.id);
       try {
         await addToDay(favorite, targetMeal, todayISO());
+        toast.show('Aggiunto!');
       } finally {
         setSubmittingId(null);
       }
     },
-    [addToDay, targetMeal],
+    [addToDay, targetMeal, toast],
   );
 
   const handleSave = useCallback(
