@@ -22,7 +22,9 @@ if not exist "node_modules" (
 )
 
 rem --- Verifica login EAS ---
-eas whoami >nul 2>nul
+rem NB: 'eas' su Windows e' un .cmd; senza "call" il controllo non torna
+rem     a questo script e il .bat esce silenziosamente prima della build.
+call eas whoami >nul 2>nul
 if errorlevel 1 (
     echo [ ] Non sei loggato su EAS. Avvio "eas login"...
     echo     ^(usa il tuo account Expo - crealo su https://expo.dev se non ce l'hai^)
@@ -51,7 +53,7 @@ if errorlevel 1 (
 echo.
 echo ============================================================
 echo  Build avviata/completata.
-echo
+echo.
 echo  Prossimi passi:
 echo    - Apri il link mostrato sopra ^(oppure https://expo.dev^)
 echo    - Scarica l'APK sul telefono
