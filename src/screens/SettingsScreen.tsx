@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Input } from '@/components/Input';
 import { OptionSelect } from '@/components/OptionSelect';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { useToast } from '@/components/Toast';
 import { settingsDB } from '@/database';
 import type { ActivityLevel, DailySettings, Gender, UserProfile } from '@/database';
 import { useProfile } from '@/hooks/useProfile';
@@ -47,9 +49,11 @@ type ParsedProfile = {
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, saveProfile, loading: profileLoading } = useProfile();
+  const toast = useToast();
+  const { profile, saveProfile, deleteProfile, loading: profileLoading } = useProfile();
   const [settings, setSettings] = useState<DailySettings | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     settingsDB
@@ -116,6 +120,29 @@ export default function SettingsScreen() {
   }, [sideKcal, settings, settingsLoading]);
 
   const loading = profileLoading || settingsLoading;
+
+  const handleReset = () => {
+    Alert.alert(
+      'Reset app',
+      'Verrà cancellato il profilo e tornerai all’onboarding. I pasti e i preferiti restano nel database. Vuoi procedere?',
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            setResetting(true);
+            try {
+              await deleteProfile();
+              toast.show('App resettata');
+            } finally {
+              setResetting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -282,6 +309,20 @@ export default function SettingsScreen() {
                     />
                   </FormField>
                 )}
+              />
+            </Card>
+
+            <Card style={styles.card}>
+              <Text style={typography.label}>Test</Text>
+              <Text style={typography.caption}>
+                Cancella il profilo per ricominciare dall’onboarding. Utile
+                durante lo sviluppo; pasti e preferiti restano intatti.
+              </Text>
+              <Button
+                label="Reset app (torna all’onboarding)"
+                variant="secondary"
+                onPress={handleReset}
+                loading={resetting}
               />
             </Card>
           </>

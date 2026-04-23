@@ -142,7 +142,10 @@ export function BottomSheet({
               styles.sheet,
               shadows.md,
               {
-                maxHeight: sheetHeight,
+                // `height` fissa è necessaria: con solo `maxHeight` i figli
+                // che usano `flex: 1` (FlatList, tab content) si collassano a
+                // 0 perché il parent è auto-sizing e "stuck" in basso.
+                height: sheetHeight,
                 paddingBottom: insets.bottom + spacing.xl,
                 transform: [{ translateY }],
               },

@@ -293,6 +293,11 @@ function FavoriteEditorModal({
   const [results, setResults] = useState<Food[]>([]);
   const [pendingFood, setPendingFood] = useState<Food | null>(null);
   const [saving, setSaving] = useState(false);
+  // Modal per creare un alimento nuovo al volo: viene salvato in foodsDB
+  // (source='manual') così la prossima ricerca lo troverà senza dover
+  // passare da AddFoodSheet.
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualPrefillName, setManualPrefillName] = useState('');
 
   // Reset del form a ogni riapertura. La dipendenza da editing?.id distingue
   // tra modifica di preferiti diversi; quando si chiude/riapre la modal
@@ -304,6 +309,8 @@ function FavoriteEditorModal({
     setQuery('');
     setResults([]);
     setPendingFood(null);
+    setManualOpen(false);
+    setManualPrefillName('');
   }, [visible, editing?.id]);
 
   // Ricerca locale: debounced per non martellare SQLite a ogni carattere.
@@ -371,6 +378,43 @@ function FavoriteEditorModal({
 
   const handleRemoveItem = useCallback((index: number) => {
     setItems((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleCreateManualFood = useCallback(
+    async (input: { name: string; caloriesPer100g: number; grams: number }) => {
+      const trimmed = input.name.trim();
+      if (!trimmed) return;
+      // Se esiste già un alimento con lo stesso nome, riusiamo quello:
+      // non duplichiamo e aggiorniamo il riferimento per futuri re-usi.
+      const existing = await foodsDB.findByName(trimmed);
+      const food =
+        existing ??
+        (await foodsDB.createFood({
+          name: trimmed,
+          caloriesPer100g: input.caloriesPer100g,
+          source: 'manual',
+        }));
+      const calories = (food.caloriesPer100g * input.grams) / 100;
+      setItems((prev) => [
+        ...prev,
+        {
+          foodId: food.id,
+          foodName: food.name,
+          grams: input.grams,
+          calories,
+        },
+      ]);
+      setManualOpen(false);
+      setManualPrefillName('');
+      setQuery('');
+      setResults([]);
+    },
+    [],
+  );
+
+  const openManualWithName = useCallback((prefill: string) => {
+    setManualPrefillName(prefill.trim());
+    setManualOpen(true);
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -518,9 +562,19 @@ function FavoriteEditorModal({
               </View>
 
               {query.trim().length > 0 && results.length === 0 ? (
-                <Text style={[typography.caption, styles.editorHint]}>
-                  Nessun alimento trovato.
-                </Text>
+                <Pressable
+                  onPress={() => openManualWithName(query)}
+                  style={styles.manualEmptyBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Aggiungi alimento manualmente"
+                >
+                  <Text style={typography.caption}>
+                    Nessun alimento trovato.
+                  </Text>
+                  <Text style={[typography.bodyBold, { color: colors.green }]}>
+                    + Aggiungilo manualmente
+                  </Text>
+                </Pressable>
               ) : results.length > 0 ? (
                 <FlatList
                   data={results}
@@ -547,6 +601,18 @@ function FavoriteEditorModal({
                   )}
                 />
               ) : null}
+
+              <Pressable
+                onPress={() => openManualWithName('')}
+                style={styles.manualAddBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Aggiungi alimento manualmente"
+              >
+                <Icon name="plus" size={14} color={colors.blue} />
+                <Text style={[typography.bodyBold, { color: colors.blue }]}>
+                  Nuovo alimento manuale
+                </Text>
+              </Pressable>
             </View>
 
             <View style={styles.totalsCard}>
@@ -578,8 +644,151 @@ function FavoriteEditorModal({
         onConfirm={handleAddFood}
         confirmLabel="Aggiungi al pasto"
       />
+
+      <ManualFoodEntryModal
+        visible={manualOpen}
+        initialName={manualPrefillName}
+        onClose={() => setManualOpen(false)}
+        onConfirm={handleCreateManualFood}
+      />
     </Modal>
   );
+}
+
+// -----------------------------------------------------------------------------
+// ManualFoodEntryModal: nuovo alimento creato al volo dall'editor preferiti.
+// Persiste in foodsDB con source='manual' così diventa ricercabile per sempre.
+// -----------------------------------------------------------------------------
+
+type ManualFoodEntryModalProps = {
+  visible: boolean;
+  initialName: string;
+  onClose: () => void;
+  onConfirm: (input: { name: string; caloriesPer100g: number; grams: number }) => Promise<void>;
+};
+
+function ManualFoodEntryModal({
+  visible,
+  initialName,
+  onClose,
+  onConfirm,
+}: ManualFoodEntryModalProps) {
+  const insets = useSafeAreaInsets();
+  const [name, setName] = useState(initialName);
+  const [kcalText, setKcalText] = useState('');
+  const [gramsText, setGramsText] = useState('100');
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!visible) return;
+    setName(initialName);
+    setKcalText('');
+    setGramsText('100');
+    setSubmitting(false);
+  }, [visible, initialName]);
+
+  const kcal = parseNumber(kcalText);
+  const grams = parseNumber(gramsText);
+  const total =
+    kcal !== null && grams !== null ? Math.round((kcal * grams) / 100) : null;
+  const canConfirm =
+    name.trim().length > 0 && kcal !== null && kcal > 0 && grams !== null && grams > 0;
+
+  const handleConfirm = useCallback(async () => {
+    if (!canConfirm || kcal === null || grams === null) return;
+    setSubmitting(true);
+    try {
+      await onConfirm({ name: name.trim(), caloriesPer100g: kcal, grams });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [canConfirm, kcal, grams, name, onConfirm]);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.manualRoot}
+      >
+        <Pressable style={styles.editorBackdrop} onPress={onClose} />
+        <View
+          style={[
+            styles.manualCard,
+            shadows.md,
+            { marginBottom: insets.bottom + spacing.screen },
+          ]}
+        >
+          <View style={styles.editorHeader}>
+            <View style={styles.editorHeaderText}>
+              <Text style={typography.label}>Nuovo alimento</Text>
+              <Text style={typography.h1}>Aggiungi manualmente</Text>
+            </View>
+            <Pressable
+              onPress={onClose}
+              style={styles.closeBtn}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Chiudi"
+            >
+              <Icon name="close" size={16} color={colors.textSec} />
+            </Pressable>
+          </View>
+
+          <Text style={typography.caption}>
+            Lo salviamo in archivio: la prossima volta lo trovi con la ricerca.
+          </Text>
+
+          <Input
+            label="Nome alimento"
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="sentences"
+            placeholder="Es. Pasta integrale"
+          />
+          <Input
+            label="Calorie per 100 g"
+            unit="kcal"
+            keyboardType="decimal-pad"
+            value={kcalText}
+            onChangeText={setKcalText}
+            placeholder="120"
+          />
+          <Input
+            label="Quantità"
+            unit="g"
+            keyboardType="decimal-pad"
+            value={gramsText}
+            onChangeText={setGramsText}
+          />
+
+          <View style={styles.totalsCard}>
+            <Text style={typography.label}>Totale</Text>
+            <Text style={typography.value}>
+              {total !== null ? `${total.toLocaleString('it-IT')} kcal` : '—'}
+            </Text>
+          </View>
+
+          <Button
+            label="Aggiungi al pasto"
+            onPress={handleConfirm}
+            disabled={!canConfirm}
+            loading={submitting}
+          />
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+function parseNumber(raw: string): number | null {
+  const n = Number(String(raw).replace(',', '.'));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
 }
 
 function formatGrams(grams: number): string {
@@ -742,6 +951,39 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1.5,
     borderColor: colors.green,
+  },
+  manualAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.lg,
+    backgroundColor: colors.blueLight,
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    borderColor: colors.blue,
+  },
+  manualEmptyBtn: {
+    gap: spacing.xxs,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    backgroundColor: colors.bg,
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  manualRoot: {
+    flex: 1,
+    justifyContent: 'center',
+    backgroundColor: colors.overlay,
+    paddingHorizontal: spacing.screen,
+  },
+  manualCard: {
+    backgroundColor: colors.card,
+    borderRadius: radii.xxl,
+    padding: spacing.screen,
+    gap: spacing.xl,
   },
   searchField: {
     flexDirection: 'row',
