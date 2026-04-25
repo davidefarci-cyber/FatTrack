@@ -59,7 +59,6 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
 
     CREATE TABLE IF NOT EXISTS daily_settings (
       id INTEGER PRIMARY KEY CHECK (id = 1),
-      target_calories REAL NOT NULL DEFAULT 2000,
       side_dish_calories REAL NOT NULL DEFAULT 50,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -77,8 +76,18 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     );
   `);
 
+  // Migrazione: la colonna `target_calories` su `daily_settings` è stata
+  // rimossa (il target reale vive su `user_profile.target_calories`).
+  // Su DB nuovi il CREATE già non la include; sui DB esistenti la dropchiamo
+  // qui in modo idempotente. Richiede SQLite ≥ 3.35 (expo-sqlite la include).
+  try {
+    await db.execAsync(`ALTER TABLE daily_settings DROP COLUMN target_calories`);
+  } catch {
+    // La colonna non esiste: niente da fare.
+  }
+
   await db.runAsync(
-    `INSERT OR IGNORE INTO daily_settings (id, target_calories, side_dish_calories) VALUES (1, 2000, 50)`,
+    `INSERT OR IGNORE INTO daily_settings (id, side_dish_calories) VALUES (1, 50)`,
   );
 }
 

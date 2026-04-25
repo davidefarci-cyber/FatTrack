@@ -20,6 +20,11 @@ import {
   calculateTDEE,
   calculateTarget,
 } from '@/utils/calorieCalculator';
+import {
+  ACTIVITY_OPTIONS,
+  GENDER_OPTIONS,
+  WEEKLY_GOAL_OPTIONS,
+} from '@/utils/profileOptions';
 
 // Onboarding a 4 step in linea col prototipo (design/fattrack/project/
 // fattrack-screens.jsx):
@@ -57,34 +62,6 @@ const STEPS: ReadonlyArray<StepDef> = [
   { label: 'Attività', title: 'Quanto sei attivo?', color: colors.blue },
   { label: 'Obiettivo', title: 'Qual è il tuo obiettivo?', color: colors.purple },
   { label: 'Risultato', title: 'Tutto pronto!', color: colors.green },
-];
-
-type ActivityOption = {
-  value: ActivityLevel;
-  icon: string;
-  label: string;
-  description: string;
-};
-
-const ACTIVITIES: ReadonlyArray<ActivityOption> = [
-  { value: 1, icon: '🪑', label: 'Sedentario', description: 'Ufficio, poco moto' },
-  { value: 2, icon: '🚶', label: 'Leggero', description: '1–3 allenamenti/sett' },
-  { value: 3, icon: '🚴', label: 'Moderato', description: '3–5 allenamenti/sett' },
-  { value: 4, icon: '🏋️', label: 'Attivo', description: '6–7 allenamenti/sett' },
-  { value: 5, icon: '⚡', label: 'Intensivo', description: 'Doppi allenamenti' },
-];
-
-type GoalOption = {
-  value: number;
-  label: string;
-  description: string;
-};
-
-const GOALS: ReadonlyArray<GoalOption> = [
-  { value: 0.25, label: '–0,25 kg / settimana', description: 'Lento e costante' },
-  { value: 0.5, label: '–0,5 kg / settimana', description: 'Consigliato' },
-  { value: 0.75, label: '–0,75 kg / settimana', description: 'Impegnativo' },
-  { value: 1, label: '–1 kg / settimana', description: 'Aggressivo' },
 ];
 
 export default function OnboardingScreen() {
@@ -291,12 +268,12 @@ function ProfileStep({
       <View style={styles.fieldBlock}>
         <Text style={typography.label}>Sesso biologico</Text>
         <View style={styles.row2}>
-          {(['M', 'F'] as const).map((g) => {
-            const selected = form.gender === g;
+          {GENDER_OPTIONS.map((opt) => {
+            const selected = form.gender === opt.value;
             return (
               <Pressable
-                key={g}
-                onPress={() => update('gender', g)}
+                key={opt.value}
+                onPress={() => update('gender', opt.value)}
                 style={[
                   styles.genderBtn,
                   {
@@ -305,7 +282,7 @@ function ProfileStep({
                   },
                 ]}
                 accessibilityRole="button"
-                accessibilityLabel={g === 'M' ? 'Uomo' : 'Donna'}
+                accessibilityLabel={opt.label}
               >
                 <Text
                   style={[
@@ -313,7 +290,7 @@ function ProfileStep({
                     { color: selected ? color : colors.textSec },
                   ]}
                 >
-                  {g === 'M' ? 'Uomo' : 'Donna'}
+                  {opt.label}
                 </Text>
               </Pressable>
             );
@@ -339,7 +316,7 @@ function ActivityStep({
 }) {
   return (
     <View style={styles.stepBody}>
-      {ACTIVITIES.map((a) => {
+      {ACTIVITY_OPTIONS.map((a) => {
         const selected = value === a.value;
         return (
           <Pressable
@@ -353,12 +330,14 @@ function ActivityStep({
               },
             ]}
             accessibilityRole="button"
-            accessibilityLabel={`${a.label}. ${a.description}`}
+            accessibilityLabel={`${a.label}. ${a.description ?? ''}`.trim()}
           >
-            <Text style={styles.optionIcon}>{a.icon}</Text>
+            {a.icon ? <Text style={styles.optionIcon}>{a.icon}</Text> : null}
             <View style={styles.optionText}>
               <Text style={typography.body}>{a.label}</Text>
-              <Text style={typography.caption}>{a.description}</Text>
+              {a.description ? (
+                <Text style={typography.caption}>{a.description}</Text>
+              ) : null}
             </View>
             {selected ? (
               <View style={[styles.checkDot, { backgroundColor: color }]}>
@@ -387,7 +366,7 @@ function GoalStep({
 }) {
   return (
     <View style={styles.stepBody}>
-      {GOALS.map((g) => {
+      {WEEKLY_GOAL_OPTIONS.map((g) => {
         const selected = value === g.value;
         return (
           <Pressable
@@ -401,7 +380,7 @@ function GoalStep({
               },
             ]}
             accessibilityRole="button"
-            accessibilityLabel={`${g.label}. ${g.description}`}
+            accessibilityLabel={`${g.label}. ${g.description ?? ''}`.trim()}
           >
             <View
               style={[
@@ -420,7 +399,9 @@ function GoalStep({
             </View>
             <View style={styles.optionText}>
               <Text style={typography.body}>{g.label}</Text>
-              <Text style={typography.caption}>{g.description}</Text>
+              {g.description ? (
+                <Text style={typography.caption}>{g.description}</Text>
+              ) : null}
             </View>
           </Pressable>
         );

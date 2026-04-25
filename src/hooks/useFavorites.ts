@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { favoritesDB, mealsDB } from '@/database';
+import { favoritesDB, mealsStore } from '@/database';
 import type { Favorite, MealType, NewFavorite } from '@/database';
 
 type UseFavoritesResult = {
@@ -65,17 +65,17 @@ export function useFavorites(): UseFavoritesResult {
 
   const addToDay = useCallback(
     async (favorite: Favorite, mealType: MealType, date: string): Promise<void> => {
-      await Promise.all(
-        favorite.items.map((item) =>
-          mealsDB.createMeal({
-            date,
-            mealType,
-            foodId: item.foodId,
-            foodName: item.foodName,
-            grams: item.grams,
-            caloriesTotal: item.calories,
-          }),
-        ),
+      // Passiamo dallo store così tutti gli altri consumer (Home, Storico)
+      // si rinfrescano in automatico.
+      await mealsStore.createMeals(
+        favorite.items.map((item) => ({
+          date,
+          mealType,
+          foodId: item.foodId,
+          foodName: item.foodName,
+          grams: item.grams,
+          caloriesTotal: item.calories,
+        })),
       );
     },
     [],

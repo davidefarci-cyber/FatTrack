@@ -12,19 +12,20 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddFoodSheet } from '@/components/AddFoodSheet';
+import { EditMealModal } from '@/components/EditMealModal';
 import { FavoritesModal } from '@/components/FavoritesModal';
 import { HomeSummaryCard } from '@/components/HomeSummaryCard';
 import { Icon } from '@/components/Icon';
 import { MealSection } from '@/components/MealSection';
 import { MEAL_ORDER } from '@/components/mealMeta';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import type { Favorite, MealType } from '@/database';
+import { mealsStore } from '@/database';
+import type { Favorite, Meal, MealType } from '@/database';
 import { useDailyLog } from '@/hooks/useDailyLog';
 import type { NewMealInput } from '@/hooks/useDailyLog';
 import { useProfile } from '@/hooks/useProfile';
 import { colors, radii, spacing, typography } from '@/theme';
-
-const FALLBACK_TARGET_KCAL = 2000;
+import { DEFAULT_TARGET_KCAL } from '@/utils/calorieCalculator';
 
 // Abilita LayoutAnimation su Android (di default è off) per il collapse animato.
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -49,11 +50,11 @@ export default function HomeScreen() {
     goToPreviousDay,
     goToNextDay,
     goToToday,
-    reload,
   } = useDailyLog();
 
   const [addFoodMeal, setAddFoodMeal] = useState<MealType | null>(null);
   const [favoritesMeal, setFavoritesMeal] = useState<MealType | null>(null);
+  const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
   const [collapsed, setCollapsed] = useState<Record<MealType, boolean>>({
     colazione: false,
     pranzo: false,
@@ -66,9 +67,28 @@ export default function HomeScreen() {
     setCollapsed((prev) => ({ ...prev, [mealType]: !prev[mealType] }));
   }, []);
 
-  const target = targetCalories ?? FALLBACK_TARGET_KCAL;
+  const target = targetCalories ?? DEFAULT_TARGET_KCAL;
 
   const handleDelete = useCallback((id: number) => removeMeal(id), [removeMeal]);
+
+  const handleEdit = useCallback((meal: Meal) => setEditingMeal(meal), []);
+
+  const handleSaveEdit = useCallback(
+    async (input: {
+      id: number;
+      mealType: MealType;
+      grams: number;
+      caloriesTotal: number;
+    }) => {
+      await mealsStore.updateMeal(input.id, {
+        mealType: input.mealType,
+        grams: input.grams,
+        caloriesTotal: input.caloriesTotal,
+      });
+      setEditingMeal(null);
+    },
+    [],
+  );
 
   const handleAddFavorite = useCallback(
     async (mealType: MealType, favorite: Favorite) => {
@@ -120,6 +140,7 @@ export default function HomeScreen() {
             onAdd={() => setAddFoodMeal(mealType)}
             onAddFavorite={() => setFavoritesMeal(mealType)}
             onDelete={handleDelete}
+            onEdit={handleEdit}
           />
         ))}
       </ScrollView>
@@ -129,7 +150,6 @@ export default function HomeScreen() {
         mealType={addFoodMeal ?? 'colazione'}
         date={date}
         onClose={() => setAddFoodMeal(null)}
-        onAdded={reload}
       />
 
       <FavoritesModal
@@ -139,6 +159,13 @@ export default function HomeScreen() {
         onSelect={(fav) =>
           favoritesMeal ? handleAddFavorite(favoritesMeal, fav) : Promise.resolve()
         }
+      />
+
+      <EditMealModal
+        visible={editingMeal !== null}
+        meal={editingMeal}
+        onClose={() => setEditingMeal(null)}
+        onSave={handleSaveEdit}
       />
     </View>
   );

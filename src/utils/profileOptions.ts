@@ -1,61 +1,74 @@
 import type { ActivityLevel, Gender } from '@/database';
 import type { OptionItem } from '@/components/OptionSelect';
 
-// Opzioni condivise tra OnboardingScreen e SettingsScreen:
-// stessi identici label/descrizioni per tenere allineato il profilo.
+// Single source of truth per le opzioni di profilo. Sono usate sia da
+// `OnboardingScreen` (con icona emoji) sia da `SettingsScreen` (lista
+// `OptionSelect`, l'icona è ignorata): mantenere qui label e descrizioni
+// evita drift tra le due schermate.
+
+export type ProfileOption<T extends string | number> = OptionItem<T> & {
+  // Emoji opzionale mostrata nelle card grandi (Onboarding). Le liste
+  // compatte (Settings) la ignorano.
+  icon?: string;
+};
 
 export const GENDER_OPTIONS: ReadonlyArray<{ value: Gender; label: string }> = [
   { value: 'M', label: 'Uomo' },
   { value: 'F', label: 'Donna' },
 ];
 
-export const ACTIVITY_OPTIONS: ReadonlyArray<OptionItem<ActivityLevel>> = [
+export const ACTIVITY_OPTIONS: ReadonlyArray<ProfileOption<ActivityLevel>> = [
   {
     value: 1,
+    icon: '🪑',
     label: 'Sedentario',
-    description: 'Lavoro al pc, nessuno sport',
+    description: 'Ufficio, poco moto',
   },
   {
     value: 2,
+    icon: '🚶',
     label: 'Leggero',
-    description: 'Allenamento 1-3 volte a settimana',
+    description: '1–3 allenamenti/sett',
   },
   {
     value: 3,
+    icon: '🚴',
     label: 'Moderato',
-    description: 'Allenamento 3-5 volte a settimana',
+    description: '3–5 allenamenti/sett',
   },
   {
     value: 4,
+    icon: '🏋️',
     label: 'Attivo',
-    description: 'Allenamento 6-7 volte a settimana',
+    description: '6–7 allenamenti/sett',
   },
   {
     value: 5,
-    label: 'Molto attivo',
-    description: 'Lavoro fisico o allenamento quotidiano intenso',
+    icon: '⚡',
+    label: 'Intensivo',
+    description: 'Doppi allenamenti',
   },
 ];
 
-export const WEEKLY_GOAL_OPTIONS: ReadonlyArray<OptionItem<number>> = [
+export const WEEKLY_GOAL_OPTIONS: ReadonlyArray<ProfileOption<number>> = [
   {
     value: 0.25,
-    label: '-0,25 kg a settimana',
-    description: 'Deficit morbido, percorso lungo',
+    label: '–0,25 kg / settimana',
+    description: 'Lento e costante',
   },
   {
     value: 0.5,
-    label: '-0,5 kg a settimana',
-    description: 'Deficit equilibrato, consigliato',
+    label: '–0,5 kg / settimana',
+    description: 'Consigliato',
   },
   {
     value: 0.75,
-    label: '-0,75 kg a settimana',
-    description: 'Deficit sostenuto, richiede disciplina',
+    label: '–0,75 kg / settimana',
+    description: 'Impegnativo',
   },
   {
     value: 1,
-    label: '-1 kg a settimana',
-    description: 'Deficit aggressivo, breve periodo',
+    label: '–1 kg / settimana',
+    description: 'Aggressivo',
   },
 ];

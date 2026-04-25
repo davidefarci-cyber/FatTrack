@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import { mealsDB, settingsDB } from '@/database';
+import { mealsStore } from '@/database';
 import { useProfile } from '@/hooks/useProfile';
+import { DEFAULT_TARGET_KCAL } from '@/utils/calorieCalculator';
 
 import { shiftDateISO, todayISO } from './useDailyLog';
 
@@ -35,10 +36,7 @@ type UseHistoryResult = {
   // Quanti giorni hanno almeno un pasto registrato.
   daysWithData: number;
   loading: boolean;
-  reload: () => Promise<void>;
 };
-
-const FALLBACK_TARGET_KCAL = 2000;
 
 const WEEKDAY_SHORT_IT = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'] as const;
 const MONTH_SHORT_IT = [
@@ -49,47 +47,21 @@ const MONTH_SHORT_IT = [
 export function useHistory(initialPeriod: HistoryPeriod = 7): UseHistoryResult {
   const { targetCalories: profileTarget } = useProfile();
   const [period, setPeriod] = useState<HistoryPeriod>(initialPeriod);
-  const [rawTotals, setRawTotals] = useState<Map<string, number>>(new Map());
-  const [fallbackTarget, setFallbackTarget] = useState<number>(FALLBACK_TARGET_KCAL);
-  const [loading, setLoading] = useState(true);
 
-  // Il target proviene dal profilo; se il profilo non è configurato usiamo
-  // il singleton daily_settings (2000 kcal di default) come fallback.
-  useEffect(() => {
-    settingsDB
-      .getSettings()
-      .then((s) => setFallbackTarget(s.targetCalories))
-      .catch(() => undefined);
-  }, []);
+  const today = todayISO();
+  const fromDate = shiftDateISO(today, -(period - 1));
+  const { mealsByDate, loading } = mealsStore.useMealsForRange(fromDate, today);
 
-  const targetCalories = profileTarget ?? fallbackTarget;
-
-  const reload = useCallback(async () => {
-    setLoading(true);
-    try {
-      const today = todayISO();
-      const from = shiftDateISO(today, -(period - 1));
-      const meals = await mealsDB.listMealsByDateRange(from, today);
-      const totals = new Map<string, number>();
-      for (const meal of meals) {
-        totals.set(meal.date, (totals.get(meal.date) ?? 0) + meal.caloriesTotal);
-      }
-      setRawTotals(totals);
-    } finally {
-      setLoading(false);
-    }
-  }, [period]);
-
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  const targetCalories = profileTarget ?? DEFAULT_TARGET_KCAL;
 
   const days = useMemo<HistoryDay[]>(() => {
-    const today = todayISO();
     const out: HistoryDay[] = [];
     for (let i = period - 1; i >= 0; i--) {
       const iso = shiftDateISO(today, -i);
-      const calories = Math.round(rawTotals.get(iso) ?? 0);
+      const dayMeals = mealsByDate.get(iso) ?? [];
+      const calories = Math.round(
+        dayMeals.reduce((sum, m) => sum + m.caloriesTotal, 0),
+      );
       const delta = Math.round(calories - targetCalories);
       out.push({
         date: iso,
@@ -101,7 +73,7 @@ export function useHistory(initialPeriod: HistoryPeriod = 7): UseHistoryResult {
       });
     }
     return out;
-  }, [rawTotals, period, targetCalories]);
+  }, [mealsByDate, period, targetCalories, today]);
 
   const averageCalories = useMemo(() => {
     if (days.length === 0) return 0;
@@ -135,7 +107,6 @@ export function useHistory(initialPeriod: HistoryPeriod = 7): UseHistoryResult {
     daysOverTarget,
     daysWithData,
     loading,
-    reload,
   };
 }
 
