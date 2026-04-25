@@ -9,7 +9,7 @@ import { Card } from '@/components/Card';
 import { ScannerView } from '@/components/ScannerView';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
-import { foodsDB, mealsDB } from '@/database';
+import { foodsDB, mealsStore } from '@/database';
 import type { MealType } from '@/database';
 import { todayISO } from '@/hooks/useDailyLog';
 import { colors, spacing, typography } from '@/theme';
@@ -90,7 +90,7 @@ export default function BarcodeScreen() {
           });
           foodId = created.id;
         }
-        await mealsDB.createMeal({
+        await mealsStore.createMeal({
           date: todayISO(),
           mealType,
           foodId,

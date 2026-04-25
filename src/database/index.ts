@@ -3,6 +3,7 @@ export { DEFAULT_ITALIAN_FOODS, seedFoodsIfEmpty } from './seedFoods';
 
 export * as foodsDB from './foodsDB';
 export * as mealsDB from './mealsDB';
+export * as mealsStore from './mealsStore';
 export * as favoritesDB from './favoritesDB';
 export * as settingsDB from './settingsDB';
 export * as profileDB from './profileDB';

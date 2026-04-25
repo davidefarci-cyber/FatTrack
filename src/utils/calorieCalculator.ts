@@ -3,6 +3,11 @@ import type { ActivityLevel, Gender } from '@/database';
 // 1 kg di massa grassa ~ 7700 kcal (convenzione diffusa, valore approssimato).
 export const KCAL_PER_KG_BODY_FAT = 7700;
 
+// Target calorico di fallback usato quando il profilo non è ancora configurato
+// (es. nei pochi frame tra il cleanup del profilo e il redirect a Onboarding).
+// Nel flusso normale il target arriva sempre da `useProfile().targetCalories`.
+export const DEFAULT_TARGET_KCAL = 2000;
+
 export const ACTIVITY_MULTIPLIERS: Record<ActivityLevel, number> = {
   1: 1.2, // sedentario
   2: 1.375, // leggero

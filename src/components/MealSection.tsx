@@ -16,6 +16,7 @@ type MealSectionProps = {
   onAdd: () => void;
   onAddFavorite: () => void;
   onDelete: (id: number) => void;
+  onEdit: (meal: Meal) => void;
 };
 
 export function MealSection({
@@ -27,6 +28,7 @@ export function MealSection({
   onAdd,
   onAddFavorite,
   onDelete,
+  onEdit,
 }: MealSectionProps) {
   const info = MEAL_INFO[mealType];
   const subtotal = Math.round(meals.reduce((sum, m) => sum + m.caloriesTotal, 0));
@@ -75,6 +77,7 @@ export function MealSection({
                   key={meal.id}
                   meal={meal}
                   onDelete={onDelete}
+                  onEdit={onEdit}
                   isLast={idx === meals.length - 1}
                 />
               ))
@@ -114,10 +117,12 @@ export function MealSection({
 function MealRow({
   meal,
   onDelete,
+  onEdit,
   isLast,
 }: {
   meal: Meal;
   onDelete: (id: number) => void;
+  onEdit: (meal: Meal) => void;
   isLast: boolean;
 }) {
   return (
@@ -135,7 +140,12 @@ function MealRow({
       )}
       overshootRight={false}
     >
-      <View style={[styles.row, !isLast && styles.rowDivider]}>
+      <Pressable
+        onPress={() => onEdit(meal)}
+        style={[styles.row, !isLast && styles.rowDivider]}
+        accessibilityRole="button"
+        accessibilityLabel={`Modifica ${meal.foodName}`}
+      >
         <View style={styles.rowText}>
           <Text style={typography.body} numberOfLines={1}>
             {meal.foodName}
@@ -145,7 +155,8 @@ function MealRow({
         <Text style={typography.bodyBold}>
           {Math.round(meal.caloriesTotal).toLocaleString('it-IT')} kcal
         </Text>
-      </View>
+        <Icon name="pencil" size={14} color={colors.textSec} />
+      </Pressable>
     </Swipeable>
   );
 }

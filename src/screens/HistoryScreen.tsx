@@ -1,5 +1,3 @@
-import { useFocusEffect } from '@react-navigation/native';
-import { useCallback } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -28,16 +26,7 @@ export default function HistoryScreen() {
     daysOverTarget,
     daysWithData,
     loading,
-    reload,
   } = useHistory(7);
-
-  // Ricarichiamo all'apertura del tab: se l'utente aggiunge pasti da Home
-  // vogliamo vederli nel grafico senza dover cambiare periodo.
-  useFocusEffect(
-    useCallback(() => {
-      reload();
-    }, [reload]),
-  );
 
   // Larghezza interna: screen - padding ScrollView (spacing.screen × 2)
   // - padding Card (spacing.screen × 2).

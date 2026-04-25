@@ -22,7 +22,7 @@ import { MEAL_INFO } from '@/components/mealMeta';
 import { ScannerView } from '@/components/ScannerView';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { useToast } from '@/components/Toast';
-import { foodsDB, mealsDB } from '@/database';
+import { foodsDB, mealsStore } from '@/database';
 import type { Food, FoodSource, MealType } from '@/database';
 import { colors, radii, spacing, typography } from '@/theme';
 import { calculateMealCalories } from '@/utils/calorieCalculator';
@@ -33,7 +33,7 @@ import type { OffProduct } from '@/utils/openFoodFacts';
 // Ospita 3 tab (Cerca / Barcode / Manuale) riutilizzando i componenti
 // condivisi: `SegmentedControl`, `ScannerView` (variante compact),
 // `GramsInputModal` e `Input`. La persistenza passa sempre da
-// `mealsDB.createMeal`; a conferma il sheet si chiude e mostra un toast.
+// `mealsStore.createMeal`; a conferma il sheet si chiude e mostra un toast.
 
 type AddFoodSheetProps = {
   visible: boolean;
@@ -86,7 +86,7 @@ export function AddFoodSheet({ visible, mealType, date, onClose, onAdded }: AddF
           foodId = created.id;
         }
       }
-      await mealsDB.createMeal({
+      await mealsStore.createMeal({
         date,
         mealType,
         foodId,

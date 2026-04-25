@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import { mealsDB } from '@/database';
+import { mealsStore } from '@/database';
 import type { Meal, MealType, NewMeal } from '@/database';
 
 export type MealsByType = Record<MealType, Meal[]>;
@@ -26,7 +26,6 @@ type UseDailyLogResult = {
   goToNextDay: () => void;
   goToToday: () => void;
   setDate: (iso: string) => void;
-  reload: () => Promise<void>;
 };
 
 const EMPTY_BY_TYPE: MealsByType = {
@@ -38,24 +37,12 @@ const EMPTY_BY_TYPE: MealsByType = {
 
 export function useDailyLog(initialDate?: string): UseDailyLogResult {
   const [date, setDate] = useState<string>(initialDate ?? todayISO());
-  const [meals, setMeals] = useState<Meal[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { meals: mealsRO, loading } = mealsStore.useMealsForDate(date);
 
-  const reload = useCallback(async () => {
-    setLoading(true);
-    try {
-      const rows = await mealsDB.listMealsByDate(date);
-      setMeals(rows);
-    } finally {
-      setLoading(false);
-    }
-  }, [date]);
-
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  const meals = useMemo(() => (mealsRO ? [...mealsRO] : []), [mealsRO]);
 
   const mealsByType = useMemo<MealsByType>(() => {
+    if (meals.length === 0) return EMPTY_BY_TYPE;
     const out: MealsByType = {
       colazione: [],
       pranzo: [],
@@ -74,34 +61,20 @@ export function useDailyLog(initialDate?: string): UseDailyLogResult {
   );
 
   const addMeal = useCallback(
-    async (input: NewMealInput): Promise<Meal> => {
-      const created = await mealsDB.createMeal({ ...input, date });
-      await reload();
-      return created;
-    },
-    [date, reload],
+    (input: NewMealInput): Promise<Meal> =>
+      mealsStore.createMeal({ ...input, date }),
+    [date],
   );
 
   const addMeals = useCallback(
-    async (inputs: NewMealInput[]): Promise<Meal[]> => {
-      const created = await Promise.all(
-        inputs.map((i) => mealsDB.createMeal({ ...i, date })),
-      );
-      await reload();
-      return created;
-    },
-    [date, reload],
+    (inputs: NewMealInput[]): Promise<Meal[]> =>
+      mealsStore.createMeals(inputs.map((i) => ({ ...i, date }))),
+    [date],
   );
 
   const removeMeal = useCallback(
-    async (id: number): Promise<void> => {
-      await mealsDB.deleteMeal(id);
-      // Update ottimistico + reload: la rimozione è monotona,
-      // l'aggiornamento locale evita flash nella UI mentre il reload conferma.
-      setMeals((prev) => prev.filter((m) => m.id !== id));
-      await reload();
-    },
-    [reload],
+    (id: number): Promise<void> => mealsStore.deleteMeal(id),
+    [],
   );
 
   const goToPreviousDay = useCallback(() => {
@@ -125,7 +98,7 @@ export function useDailyLog(initialDate?: string): UseDailyLogResult {
     isToday,
     loading,
     meals,
-    mealsByType: meals.length === 0 ? EMPTY_BY_TYPE : mealsByType,
+    mealsByType,
     totalCalories,
     addMeal,
     addMeals,
@@ -134,7 +107,6 @@ export function useDailyLog(initialDate?: string): UseDailyLogResult {
     goToNextDay,
     goToToday,
     setDate,
-    reload,
   };
 }
 

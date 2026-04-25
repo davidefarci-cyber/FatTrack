@@ -1,7 +1,9 @@
 import { getDatabase } from './db';
 
+// `daily_settings` ora contiene solo `side_dish_calories` (il target calorico
+// vive su `user_profile.target_calories`, calcolato a partire dal profilo).
+
 export type DailySettings = {
-  targetCalories: number;
   sideDishCalories: number;
   updatedAt: string;
 };
@@ -9,7 +11,6 @@ export type DailySettings = {
 export type DailySettingsPatch = Partial<Omit<DailySettings, 'updatedAt'>>;
 
 const COLUMNS = `
-  target_calories AS targetCalories,
   side_dish_calories AS sideDishCalories,
   updated_at AS updatedAt
 `;
@@ -21,9 +22,9 @@ export async function getSettings(): Promise<DailySettings> {
   );
   if (row) return row;
 
-  // Safety net: migrations already insert the singleton, but reinsert if missing.
+  // Safety net: migrations già inseriscono il singleton, reinseriamo se assente.
   await db.runAsync(
-    `INSERT OR IGNORE INTO daily_settings (id, target_calories, side_dish_calories) VALUES (1, 2000, 50)`,
+    `INSERT OR IGNORE INTO daily_settings (id, side_dish_calories) VALUES (1, 50)`,
   );
   const reloaded = await db.getFirstAsync<DailySettings>(
     `SELECT ${COLUMNS} FROM daily_settings WHERE id = 1`,
@@ -36,10 +37,6 @@ export async function updateSettings(patch: DailySettingsPatch): Promise<DailySe
   const db = await getDatabase();
   const fields: string[] = [];
   const values: number[] = [];
-  if (patch.targetCalories !== undefined) {
-    fields.push('target_calories = ?');
-    values.push(patch.targetCalories);
-  }
   if (patch.sideDishCalories !== undefined) {
     fields.push('side_dish_calories = ?');
     values.push(patch.sideDishCalories);
