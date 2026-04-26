@@ -19,7 +19,8 @@ export type IconName =
   | 'heart'
   | 'target'
   | 'check'
-  | 'close';
+  | 'close'
+  | 'info';
 
 export type IconProps = {
   name: IconName;
@@ -210,6 +211,19 @@ export function Icon({ name, size = 22, color = colors.textSec, filled = false }
             d="M4 4l8 8M12 4l-8 8"
             stroke={color}
             strokeWidth={2}
+            strokeLinecap="round"
+          />
+        </Svg>
+      );
+    case 'info':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+          <Circle cx={8} cy={8} r={6.5} stroke={color} strokeWidth={1.4} />
+          <Circle cx={8} cy={5} r={0.9} fill={color} />
+          <Path
+            d="M8 7.5v4"
+            stroke={color}
+            strokeWidth={1.6}
             strokeLinecap="round"
           />
         </Svg>

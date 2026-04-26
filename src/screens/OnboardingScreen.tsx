@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/Icon';
+import { InfoTooltip } from '@/components/InfoTooltip';
 import { Input } from '@/components/Input';
 import type { ActivityLevel, Gender } from '@/database';
 import { useProfile } from '@/hooks/useProfile';
@@ -20,6 +21,8 @@ import {
   calculateTDEE,
   calculateTarget,
 } from '@/utils/calorieCalculator';
+import { PROFILE_EXPLAINERS } from '@/utils/profileExplainers';
+import type { ProfileExplainerKey } from '@/utils/profileExplainers';
 import {
   ACTIVITY_OPTIONS,
   GENDER_OPTIONS,
@@ -437,17 +440,35 @@ function ResultStep({
       <View style={styles.successCircle}>
         <Icon name="check" size={36} color={colors.green} />
       </View>
-      <Text style={typography.caption}>
-        Il tuo obiettivo calorico giornaliero è
-      </Text>
+      <View style={styles.resultTargetCaption}>
+        <Text style={typography.caption}>
+          Il tuo obiettivo calorico giornaliero è
+        </Text>
+        <InfoTooltip
+          title={PROFILE_EXPLAINERS.target.title}
+          body={PROFILE_EXPLAINERS.target.body}
+        />
+      </View>
       <Text style={styles.resultTarget}>
         {target.toLocaleString('it-IT')}
       </Text>
       <Text style={styles.resultUnit}>kcal / giorno</Text>
 
       <View style={styles.resultPills}>
-        <ResultPill label="BMR" value={`${bmr} kcal`} color={colors.orange} bg={colors.orangeLight} />
-        <ResultPill label="TDEE" value={`${tdee} kcal`} color={colors.blue} bg={colors.blueLight} />
+        <ResultPill
+          label="BMR"
+          explainer="bmr"
+          value={`${bmr} kcal`}
+          color={colors.orange}
+          bg={colors.orangeLight}
+        />
+        <ResultPill
+          label="TDEE"
+          explainer="tdee"
+          value={`${tdee} kcal`}
+          color={colors.blue}
+          bg={colors.blueLight}
+        />
         <ResultPill
           label="Deficit"
           value={`${deficit} kcal`}
@@ -464,16 +485,22 @@ function ResultPill({
   value,
   color,
   bg,
+  explainer,
 }: {
   label: string;
   value: string;
   color: string;
   bg: string;
+  explainer?: ProfileExplainerKey;
 }) {
+  const info = explainer ? PROFILE_EXPLAINERS[explainer] : null;
   return (
     <View style={[styles.resultPill, { backgroundColor: bg }]}>
       <Text style={[typography.bodyBold, { color }]}>{value}</Text>
-      <Text style={[typography.micro, { color: colors.textSec }]}>{label}</Text>
+      <View style={styles.resultPillLabelRow}>
+        <Text style={[typography.micro, { color: colors.textSec }]}>{label}</Text>
+        {info ? <InfoTooltip title={info.title} body={info.body} iconColor={color} /> : null}
+      </View>
     </View>
   );
 }
@@ -708,5 +735,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     alignItems: 'center',
     gap: spacing.xxs,
+  },
+  resultPillLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  resultTargetCaption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
 });

@@ -36,6 +36,9 @@ type EditMealModalProps = {
     caloriesTotal: number;
     servingLabel: string | null;
     servingQty: number | null;
+    proteinTotal: number | null;
+    carbsTotal: number | null;
+    fatTotal: number | null;
   }) => Promise<void> | void;
 };
 
@@ -148,6 +151,27 @@ export function EditMealModal({ visible, meal, onClose, onSave }: EditMealModalP
     return Math.round(calculateMealCalories(caloriesPer100g, computedGrams));
   }, [meal, isFixedCost, computedGrams, caloriesPer100g]);
 
+  // Macro proporzionali ai grammi correnti. Se lo snapshot del pasto era
+  // null (legacy o manuale senza macro), restano null. Se era valorizzato,
+  // scaliamo linearmente: ratio = newGrams / originalGrams.
+  const scaledMacros = useMemo(() => {
+    if (!meal || isFixedCost) return null;
+    const hasAny =
+      meal.proteinTotal !== null ||
+      meal.carbsTotal !== null ||
+      meal.fatTotal !== null;
+    if (!hasAny) return null;
+    const finalGrams = computedGrams ?? meal.grams;
+    const ratio = meal.grams > 0 ? finalGrams / meal.grams : 1;
+    const scale = (v: number | null) =>
+      v === null ? null : Math.round(v * ratio * 10) / 10;
+    return {
+      protein: scale(meal.proteinTotal),
+      carbs: scale(meal.carbsTotal),
+      fat: scale(meal.fatTotal),
+    };
+  }, [meal, isFixedCost, computedGrams]);
+
   const unitOptions = useMemo<ReadonlyArray<{ value: UnitKey; label: string }>>(() => {
     const opts: { value: UnitKey; label: string }[] = [{ value: 'g', label: 'g' }];
     servings.forEach((s, i) => opts.push({ value: `s${i}` as UnitKey, label: s.label }));
@@ -183,6 +207,16 @@ export function EditMealModal({ visible, meal, onClose, onSave }: EditMealModalP
     const finalCalories = isFixedCost
       ? meal.caloriesTotal
       : calculateMealCalories(caloriesPer100g, finalGrams);
+    // Per i pasti a costo fisso (add-on) i macro restano com'erano nello
+    // snapshot — di norma null. Per i pasti normali ricalcoliamo dai
+    // valori scalati ai grammi correnti.
+    const finalMacros = isFixedCost
+      ? {
+          protein: meal.proteinTotal,
+          carbs: meal.carbsTotal,
+          fat: meal.fatTotal,
+        }
+      : scaledMacros ?? { protein: null, carbs: null, fat: null };
     setSubmitting(true);
     try {
       await onSave({
@@ -192,6 +226,9 @@ export function EditMealModal({ visible, meal, onClose, onSave }: EditMealModalP
         caloriesTotal: finalCalories,
         servingLabel: activeServing?.label ?? null,
         servingQty: activeServing && qtyNum !== null ? qtyNum : null,
+        proteinTotal: finalMacros.protein,
+        carbsTotal: finalMacros.carbs,
+        fatTotal: finalMacros.fat,
       });
     } finally {
       setSubmitting(false);
@@ -253,6 +290,11 @@ export function EditMealModal({ visible, meal, onClose, onSave }: EditMealModalP
                     ? `${Math.round(meal.caloriesTotal)} kcal · costo fisso`
                     : `${Math.round(caloriesPer100g)} kcal / 100 g`}
                 </Text>
+                {scaledMacros ? (
+                  <Text style={typography.caption}>
+                    Macro: {formatMacroValue(scaledMacros.protein)} g P · {formatMacroValue(scaledMacros.carbs)} g C · {formatMacroValue(scaledMacros.fat)} g G
+                  </Text>
+                ) : null}
               </View>
 
               <View style={styles.section}>
@@ -340,6 +382,11 @@ export function EditMealModal({ visible, meal, onClose, onSave }: EditMealModalP
       </KeyboardAvoidingView>
     </Modal>
   );
+}
+
+function formatMacroValue(v: number | null): string {
+  if (v === null) return '—';
+  return Number.isInteger(v) ? String(v) : v.toFixed(1).replace('.', ',');
 }
 
 function formatGramsInput(grams: number): string {

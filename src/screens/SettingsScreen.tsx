@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { InfoTooltip } from '@/components/InfoTooltip';
 import { Input } from '@/components/Input';
 import { OptionSelect } from '@/components/OptionSelect';
 import { QuickAddonsCard } from '@/components/QuickAddonsCard';
@@ -19,6 +20,8 @@ import {
   calculateTDEE,
   calculateTarget,
 } from '@/utils/calorieCalculator';
+import { PROFILE_EXPLAINERS } from '@/utils/profileExplainers';
+import type { ProfileExplainerKey } from '@/utils/profileExplainers';
 import {
   ACTIVITY_OPTIONS,
   GENDER_OPTIONS,
@@ -281,14 +284,17 @@ function ResultsCard({ computed }: { computed: ReturnType<typeof computeProfile>
       <View style={styles.resultsGrid}>
         <ResultRow
           label="BMR"
+          explainer="bmr"
           value={computed ? `${Math.round(computed.bmr)} kcal` : '\u2014'}
         />
         <ResultRow
           label="TDEE"
+          explainer="tdee"
           value={computed ? `${Math.round(computed.tdee)} kcal` : '\u2014'}
         />
         <ResultRow
           label="Calorie target"
+          explainer="target"
           value={computed ? `${Math.round(computed.target)} kcal` : '\u2014'}
           highlight
         />
@@ -300,15 +306,21 @@ function ResultsCard({ computed }: { computed: ReturnType<typeof computeProfile>
 function ResultRow({
   label,
   value,
+  explainer,
   highlight = false,
 }: {
   label: string;
   value: string;
+  explainer: ProfileExplainerKey;
   highlight?: boolean;
 }) {
+  const info = PROFILE_EXPLAINERS[explainer];
   return (
     <View style={styles.resultRow}>
-      <Text style={typography.caption}>{label}</Text>
+      <View style={styles.resultLabelRow}>
+        <Text style={typography.caption}>{label}</Text>
+        <InfoTooltip title={info.title} body={info.body} />
+      </View>
       <Text style={[typography.value, highlight && { color: colors.green }]}>{value}</Text>
     </View>
   );
@@ -452,5 +464,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  resultLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
 });

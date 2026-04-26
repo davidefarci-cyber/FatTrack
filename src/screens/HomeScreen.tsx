@@ -26,6 +26,7 @@ import type { NewMealInput } from '@/hooks/useDailyLog';
 import { useProfile } from '@/hooks/useProfile';
 import { colors, radii, spacing, typography } from '@/theme';
 import { DEFAULT_TARGET_KCAL } from '@/utils/calorieCalculator';
+import { computeMacroTargets } from '@/utils/macroTargets';
 
 // Abilita LayoutAnimation su Android (di default è off) per il collapse animato.
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -45,6 +46,7 @@ export default function HomeScreen() {
     loading,
     mealsByType,
     totalCalories,
+    macros,
     addMeals,
     removeMeal,
     goToPreviousDay,
@@ -78,6 +80,7 @@ export default function HomeScreen() {
   }, []);
 
   const target = targetCalories ?? DEFAULT_TARGET_KCAL;
+  const macroTargets = computeMacroTargets(target);
 
   const handleDelete = useCallback((id: number) => removeMeal(id), [removeMeal]);
 
@@ -91,6 +94,9 @@ export default function HomeScreen() {
       caloriesTotal: number;
       servingLabel: string | null;
       servingQty: number | null;
+      proteinTotal: number | null;
+      carbsTotal: number | null;
+      fatTotal: number | null;
     }) => {
       await mealsStore.updateMeal(input.id, {
         mealType: input.mealType,
@@ -98,6 +104,9 @@ export default function HomeScreen() {
         caloriesTotal: input.caloriesTotal,
         servingLabel: input.servingLabel,
         servingQty: input.servingQty,
+        proteinTotal: input.proteinTotal,
+        carbsTotal: input.carbsTotal,
+        fatTotal: input.fatTotal,
       });
       setEditingMeal(null);
     },
@@ -114,6 +123,9 @@ export default function HomeScreen() {
         caloriesTotal: item.calories,
         servingLabel: item.servingLabel ?? null,
         servingQty: item.servingQty ?? null,
+        proteinTotal: item.protein ?? null,
+        carbsTotal: item.carbs ?? null,
+        fatTotal: item.fat ?? null,
       }));
       if (inputs.length > 0) await addMeals(inputs);
     },
@@ -160,7 +172,12 @@ export default function HomeScreen() {
           onToday={goToToday}
         />
 
-        <HomeSummaryCard consumed={totalCalories} target={target} />
+        <HomeSummaryCard
+          consumed={totalCalories}
+          target={target}
+          macrosConsumed={macros}
+          macroTargets={macroTargets}
+        />
 
         {MEAL_ORDER.map((mealType) => (
           <MealSection

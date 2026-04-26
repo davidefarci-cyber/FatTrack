@@ -75,6 +75,11 @@ export function useFavorites(): UseFavoritesResult {
           foodName: item.foodName,
           grams: item.grams,
           caloriesTotal: item.calories,
+          servingLabel: item.servingLabel ?? null,
+          servingQty: item.servingQty ?? null,
+          proteinTotal: item.protein ?? null,
+          carbsTotal: item.carbs ?? null,
+          fatTotal: item.fat ?? null,
         })),
       );
     },

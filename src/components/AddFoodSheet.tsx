@@ -26,7 +26,7 @@ import { useToast } from '@/components/Toast';
 import { foodsDB, foodServingsDB, mealsStore } from '@/database';
 import type { Food, FoodSource, MealType } from '@/database';
 import { colors, radii, spacing, typography } from '@/theme';
-import { calculateMealCalories } from '@/utils/calorieCalculator';
+import { calculateMealCalories, scaleMacro } from '@/utils/calorieCalculator';
 import { offByBarcode, offSearch } from '@/utils/openFoodFacts';
 import type { OffProduct } from '@/utils/openFoodFacts';
 
@@ -74,6 +74,13 @@ export function AddFoodSheet({ visible, mealType, date, onClose, onAdded }: AddF
       servingQty: number | null;
       source: FoodSource;
       existingFoodId?: number | null;
+      // Macro per 100 g (null quando non disponibili: food legacy, OFF
+      // senza dati nutrizionali, manuale senza campi macro). Vengono
+      // sia persistiti su `foods` se creiamo un nuovo record, sia scalati
+      // in snapshot per il `meal`.
+      proteinPer100g?: number | null;
+      carbsPer100g?: number | null;
+      fatPer100g?: number | null;
       // Porzione tipica letta da OFF: la persistiamo come food_serving così
       // la prossima volta che l'utente sceglie quel prodotto trova la
       // scorciatoia "1 porzione = Xg" già pronta.
@@ -90,6 +97,9 @@ export function AddFoodSheet({ visible, mealType, date, onClose, onAdded }: AddF
           const created = await foodsDB.createFood({
             name: args.foodName,
             caloriesPer100g: args.caloriesPer100g,
+            proteinPer100g: args.proteinPer100g ?? null,
+            carbsPer100g: args.carbsPer100g ?? null,
+            fatPer100g: args.fatPer100g ?? null,
             source: args.source,
           });
           foodId = created.id;
@@ -123,6 +133,9 @@ export function AddFoodSheet({ visible, mealType, date, onClose, onAdded }: AddF
         caloriesTotal: args.caloriesTotal,
         servingLabel: args.servingLabel,
         servingQty: args.servingQty,
+        proteinTotal: scaleMacro(args.proteinPer100g, args.grams),
+        carbsTotal: scaleMacro(args.carbsPer100g, args.grams),
+        fatTotal: scaleMacro(args.fatPer100g, args.grams),
       });
       toast.show('Aggiunto!');
       onAdded?.();
@@ -182,6 +195,9 @@ type CommitArgs = {
   servingQty: number | null;
   source: FoodSource;
   existingFoodId?: number | null;
+  proteinPer100g?: number | null;
+  carbsPer100g?: number | null;
+  fatPer100g?: number | null;
   offServingQuantity?: number | null;
   offServingLabel?: string | null;
 };
@@ -383,6 +399,9 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
           servingQty,
           source: selected.food.source,
           existingFoodId: selected.food.id,
+          proteinPer100g: selected.food.proteinPer100g,
+          carbsPer100g: selected.food.carbsPer100g,
+          fatPer100g: selected.food.fatPer100g,
         });
       } else {
         await onCommit({
@@ -393,6 +412,9 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
           servingLabel,
           servingQty,
           source: 'api',
+          proteinPer100g: selected.product.proteinPer100g,
+          carbsPer100g: selected.product.carbsPer100g,
+          fatPer100g: selected.product.fatPer100g,
           offServingQuantity: selected.product.servingQuantity,
           offServingLabel: 'porzione',
         });
@@ -643,6 +665,9 @@ function BarcodeTab({
         servingLabel,
         servingQty,
         source: 'barcode',
+        proteinPer100g: product.proteinPer100g,
+        carbsPer100g: product.carbsPer100g,
+        fatPer100g: product.fatPer100g,
         offServingQuantity: product.servingQuantity,
         offServingLabel: 'porzione',
       });
@@ -708,6 +733,9 @@ type ManualForm = {
   name: string;
   caloriesPer100g: string;
   grams: string;
+  protein: string;
+  carbs: string;
+  fat: string;
 };
 
 function ManualTab({ onCommit }: { onCommit: CommitFn }) {
@@ -724,7 +752,14 @@ function ManualTab({ onCommit }: { onCommit: CommitFn }) {
     reset,
     formState: { errors },
   } = useForm<ManualForm>({
-    defaultValues: { name: '', caloriesPer100g: '', grams: '100' },
+    defaultValues: {
+      name: '',
+      caloriesPer100g: '',
+      grams: '100',
+      protein: '',
+      carbs: '',
+      fat: '',
+    },
     mode: 'onChange',
   });
 
@@ -751,7 +786,14 @@ function ManualTab({ onCommit }: { onCommit: CommitFn }) {
       if (existing) {
         setSavedFoodMessage('Alimento già presente in archivio');
       } else {
-        await foodsDB.createFood({ name, caloriesPer100g: kcal, source: 'manual' });
+        await foodsDB.createFood({
+          name,
+          caloriesPer100g: kcal,
+          proteinPer100g: parseOptional(values.protein),
+          carbsPer100g: parseOptional(values.carbs),
+          fatPer100g: parseOptional(values.fat),
+          source: 'manual',
+        });
         setSavedFoodMessage('Alimento salvato in archivio');
       }
     } finally {
@@ -774,8 +816,18 @@ function ManualTab({ onCommit }: { onCommit: CommitFn }) {
         servingLabel: null,
         servingQty: null,
         source: 'manual',
+        proteinPer100g: parseOptional(values.protein),
+        carbsPer100g: parseOptional(values.carbs),
+        fatPer100g: parseOptional(values.fat),
       });
-      reset({ name: '', caloriesPer100g: '', grams: '100' });
+      reset({
+        name: '',
+        caloriesPer100g: '',
+        grams: '100',
+        protein: '',
+        carbs: '',
+        fat: '',
+      });
     } finally {
       setAdding(false);
     }
@@ -843,6 +895,65 @@ function ManualTab({ onCommit }: { onCommit: CommitFn }) {
         )}
       />
 
+      <Text style={typography.label}>Macro per 100 g (opzionali)</Text>
+
+      <Controller
+        control={control}
+        name="protein"
+        rules={{ validate: validateOptionalMacro }}
+        render={({ field: { value, onChange, onBlur } }) => (
+          <FieldWrap error={errors.protein?.message}>
+            <Input
+              label="Proteine"
+              unit="g"
+              keyboardType="decimal-pad"
+              value={value}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              placeholder="—"
+            />
+          </FieldWrap>
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="carbs"
+        rules={{ validate: validateOptionalMacro }}
+        render={({ field: { value, onChange, onBlur } }) => (
+          <FieldWrap error={errors.carbs?.message}>
+            <Input
+              label="Carboidrati"
+              unit="g"
+              keyboardType="decimal-pad"
+              value={value}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              placeholder="—"
+            />
+          </FieldWrap>
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="fat"
+        rules={{ validate: validateOptionalMacro }}
+        render={({ field: { value, onChange, onBlur } }) => (
+          <FieldWrap error={errors.fat?.message}>
+            <Input
+              label="Grassi"
+              unit="g"
+              keyboardType="decimal-pad"
+              value={value}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              placeholder="—"
+            />
+          </FieldWrap>
+        )}
+      />
+
       <View style={styles.totalRow}>
         <Text style={typography.label}>Totale calcolato</Text>
         <Text style={typography.value}>
@@ -885,6 +996,24 @@ function FieldWrap({ children, error }: { children: React.ReactNode; error?: str
 function parsePositive(raw: string): number | null {
   const n = Number(String(raw).replace(',', '.'));
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+// Parse di un macro opzionale: stringa vuota → null. Solo numeri >= 0
+// vengono accettati; il caller dovrà validare separatamente la non-positività
+// quando serve un valore strict (qui no: i macro possono essere 0).
+function parseOptional(raw: string): number | null {
+  const trimmed = String(raw).trim();
+  if (trimmed.length === 0) return null;
+  const n = Number(trimmed.replace(',', '.'));
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function validateOptionalMacro(raw: string): true | string {
+  const trimmed = String(raw).trim();
+  if (trimmed.length === 0) return true;
+  const n = Number(trimmed.replace(',', '.'));
+  if (!Number.isFinite(n) || n < 0) return 'Inserisci un valore valido';
+  return true;
 }
 
 // -----------------------------------------------------------------------------

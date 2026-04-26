@@ -6,6 +6,9 @@ export type Food = {
   id: number;
   name: string;
   caloriesPer100g: number;
+  proteinPer100g: number | null;
+  carbsPer100g: number | null;
+  fatPer100g: number | null;
   source: FoodSource;
   createdAt: string;
 };
@@ -13,6 +16,9 @@ export type Food = {
 export type NewFood = {
   name: string;
   caloriesPer100g: number;
+  proteinPer100g?: number | null;
+  carbsPer100g?: number | null;
+  fatPer100g?: number | null;
   source: FoodSource;
 };
 
@@ -20,6 +26,9 @@ const COLUMNS = `
   id,
   name,
   calories_per_100g AS caloriesPer100g,
+  protein_per_100g AS proteinPer100g,
+  carbs_per_100g AS carbsPer100g,
+  fat_per_100g AS fatPer100g,
   source,
   created_at AS createdAt
 `;
@@ -27,9 +36,13 @@ const COLUMNS = `
 export async function createFood(food: NewFood): Promise<Food> {
   const db = await getDatabase();
   const result = await db.runAsync(
-    `INSERT INTO foods (name, calories_per_100g, source) VALUES (?, ?, ?)`,
+    `INSERT INTO foods (name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, source)
+     VALUES (?, ?, ?, ?, ?, ?)`,
     food.name,
     food.caloriesPer100g,
+    food.proteinPer100g ?? null,
+    food.carbsPer100g ?? null,
+    food.fatPer100g ?? null,
     food.source,
   );
   const created = await getFood(result.lastInsertRowId);
@@ -82,7 +95,7 @@ export async function updateFood(
 ): Promise<Food | null> {
   const db = await getDatabase();
   const fields: string[] = [];
-  const values: (string | number)[] = [];
+  const values: (string | number | null)[] = [];
   if (patch.name !== undefined) {
     fields.push('name = ?');
     values.push(patch.name);
@@ -90,6 +103,18 @@ export async function updateFood(
   if (patch.caloriesPer100g !== undefined) {
     fields.push('calories_per_100g = ?');
     values.push(patch.caloriesPer100g);
+  }
+  if (patch.proteinPer100g !== undefined) {
+    fields.push('protein_per_100g = ?');
+    values.push(patch.proteinPer100g);
+  }
+  if (patch.carbsPer100g !== undefined) {
+    fields.push('carbs_per_100g = ?');
+    values.push(patch.carbsPer100g);
+  }
+  if (patch.fatPer100g !== undefined) {
+    fields.push('fat_per_100g = ?');
+    values.push(patch.fatPer100g);
   }
   if (patch.source !== undefined) {
     fields.push('source = ?');

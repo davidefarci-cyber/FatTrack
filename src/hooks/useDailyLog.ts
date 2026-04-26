@@ -7,6 +7,12 @@ export type MealsByType = Record<MealType, Meal[]>;
 
 export type NewMealInput = Omit<NewMeal, 'date'>;
 
+export type DailyMacroTotals = {
+  protein: number;
+  carbs: number;
+  fat: number;
+};
+
 type UseDailyLogResult = {
   // Data correntemente visualizzata in formato ISO 'YYYY-MM-DD'.
   date: string;
@@ -19,6 +25,10 @@ type UseDailyLogResult = {
   // Pasti raggruppati per tipo, sempre nell'ordine colazione → spuntino.
   mealsByType: MealsByType;
   totalCalories: number;
+  // Somma giornaliera dei macro snapshot (in grammi). I pasti senza macro
+  // (legacy, OFF privi di dati nutrizionali, add-on) contribuiscono 0,
+  // così la barra mostra il progresso parziale solo dei pasti tracciati.
+  macros: DailyMacroTotals;
   addMeal: (input: NewMealInput) => Promise<Meal>;
   addMeals: (inputs: NewMealInput[]) => Promise<Meal[]>;
   removeMeal: (id: number) => Promise<void>;
@@ -60,6 +70,18 @@ export function useDailyLog(initialDate?: string): UseDailyLogResult {
     [meals],
   );
 
+  const macros = useMemo<DailyMacroTotals>(() => {
+    let protein = 0;
+    let carbs = 0;
+    let fat = 0;
+    for (const m of meals) {
+      if (m.proteinTotal !== null) protein += m.proteinTotal;
+      if (m.carbsTotal !== null) carbs += m.carbsTotal;
+      if (m.fatTotal !== null) fat += m.fatTotal;
+    }
+    return { protein, carbs, fat };
+  }, [meals]);
+
   const addMeal = useCallback(
     (input: NewMealInput): Promise<Meal> =>
       mealsStore.createMeal({ ...input, date }),
@@ -100,6 +122,7 @@ export function useDailyLog(initialDate?: string): UseDailyLogResult {
     meals,
     mealsByType,
     totalCalories,
+    macros,
     addMeal,
     addMeals,
     removeMeal,
