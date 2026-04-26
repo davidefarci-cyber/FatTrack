@@ -3,6 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/Card';
 import { HistoryChart } from '@/components/HistoryChart';
+import { HistoryInsightsRow } from '@/components/HistoryInsightsRow';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { useHistory } from '@/hooks/useHistory';
@@ -20,11 +21,13 @@ export default function HistoryScreen() {
     period,
     setPeriod,
     targetCalories,
+    hasProfileTarget,
     days,
     averageCalories,
     daysInTarget,
     daysOverTarget,
     daysWithData,
+    insights,
     loading,
   } = useHistory(7);
 
@@ -82,6 +85,11 @@ export default function HistoryScreen() {
             width={chartWidth}
           />
         </Card>
+
+        <HistoryInsightsRow
+          insights={insights}
+          hasProfileTarget={hasProfileTarget}
+        />
 
         <Card style={styles.listCard}>
           <Text style={typography.label}>Dettaglio giorni</Text>
