@@ -6,6 +6,7 @@ import { Icon } from '@/components/Icon';
 import { MEAL_INFO } from '@/components/mealMeta';
 import type { Meal, MealType } from '@/database';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
+import { formatServing } from '@/utils/formatServing';
 
 type MealSectionProps = {
   mealType: MealType;
@@ -150,7 +151,13 @@ function MealRow({
           <Text style={typography.body} numberOfLines={1}>
             {meal.foodName}
           </Text>
-          <Text style={typography.caption}>{formatGrams(meal.grams)} g</Text>
+          <Text style={typography.caption}>
+            {formatServing({
+              grams: meal.grams,
+              servingLabel: meal.servingLabel,
+              servingQty: meal.servingQty,
+            })}
+          </Text>
         </View>
         <Text style={typography.bodyBold}>
           {Math.round(meal.caloriesTotal).toLocaleString('it-IT')} kcal
@@ -159,10 +166,6 @@ function MealRow({
       </Pressable>
     </Swipeable>
   );
-}
-
-function formatGrams(grams: number): string {
-  return Number.isInteger(grams) ? String(grams) : grams.toFixed(1);
 }
 
 const styles = StyleSheet.create({

@@ -79,11 +79,15 @@ export default function HomeScreen() {
       mealType: MealType;
       grams: number;
       caloriesTotal: number;
+      servingLabel: string | null;
+      servingQty: number | null;
     }) => {
       await mealsStore.updateMeal(input.id, {
         mealType: input.mealType,
         grams: input.grams,
         caloriesTotal: input.caloriesTotal,
+        servingLabel: input.servingLabel,
+        servingQty: input.servingQty,
       });
       setEditingMeal(null);
     },
