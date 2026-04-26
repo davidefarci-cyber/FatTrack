@@ -31,6 +31,7 @@ import type { Favorite, FavoriteItem, Food, MealType, QuickAddon } from '@/datab
 import { useFavorites } from '@/hooks/useFavorites';
 import { todayISO } from '@/hooks/useDailyLog';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
+import { scaleMacro } from '@/utils/calorieCalculator';
 
 const MEAL_OPTIONS: ReadonlyArray<{ value: MealType; label: string }> = MEAL_ORDER.map(
   (mealType) => ({ value: mealType, label: MEAL_INFO[mealType].label }),
@@ -392,6 +393,9 @@ function FavoriteEditorModal({
           calories: caloriesTotal,
           servingLabel,
           servingQty,
+          protein: scaleMacro(pendingFood.proteinPer100g, grams),
+          carbs: scaleMacro(pendingFood.carbsPer100g, grams),
+          fat: scaleMacro(pendingFood.fatPer100g, grams),
         },
       ]);
       setPendingFood(null);
@@ -439,6 +443,9 @@ function FavoriteEditorModal({
           foodName: food.name,
           grams: input.grams,
           calories,
+          protein: scaleMacro(food.proteinPer100g, input.grams),
+          carbs: scaleMacro(food.carbsPer100g, input.grams),
+          fat: scaleMacro(food.fatPer100g, input.grams),
         },
       ]);
       setManualOpen(false);

@@ -91,6 +91,9 @@ export default function HomeScreen() {
       caloriesTotal: number;
       servingLabel: string | null;
       servingQty: number | null;
+      proteinTotal: number | null;
+      carbsTotal: number | null;
+      fatTotal: number | null;
     }) => {
       await mealsStore.updateMeal(input.id, {
         mealType: input.mealType,
@@ -98,6 +101,9 @@ export default function HomeScreen() {
         caloriesTotal: input.caloriesTotal,
         servingLabel: input.servingLabel,
         servingQty: input.servingQty,
+        proteinTotal: input.proteinTotal,
+        carbsTotal: input.carbsTotal,
+        fatTotal: input.fatTotal,
       });
       setEditingMeal(null);
     },
@@ -114,6 +120,9 @@ export default function HomeScreen() {
         caloriesTotal: item.calories,
         servingLabel: item.servingLabel ?? null,
         servingQty: item.servingQty ?? null,
+        proteinTotal: item.protein ?? null,
+        carbsTotal: item.carbs ?? null,
+        fatTotal: item.fat ?? null,
       }));
       if (inputs.length > 0) await addMeals(inputs);
     },

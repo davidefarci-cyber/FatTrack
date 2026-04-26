@@ -51,3 +51,12 @@ export function calculateTarget(tdee: number, weeklyGoalKg: number): number {
 export function calculateMealCalories(caloriesPer100g: number, grams: number): number {
   return (caloriesPer100g * grams) / 100;
 }
+
+// Snapshot di un macro per un meal: scala la quota per 100 g sui grammi
+// effettivi. Restituisce null quando il valore per 100 g non è disponibile,
+// così i pasti con dati nutrizionali parziali (es. solo proteine) propagano
+// `null` per gli altri macro invece di inventare zeri.
+export function scaleMacro(per100g: number | null | undefined, grams: number): number | null {
+  if (per100g === null || per100g === undefined) return null;
+  return Math.round((per100g * grams) / 10) / 10;
+}
