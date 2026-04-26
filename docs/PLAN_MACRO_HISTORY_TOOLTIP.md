@@ -377,3 +377,169 @@ li propaga a `mealsStore.updateMeal`.
   altri restano null. La somma giornaliera include solo i contributi non-null.
 - **Target macro = 0** se `targetCalories === 0` (utente senza profilo):
   fallback a `DEFAULT_TARGET_KCAL` come già fa `HomeScreen` per le calorie.
+
+---
+
+## 2. History insights
+
+### 2.1 Definizioni
+
+Tre insight aggregati, calcolati sui dati già fetchati da `useHistory`
+(default 30 giorni). Per "essere in target" usiamo una **tolleranza ±10 %**
+sul `targetCalories` corrente del profilo (configurabile come costante).
+
+| Insight | Definizione |
+|---------|-------------|
+| **Streak attuale** | Numero di giorni consecutivi che terminano con OGGI in cui le calorie totali sono dentro `target ± 10 %`. Si interrompe al primo giorno fuori target. Se oggi è già fuori target → 0. |
+| **Trend settimanale** | `mediaUltimi7gg − mediaSettimanaPrecedente7gg` in kcal. Positivo = in aumento, negativo = in calo. Mostrato come "−180 kcal vs settimana scorsa" oppure "+50 kcal". |
+| **Giorno migliore** | Il giorno (negli ultimi 30) con la **minor distanza assoluta** dal target. Mostra "Giorno migliore: lun 14 — 10 kcal dal target". Esclude i giorni senza pasti registrati. |
+
+### 2.2 Hook
+
+Estendere **`src/hooks/useHistory.ts`** con un blocco `insights` calcolato
+con `useMemo` sui meal già caricati. Niente nuove query DB: tutto in
+memoria.
+
+```ts
+export type HistoryInsights = {
+  streakDays: number;
+  trendKcalDelta: number | null;       // null se non ho 14 gg di dati
+  trendDirection: 'up' | 'down' | 'flat';
+  bestDay: { date: string; deltaKcal: number } | null;
+};
+
+// Tolleranza per considerare un giorno "in target".
+export const TARGET_TOLERANCE_RATIO = 0.10;
+```
+
+L'hook deve avere accesso al `targetCalories` corrente: leggerlo da
+`useProfile()` (già usato in HomeScreen) oppure passarlo come parametro.
+Preferito il primo per coerenza.
+
+### 2.3 Algoritmi
+
+**Aggregazione per giorno**:
+```ts
+function totalsByDate(meals: Meal[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const m of meals) {
+    map.set(m.date, (map.get(m.date) ?? 0) + m.caloriesTotal);
+  }
+  return map;
+}
+```
+
+**Streak**:
+```ts
+function computeStreak(totals: Map<string, number>, target: number): number {
+  if (target <= 0) return 0;
+  const tolerance = target * TARGET_TOLERANCE_RATIO;
+  let count = 0;
+  // Iterazione all'indietro da oggi.
+  for (let i = 0; i < 365; i++) {
+    const d = isoNDaysAgo(i);     // helper sotto
+    const kcal = totals.get(d);
+    if (kcal === undefined) break; // niente pasti = streak interrotta
+    if (Math.abs(kcal - target) > tolerance) break;
+    count += 1;
+  }
+  return count;
+}
+```
+
+**Trend**:
+```ts
+function computeTrend(totals: Map<string, number>): {
+  delta: number | null;
+  direction: 'up' | 'down' | 'flat';
+} {
+  const last7  = sumRange(totals, 0, 7);
+  const prev7  = sumRange(totals, 7, 14);
+  if (last7.days === 0 || prev7.days === 0) {
+    return { delta: null, direction: 'flat' };
+  }
+  const avgLast = last7.sum / last7.days;
+  const avgPrev = prev7.sum / prev7.days;
+  const delta = Math.round(avgLast - avgPrev);
+  const direction = Math.abs(delta) < 30 ? 'flat' : delta > 0 ? 'up' : 'down';
+  return { delta, direction };
+}
+```
+
+`sumRange(totals, fromDayAgo, toDayAgo)` itera da N giorni fa fino a M
+escluso, somma i kcal trovati e conta i giorni con valore `> 0`.
+
+**Best day**:
+```ts
+function computeBestDay(totals: Map<string, number>, target: number) {
+  if (target <= 0) return null;
+  let best: { date: string; deltaKcal: number } | null = null;
+  for (const [date, kcal] of totals) {
+    if (kcal === 0) continue;
+    const delta = Math.abs(kcal - target);
+    if (best === null || delta < best.deltaKcal) {
+      best = { date, deltaKcal: delta };
+    }
+  }
+  return best;
+}
+```
+
+Helper `isoNDaysAgo(n)` riusabile (esiste già `todayISO()` in
+`src/hooks/useDailyLog.ts`, basta affiancarlo). Format date in label
+italiana via `formatDateShort(date)` (es. "lun 14 apr") — usare
+`Intl.DateTimeFormat('it-IT', { weekday: 'short', day: 'numeric', month: 'short' })`.
+
+### 2.4 UI HistoryScreen
+
+Tre `Card` orizzontali sotto il chart e sopra le statistiche esistenti.
+Layout: `ScrollView` orizzontale `horizontal` con `pagingEnabled={false}`
+e `contentContainerStyle={{ gap: spacing.md, paddingHorizontal: spacing.screen }}`.
+Ogni card è un mini-tile largo ~40% screen:
+
+```
+┌──────────────────────┐
+│  STREAK              │
+│  3 giorni            │
+│  in target           │
+└──────────────────────┘
+```
+
+Stati edge per ogni card:
+
+| Card | Caso edge | Cosa mostrare |
+|------|-----------|---------------|
+| Streak | streak === 0 | "Inizia oggi: registra le calorie giornaliere" + numero "0" tenue |
+| Streak | target === 0 | "Imposta un target per vedere lo streak" + link a Settings |
+| Trend | delta === null | "Servono 14 giorni di dati per calcolare il trend" |
+| Trend | direction === 'flat' | Icona "−" e copy "stabile" (niente segno + né −) |
+| Trend | direction !== 'flat' | Icona freccia (`chevron-up`/`chevron-down`) + delta in kcal |
+| Best day | bestDay === null | "Registra qualche pasto per vedere il tuo giorno migliore" |
+
+Colori coerenti con il design system:
+- Streak attivo: `colors.green` per il numero
+- Trend in calo (verso il basso = bene per chi è in surplus, male per chi è
+  in deficit): usare `colors.text` neutro. NON colorare moralmente (l'utente
+  potrebbe stare cuttando o bulkando).
+- Best day: `colors.purple` o `colors.blue` per il delta.
+
+### 2.5 Componente
+
+Nuovo `src/components/HistoryInsightsRow.tsx` che riceve `insights:
+HistoryInsights` e li renderizza. Riutilizza `Card`, `Icon`, `typography`,
+`colors`. Tre `InsightTile` interni privati (sotto-componente) — non vale
+estrarre come primitive globale finché non servono altrove.
+
+### 2.6 Integrazione
+
+`src/screens/HistoryScreen.tsx`: import del nuovo componente, render
+sotto al chart. Niente cambi di struttura ScrollView esistente.
+
+### 2.7 Edge case
+
+- **Profilo non configurato** (`targetCalories === undefined`): le 3 card
+  mostrano stato edge con CTA "Imposta un target in Impostazioni".
+- **Meno di 7 giorni di storico**: streak può essere comunque > 0; trend
+  resta `null`; best day fra i giorni disponibili.
+- **Pasti su giorni futuri**: `useHistory` filtra già `<= today`. Niente da
+  fare.
