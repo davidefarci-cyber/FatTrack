@@ -32,6 +32,9 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       calories_per_100g REAL NOT NULL,
+      protein_per_100g REAL,
+      carbs_per_100g REAL,
+      fat_per_100g REAL,
       source TEXT NOT NULL CHECK (source IN ('manual','api','barcode')),
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -47,6 +50,9 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       calories_total REAL NOT NULL,
       serving_label TEXT,
       serving_qty REAL,
+      protein_total REAL,
+      carbs_total REAL,
+      fat_total REAL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (food_id) REFERENCES foods(id) ON DELETE SET NULL
     );
@@ -117,6 +123,25 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   for (const sql of [
     `ALTER TABLE meals ADD COLUMN serving_label TEXT`,
     `ALTER TABLE meals ADD COLUMN serving_qty REAL`,
+  ]) {
+    try {
+      await db.execAsync(sql);
+    } catch {
+      // Colonna già presente.
+    }
+  }
+
+  // Migrazione: macro nutrients (proteine/carb/grassi). Nullable: molti food
+  // (manuali, OFF senza dati nutrizionali) non hanno macro disponibili. Lo
+  // snapshot su `meals` segue lo stesso pattern di `calories_total` per non
+  // dipendere dal valore corrente del food.
+  for (const sql of [
+    `ALTER TABLE foods ADD COLUMN protein_per_100g REAL`,
+    `ALTER TABLE foods ADD COLUMN carbs_per_100g REAL`,
+    `ALTER TABLE foods ADD COLUMN fat_per_100g REAL`,
+    `ALTER TABLE meals ADD COLUMN protein_total REAL`,
+    `ALTER TABLE meals ADD COLUMN carbs_total REAL`,
+    `ALTER TABLE meals ADD COLUMN fat_total REAL`,
   ]) {
     try {
       await db.execAsync(sql);

@@ -12,6 +12,9 @@ export type Meal = {
   caloriesTotal: number;
   servingLabel: string | null;
   servingQty: number | null;
+  proteinTotal: number | null;
+  carbsTotal: number | null;
+  fatTotal: number | null;
   createdAt: string;
 };
 
@@ -24,6 +27,9 @@ export type NewMeal = {
   caloriesTotal: number;
   servingLabel?: string | null;
   servingQty?: number | null;
+  proteinTotal?: number | null;
+  carbsTotal?: number | null;
+  fatTotal?: number | null;
 };
 
 const COLUMNS = `
@@ -36,14 +42,20 @@ const COLUMNS = `
   calories_total AS caloriesTotal,
   serving_label AS servingLabel,
   serving_qty AS servingQty,
+  protein_total AS proteinTotal,
+  carbs_total AS carbsTotal,
+  fat_total AS fatTotal,
   created_at AS createdAt
 `;
 
 export async function createMeal(meal: NewMeal): Promise<Meal> {
   const db = await getDatabase();
   const result = await db.runAsync(
-    `INSERT INTO meals (date, meal_type, food_id, food_name, grams, calories_total, serving_label, serving_qty)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO meals (
+       date, meal_type, food_id, food_name, grams, calories_total,
+       serving_label, serving_qty, protein_total, carbs_total, fat_total
+     )
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     meal.date,
     meal.mealType,
     meal.foodId,
@@ -52,6 +64,9 @@ export async function createMeal(meal: NewMeal): Promise<Meal> {
     meal.caloriesTotal,
     meal.servingLabel ?? null,
     meal.servingQty ?? null,
+    meal.proteinTotal ?? null,
+    meal.carbsTotal ?? null,
+    meal.fatTotal ?? null,
   );
   const created = await getMeal(result.lastInsertRowId);
   if (!created) throw new Error('Meal creation failed');
@@ -132,6 +147,18 @@ export async function updateMeal(
     fields.push('serving_qty = ?');
     values.push(patch.servingQty);
   }
+  if (patch.proteinTotal !== undefined) {
+    fields.push('protein_total = ?');
+    values.push(patch.proteinTotal);
+  }
+  if (patch.carbsTotal !== undefined) {
+    fields.push('carbs_total = ?');
+    values.push(patch.carbsTotal);
+  }
+  if (patch.fatTotal !== undefined) {
+    fields.push('fat_total = ?');
+    values.push(patch.fatTotal);
+  }
   if (fields.length === 0) return getMeal(id);
 
   values.push(id);
@@ -170,4 +197,29 @@ export async function sumCaloriesByMealType(
   };
   for (const row of rows) result[row.mealType] = row.total;
   return result;
+}
+
+export async function sumMacrosByDate(date: string): Promise<{
+  protein: number;
+  carbs: number;
+  fat: number;
+}> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{
+    protein: number | null;
+    carbs: number | null;
+    fat: number | null;
+  }>(
+    `SELECT
+       COALESCE(SUM(protein_total), 0) AS protein,
+       COALESCE(SUM(carbs_total), 0)   AS carbs,
+       COALESCE(SUM(fat_total), 0)     AS fat
+     FROM meals WHERE date = ?`,
+    date,
+  );
+  return {
+    protein: row?.protein ?? 0,
+    carbs: row?.carbs ?? 0,
+    fat: row?.fat ?? 0,
+  };
 }

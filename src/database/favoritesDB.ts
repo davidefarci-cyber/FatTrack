@@ -7,6 +7,9 @@ export type FavoriteItem = {
   calories: number;
   servingLabel?: string | null;
   servingQty?: number | null;
+  protein?: number | null;
+  carbs?: number | null;
+  fat?: number | null;
 };
 
 export type Favorite = {
