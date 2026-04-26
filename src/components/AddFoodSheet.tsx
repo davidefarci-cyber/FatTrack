@@ -209,6 +209,7 @@ type SearchItem =
   | { kind: 'local'; food: Food; key: string }
   | { kind: 'remote'; product: OffProduct; key: string }
   | { kind: 'empty'; message: string; key: string }
+  | { kind: 'error'; message: string; key: string }
   | { kind: 'loading'; key: string };
 
 type Selected =
@@ -221,6 +222,9 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
   const [remoteResults, setRemoteResults] = useState<OffProduct[]>([]);
   const [loadingRemote, setLoadingRemote] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
+  // Incrementato dal tasto "Riprova" per ri-triggerare la fetch OFF senza
+  // costringere l'utente a modificare la query.
+  const [retryTick, setRetryTick] = useState(0);
   const [selected, setSelected] = useState<Selected | null>(null);
   const [selectedServings, setSelectedServings] = useState<ServingOption[]>([]);
   const [editingServings, setEditingServings] = useState<Food | null>(null);
@@ -310,7 +314,7 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
       clearTimeout(handle);
       controller.abort();
     };
-  }, [query]);
+  }, [query, retryTick]);
 
   const items = useMemo<SearchItem[]>(() => {
     const out: SearchItem[] = [];
@@ -333,7 +337,7 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
     } else if (loadingRemote) {
       out.push({ kind: 'loading', key: 'loading-remote' });
     } else if (remoteError) {
-      out.push({ kind: 'empty', message: remoteError, key: 'empty-remote-error' });
+      out.push({ kind: 'error', message: remoteError, key: 'error-remote' });
     } else {
       const localNames = new Set(localResults.map((f) => f.name.toLowerCase()));
       const filtered = remoteResults.filter(
@@ -454,6 +458,22 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
           if (item.kind === 'empty') {
             return (
               <Text style={[typography.caption, styles.emptyText]}>{item.message}</Text>
+            );
+          }
+          if (item.kind === 'error') {
+            return (
+              <View style={styles.errorRow}>
+                <Text style={[typography.caption, styles.errorText]} numberOfLines={2}>
+                  {item.message}
+                </Text>
+                <Pressable
+                  onPress={() => setRetryTick((n) => n + 1)}
+                  style={styles.retryBtn}
+                  hitSlop={8}
+                >
+                  <Text style={[typography.label, styles.retryText]}>Riprova</Text>
+                </Pressable>
+              </View>
             );
           }
           if (item.kind === 'loading') {
@@ -1082,6 +1102,31 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     paddingVertical: spacing.md,
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    backgroundColor: colors.redLight,
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  errorText: {
+    flex: 1,
+    color: colors.red,
+  },
+  retryBtn: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radii.round,
+    backgroundColor: colors.blueLight,
+  },
+  retryText: {
+    color: colors.blue,
   },
   loadingRow: {
     flexDirection: 'row',

@@ -1,13 +1,37 @@
 // Client minimo per Open Food Facts:
-// - `offSearch` → endpoint testuale
-// - `offByBarcode` → lookup singolo per codice a barre
+// - `offSearch` → endpoint v2 sul subdomain italiano (it.openfoodfacts.org)
+// - `offByBarcode` → lookup singolo per codice a barre (api/v2/product)
+// Usiamo `it.openfoodfacts.org` + `lc=it` per privilegiare risultati con nome
+// italiano: il vecchio /cgi/search.pl restituiva troppe 503 e poco IT.
+// Headers `Accept-Language: it` e `User-Agent` identificativo riducono
+// throttling. Su 5xx riproviamo con backoff (300ms, 800ms) prima di fallire.
 // Normalizziamo sia i nomi che i nutrimenti perché OFF restituisce shape
 // eterogenei (nome italiano/inglese, energia in kcal o solo kJ, prodotti senza
 // calorie). Scartiamo tutto ciò che non ha un kcal per 100 g valido: non
 // serve mostrare in UI risultati senza il dato di cui abbiamo bisogno.
 
-const SEARCH_URL = 'https://world.openfoodfacts.org/cgi/search.pl';
-const PRODUCT_URL = 'https://world.openfoodfacts.org/api/v0/product';
+const SEARCH_URL = 'https://it.openfoodfacts.org/api/v2/search';
+const PRODUCT_URL = 'https://world.openfoodfacts.org/api/v2/product';
+
+const SEARCH_FIELDS = [
+  'code',
+  'product_name',
+  'product_name_it',
+  'product_name_en',
+  'generic_name',
+  'brands',
+  'serving_quantity',
+  'serving_size',
+  'nutriments',
+].join(',');
+
+const COMMON_HEADERS: Record<string, string> = {
+  Accept: 'application/json',
+  'Accept-Language': 'it',
+  'User-Agent': 'FatTrack/1.0 (https://github.com/davidefarci-cyber/FatTrack)',
+};
+
+const RETRY_DELAYS_MS = [300, 800];
 
 export type OffProduct = {
   code: string | null;
@@ -52,8 +76,14 @@ export async function offSearch(
 ): Promise<OffProduct[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
-  const url = `${SEARCH_URL}?search_terms=${encodeURIComponent(trimmed)}&search_simple=1&action=process&json=1&page_size=${limit}`;
-  const res = await fetch(url, { signal });
+  const params = new URLSearchParams({
+    search_terms: trimmed,
+    lc: 'it',
+    page_size: String(limit),
+    fields: SEARCH_FIELDS,
+  });
+  const url = `${SEARCH_URL}?${params.toString()}`;
+  const res = await offFetch(url, signal);
   if (!res.ok) throw new Error(`OFF search HTTP ${res.status}`);
   const data = (await res.json()) as { products?: OffRaw[] };
   const products = Array.isArray(data.products) ? data.products : [];
@@ -72,11 +102,65 @@ export async function offByBarcode(
   const trimmed = code.trim();
   if (!trimmed) return null;
   const url = `${PRODUCT_URL}/${encodeURIComponent(trimmed)}.json`;
-  const res = await fetch(url, { signal });
+  const res = await offFetch(url, signal);
   if (!res.ok) throw new Error(`OFF barcode HTTP ${res.status}`);
   const data = (await res.json()) as { status?: number; product?: OffRaw };
   if (data.status !== 1 || !data.product) return null;
   return normalizeProduct(data.product);
+}
+
+// Fetch con header standard OFF e retry su 5xx con backoff.
+// AbortError non viene mai ritentato.
+async function offFetch(url: string, signal?: AbortSignal): Promise<Response> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    if (attempt > 0) {
+      await wait(RETRY_DELAYS_MS[attempt - 1], signal);
+    }
+    let res: Response;
+    try {
+      res = await fetch(url, { signal, headers: COMMON_HEADERS });
+    } catch (err) {
+      if (isAbortError(err)) throw err;
+      lastErr = err;
+      if (attempt === RETRY_DELAYS_MS.length) throw err;
+      continue;
+    }
+    if (res.status >= 500 && res.status < 600 && attempt < RETRY_DELAYS_MS.length) {
+      lastErr = new Error(`HTTP ${res.status}`);
+      continue;
+    }
+    return res;
+  }
+  throw lastErr ?? new Error('OFF fetch failed');
+}
+
+function wait(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(makeAbortError());
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(makeAbortError());
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+function isAbortError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { name?: string }).name === 'AbortError';
+}
+
+function makeAbortError(): Error {
+  const e = new Error('Aborted');
+  e.name = 'AbortError';
+  return e;
 }
 
 function normalizeProduct(raw: OffRaw | undefined): OffProduct | null {
