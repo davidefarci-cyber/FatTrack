@@ -19,20 +19,18 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { FAB } from '@/components/FAB';
 import { GramsInputModal } from '@/components/GramsInputModal';
-import type { GramsInputTarget } from '@/components/GramsInputModal';
+import type { GramsInputTarget, ServingOption } from '@/components/GramsInputModal';
 import { Icon } from '@/components/Icon';
 import { Input } from '@/components/Input';
 import { MEAL_INFO, MEAL_ORDER } from '@/components/mealMeta';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { useToast } from '@/components/Toast';
-import { foodsDB, settingsDB } from '@/database';
-import type { Favorite, FavoriteItem, Food, MealType } from '@/database';
+import { foodServingsDB, foodsDB, quickAddonsDB } from '@/database';
+import type { Favorite, FavoriteItem, Food, MealType, QuickAddon } from '@/database';
 import { useFavorites } from '@/hooks/useFavorites';
 import { todayISO } from '@/hooks/useDailyLog';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
-
-const SIDE_DISH_LABEL = 'Contorno';
 
 const MEAL_OPTIONS: ReadonlyArray<{ value: MealType; label: string }> = MEAL_ORDER.map(
   (mealType) => ({ value: mealType, label: MEAL_INFO[mealType].label }),
@@ -52,16 +50,16 @@ export default function FavoritesScreen() {
 
   const [targetMeal, setTargetMeal] = useState<MealType>('pranzo');
   const [editing, setEditing] = useState<Favorite | 'new' | null>(null);
-  const [sideDishCalories, setSideDishCalories] = useState<number>(50);
+  const [quickAddons, setQuickAddons] = useState<QuickAddon[]>([]);
   const [submittingId, setSubmittingId] = useState<number | null>(null);
 
-  // Leggiamo le calorie fisse "contorno" dalle impostazioni: il valore è
-  // configurato dall'utente in SettingsScreen e usato qui come costo fisso
-  // per la voce "Contorno" nei preferiti.
+  // Carichiamo gli addon configurati in Settings: l'utente li userà come
+  // scorciatoie per aggiungere calorie fisse al preferito (contorno, olio,
+  // condimento, ecc.).
   useEffect(() => {
-    settingsDB
-      .getSettings()
-      .then((s) => setSideDishCalories(s.sideDishCalories))
+    quickAddonsDB
+      .listAddons()
+      .then(setQuickAddons)
       .catch(() => undefined);
   }, [editing]);
 
@@ -158,7 +156,7 @@ export default function FavoritesScreen() {
       <FavoriteEditorModal
         visible={editing !== null}
         editing={editing === 'new' ? null : editing}
-        sideDishCalories={sideDishCalories}
+        quickAddons={quickAddons}
         onClose={() => setEditing(null)}
         onSave={handleSave}
       />
@@ -271,7 +269,7 @@ function FavoriteRow({
 type FavoriteEditorModalProps = {
   visible: boolean;
   editing: Favorite | null;
-  sideDishCalories: number;
+  quickAddons: QuickAddon[];
   onClose: () => void;
   onSave: (name: string, items: FavoriteItem[]) => Promise<void>;
 };
@@ -281,7 +279,7 @@ const FOOD_SEARCH_DEBOUNCE_MS = 250;
 function FavoriteEditorModal({
   visible,
   editing,
-  sideDishCalories,
+  quickAddons,
   onClose,
   onSave,
 }: FavoriteEditorModalProps) {
@@ -292,6 +290,7 @@ function FavoriteEditorModal({
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Food[]>([]);
   const [pendingFood, setPendingFood] = useState<Food | null>(null);
+  const [pendingServings, setPendingServings] = useState<ServingOption[]>([]);
   const [saving, setSaving] = useState(false);
   // Modal per creare un alimento nuovo al volo: viene salvato in foodsDB
   // (source='manual') così la prossima ricerca lo troverà senza dover
@@ -309,9 +308,35 @@ function FavoriteEditorModal({
     setQuery('');
     setResults([]);
     setPendingFood(null);
+    setPendingServings([]);
     setManualOpen(false);
     setManualPrefillName('');
   }, [visible, editing?.id]);
+
+  // Quando si seleziona un alimento per aggiungerlo al preferito, carichiamo
+  // le sue porzioni alternative per il GramsInputModal (stesso pattern di
+  // AddFoodSheet).
+  useEffect(() => {
+    if (!pendingFood) {
+      setPendingServings([]);
+      return;
+    }
+    let active = true;
+    foodServingsDB
+      .listServingsByFood(pendingFood.id)
+      .then((rows) => {
+        if (!active) return;
+        setPendingServings(
+          rows.map((r) => ({ label: r.label, grams: r.grams, isDefault: r.isDefault })),
+        );
+      })
+      .catch(() => {
+        if (active) setPendingServings([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [pendingFood]);
 
   // Ricerca locale: debounced per non martellare SQLite a ogni carattere.
   useEffect(() => {
@@ -346,7 +371,17 @@ function FavoriteEditorModal({
   const canSave = name.trim().length > 0 && items.length > 0 && !saving;
 
   const handleAddFood = useCallback(
-    ({ grams, caloriesTotal }: { grams: number; caloriesTotal: number }) => {
+    ({
+      grams,
+      caloriesTotal,
+      servingLabel,
+      servingQty,
+    }: {
+      grams: number;
+      caloriesTotal: number;
+      servingLabel: string | null;
+      servingQty: number | null;
+    }) => {
       if (!pendingFood) return;
       setItems((prev) => [
         ...prev,
@@ -355,6 +390,8 @@ function FavoriteEditorModal({
           foodName: pendingFood.name,
           grams,
           calories: caloriesTotal,
+          servingLabel,
+          servingQty,
         },
       ]);
       setPendingFood(null);
@@ -364,17 +401,17 @@ function FavoriteEditorModal({
     [pendingFood],
   );
 
-  const handleAddSideDish = useCallback(() => {
+  const handleAddAddon = useCallback((addon: QuickAddon) => {
     setItems((prev) => [
       ...prev,
       {
         foodId: null,
-        foodName: SIDE_DISH_LABEL,
+        foodName: addon.label,
         grams: 0,
-        calories: sideDishCalories,
+        calories: addon.calories,
       },
     ]);
-  }, [sideDishCalories]);
+  }, []);
 
   const handleRemoveItem = useCallback((index: number) => {
     setItems((prev) => prev.filter((_, i) => i !== index));
@@ -434,6 +471,7 @@ function FavoriteEditorModal({
         foodName: pendingFood.name,
         caloriesPer100g: pendingFood.caloriesPer100g,
         subtitle: `${pendingFood.caloriesPer100g} kcal / 100 g`,
+        servings: pendingServings,
       }
     : null;
 
@@ -534,16 +572,27 @@ function FavoriteEditorModal({
                 </View>
               )}
 
-              <Pressable
-                onPress={handleAddSideDish}
-                style={styles.sideDishBtn}
-                accessibilityRole="button"
-              >
-                <Icon name="plus" size={14} color={colors.green} />
-                <Text style={[typography.bodyBold, { color: colors.green }]}>
-                  Aggiungi contorno ({sideDishCalories} kcal)
-                </Text>
-              </Pressable>
+              {quickAddons.length > 0 ? (
+                <View style={styles.addonsRow}>
+                  {quickAddons.map((addon) => (
+                    <Pressable
+                      key={addon.id}
+                      onPress={() => handleAddAddon(addon)}
+                      style={styles.addonChip}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Aggiungi ${addon.label}`}
+                    >
+                      <Icon name="plus" size={12} color={colors.green} />
+                      <Text style={[typography.bodyBold, { color: colors.green }]}>
+                        {addon.label}
+                      </Text>
+                      <Text style={[typography.caption, { color: colors.green }]}>
+                        {Math.round(addon.calories)} kcal
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
             </View>
 
             <View style={styles.editorSection}>
@@ -941,14 +990,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sideDishBtn: {
+  addonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  addonChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.lg,
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
     backgroundColor: colors.greenLight,
-    borderRadius: radii.md,
+    borderRadius: radii.round,
     borderWidth: 1.5,
     borderColor: colors.green,
   },

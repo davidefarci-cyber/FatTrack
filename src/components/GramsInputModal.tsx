@@ -14,19 +14,36 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
 import { MEAL_INFO } from '@/components/mealMeta';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import type { MealType } from '@/database';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
 import { calculateMealCalories } from '@/utils/calorieCalculator';
 
 // Bottom-sheet riutilizzabile: l'alimento è già scelto (ricerca o scansione),
-// qui raccogliamo solo i grammi e calcoliamo le calorie totali prima di
-// confermare l'inserimento nel diario.
+// qui raccogliamo grammi (o numero di porzioni alternative come "1 cucchiaino")
+// e calcoliamo le calorie totali prima di confermare l'inserimento nel diario.
+
+export type ServingOption = {
+  label: string;
+  grams: number;
+  isDefault?: boolean;
+};
 
 export type GramsInputTarget = {
   foodName: string;
   caloriesPer100g: number;
   // Informazioni opzionali mostrate in header.
   subtitle?: string;
+  // Porzioni alternative ("fetta", "cucchiaino"...). Quando assente o vuoto
+  // il modal cade sull'input grammi puro (back-compat).
+  servings?: ServingOption[];
+};
+
+export type GramsInputResult = {
+  grams: number;
+  caloriesTotal: number;
+  servingLabel: string | null;
+  servingQty: number | null;
 };
 
 type GramsInputModalProps = {
@@ -34,10 +51,14 @@ type GramsInputModalProps = {
   target: GramsInputTarget | null;
   mealType: MealType;
   onClose: () => void;
-  onConfirm: (result: { grams: number; caloriesTotal: number }) => Promise<void> | void;
+  onConfirm: (result: GramsInputResult) => Promise<void> | void;
   initialGrams?: string;
   confirmLabel?: string;
 };
+
+type UnitKey = 'g' | `s${number}`;
+
+const STEPPER_STEP = 0.5;
 
 export function GramsInputModal({
   visible,
@@ -49,40 +70,87 @@ export function GramsInputModal({
   confirmLabel = 'Aggiungi al diario',
 }: GramsInputModalProps) {
   const insets = useSafeAreaInsets();
-  const [grams, setGrams] = useState(initialGrams);
+  const servings = target?.servings ?? [];
+  const hasServings = servings.length > 0;
+
+  const defaultUnit: UnitKey = useMemo(() => {
+    if (!hasServings) return 'g';
+    const idx = servings.findIndex((s) => s.isDefault);
+    return (`s${idx >= 0 ? idx : 0}` as UnitKey);
+  }, [hasServings, servings]);
+
+  const [unit, setUnit] = useState<UnitKey>(defaultUnit);
+  const [qty, setQty] = useState<string>(hasServings ? '1' : initialGrams);
   const [submitting, setSubmitting] = useState(false);
 
-  // Reset dei grammi a ogni riapertura / cambio di target, così l'UI non
-  // mantiene il valore dell'alimento precedente.
+  // Reset di unità e quantità a ogni riapertura / cambio target.
   useEffect(() => {
-    if (visible) setGrams(initialGrams);
-  }, [visible, target?.foodName, initialGrams]);
+    if (!visible) return;
+    setUnit(defaultUnit);
+    setQty(defaultUnit === 'g' ? initialGrams : '1');
+  }, [visible, target?.foodName, defaultUnit, initialGrams]);
 
-  const gramsNum = useMemo(() => {
-    const n = Number(String(grams).replace(',', '.'));
+  const qtyNum = useMemo(() => {
+    const n = Number(String(qty).replace(',', '.'));
     return Number.isFinite(n) && n > 0 ? n : null;
-  }, [grams]);
+  }, [qty]);
+
+  const activeServing: ServingOption | null = useMemo(() => {
+    if (unit === 'g') return null;
+    const idx = Number(unit.slice(1));
+    return servings[idx] ?? null;
+  }, [unit, servings]);
+
+  const grams = useMemo(() => {
+    if (qtyNum === null) return null;
+    if (unit === 'g') return qtyNum;
+    if (!activeServing) return null;
+    return qtyNum * activeServing.grams;
+  }, [qtyNum, unit, activeServing]);
 
   const preview = useMemo(() => {
-    if (!target || gramsNum === null) return null;
-    return Math.round(calculateMealCalories(target.caloriesPer100g, gramsNum));
-  }, [target, gramsNum]);
+    if (!target || grams === null) return null;
+    return Math.round(calculateMealCalories(target.caloriesPer100g, grams));
+  }, [target, grams]);
 
-  const canSubmit = target !== null && gramsNum !== null && !submitting;
+  const canSubmit = target !== null && grams !== null && !submitting;
   const mealInfo = MEAL_INFO[mealType];
 
+  const unitOptions = useMemo<ReadonlyArray<{ value: UnitKey; label: string }>>(() => {
+    const opts: { value: UnitKey; label: string }[] = [{ value: 'g', label: 'g' }];
+    servings.forEach((s, i) => {
+      opts.push({ value: `s${i}` as UnitKey, label: s.label });
+    });
+    return opts;
+  }, [servings]);
+
+  function adjustQty(delta: number) {
+    const current = qtyNum ?? 0;
+    const next = Math.max(0, Math.round((current + delta) * 100) / 100);
+    setQty(formatQty(next));
+  }
+
   async function handleSubmit() {
-    if (!target || gramsNum === null) return;
+    if (!target || grams === null) return;
     setSubmitting(true);
     try {
       await onConfirm({
-        grams: gramsNum,
-        caloriesTotal: calculateMealCalories(target.caloriesPer100g, gramsNum),
+        grams,
+        caloriesTotal: calculateMealCalories(target.caloriesPer100g, grams),
+        servingLabel: activeServing?.label ?? null,
+        servingQty: activeServing && qtyNum !== null ? qtyNum : null,
       });
     } finally {
       setSubmitting(false);
     }
   }
+
+  const showStepper = unit !== 'g';
+  const unitSuffix = activeServing
+    ? qtyNum !== null && qtyNum !== 1
+      ? pluralize(activeServing.label)
+      : activeServing.label
+    : 'g';
 
   return (
     <Modal
@@ -129,32 +197,67 @@ export function GramsInputModal({
                 </Text>
                 <Text style={typography.caption}>
                   {target.subtitle
-                    ? `${target.subtitle} \u00b7 `
+                    ? `${target.subtitle} · `
                     : ''}
                   {target.caloriesPer100g} kcal / 100 g
                 </Text>
               </View>
 
+              {hasServings ? (
+                <SegmentedControl
+                  options={unitOptions}
+                  value={unit}
+                  onChange={setUnit}
+                />
+              ) : null}
+
               <View style={styles.row}>
                 <View style={styles.gramsField}>
-                  <Text style={typography.label}>Quantit\u00e0</Text>
+                  <Text style={typography.label}>Quantità</Text>
                   <View style={styles.gramsInputWrap}>
+                    {showStepper ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Diminuisci"
+                        onPress={() => adjustQty(-STEPPER_STEP)}
+                        style={styles.stepperBtn}
+                        hitSlop={6}
+                      >
+                        <Text style={styles.stepperLabel}>−</Text>
+                      </Pressable>
+                    ) : null}
                     <TextInput
-                      value={grams}
-                      onChangeText={setGrams}
+                      value={qty}
+                      onChangeText={setQty}
                       keyboardType="decimal-pad"
-                      style={styles.gramsInput}
+                      style={[styles.gramsInput, showStepper && styles.gramsInputStepper]}
                       autoFocus
                     />
-                    <Text style={[typography.caption, { paddingHorizontal: spacing.xl }]}>
-                      g
+                    {showStepper ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Aumenta"
+                        onPress={() => adjustQty(STEPPER_STEP)}
+                        style={styles.stepperBtn}
+                        hitSlop={6}
+                      >
+                        <Text style={styles.stepperLabel}>+</Text>
+                      </Pressable>
+                    ) : null}
+                    <Text style={[typography.caption, styles.unitSuffix]}>
+                      {unitSuffix}
                     </Text>
                   </View>
+                  {showStepper && grams !== null ? (
+                    <Text style={typography.caption}>
+                      ≈ {Math.round(grams)} g
+                    </Text>
+                  ) : null}
                 </View>
                 <View style={styles.previewBox}>
                   <Text style={typography.label}>Totale</Text>
                   <Text style={typography.value}>
-                    {preview !== null ? `${preview} kcal` : '\u2014'}
+                    {preview !== null ? `${preview} kcal` : '—'}
                   </Text>
                 </View>
               </View>
@@ -171,6 +274,23 @@ export function GramsInputModal({
       </KeyboardAvoidingView>
     </Modal>
   );
+}
+
+function formatQty(n: number): string {
+  if (Number.isInteger(n)) return String(n);
+  return String(Math.round(n * 100) / 100).replace('.', ',');
+}
+
+// Pluralizzazione minimale italiana per le porzioni più comuni: cucchiaino,
+// cucchiaio, fetta, mela, banana... La regola copre la maggior parte dei
+// label seedati; per casi edge ricade sul singolare.
+function pluralize(label: string): string {
+  const trimmed = label.trim();
+  const lower = trimmed.toLowerCase();
+  if (lower.endsWith('o')) return trimmed.slice(0, -1) + 'i';
+  if (lower.endsWith('a')) return trimmed.slice(0, -1) + 'e';
+  if (lower.endsWith('e')) return trimmed.slice(0, -1) + 'i';
+  return trimmed;
 }
 
 const styles = StyleSheet.create({
@@ -239,6 +359,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     fontFamily: typography.body.fontFamily,
+  },
+  gramsInputStepper: {
+    textAlign: 'center',
+    paddingHorizontal: spacing.xs,
+  },
+  stepperBtn: {
+    width: 36,
+    height: 36,
+    marginHorizontal: spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radii.sm,
+    backgroundColor: colors.card,
+  },
+  stepperLabel: {
+    ...typography.value,
+    color: colors.text,
+  },
+  unitSuffix: {
+    paddingHorizontal: spacing.xl,
   },
   previewBox: {
     flex: 1,

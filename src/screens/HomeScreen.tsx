@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   LayoutAnimation,
   Platform,
@@ -19,8 +19,8 @@ import { Icon } from '@/components/Icon';
 import { MealSection } from '@/components/MealSection';
 import { MEAL_ORDER } from '@/components/mealMeta';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { mealsStore } from '@/database';
-import type { Favorite, Meal, MealType } from '@/database';
+import { mealsStore, quickAddonsDB } from '@/database';
+import type { Favorite, Meal, MealType, QuickAddon } from '@/database';
 import { useDailyLog } from '@/hooks/useDailyLog';
 import type { NewMealInput } from '@/hooks/useDailyLog';
 import { useProfile } from '@/hooks/useProfile';
@@ -55,12 +55,22 @@ export default function HomeScreen() {
   const [addFoodMeal, setAddFoodMeal] = useState<MealType | null>(null);
   const [favoritesMeal, setFavoritesMeal] = useState<MealType | null>(null);
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
+  const [quickAddons, setQuickAddons] = useState<QuickAddon[]>([]);
   const [collapsed, setCollapsed] = useState<Record<MealType, boolean>>({
     colazione: false,
     pranzo: false,
     cena: false,
     spuntino: false,
   });
+
+  // Carichiamo gli addon configurati in Settings: l'utente li userà come
+  // scorciatoie nella riga azioni di ogni pasto. Ricarichiamo quando si chiude
+  // il sheet di aggiunta cibo (mediato da addFoodMeal) per riflettere subito
+  // eventuali modifiche da SettingsScreen senza dover ricaricare l'app.
+  useEffect(() => {
+    if (addFoodMeal !== null) return;
+    quickAddonsDB.listAddons().then(setQuickAddons).catch(() => undefined);
+  }, [addFoodMeal]);
 
   const toggleCollapse = useCallback((mealType: MealType) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -79,11 +89,15 @@ export default function HomeScreen() {
       mealType: MealType;
       grams: number;
       caloriesTotal: number;
+      servingLabel: string | null;
+      servingQty: number | null;
     }) => {
       await mealsStore.updateMeal(input.id, {
         mealType: input.mealType,
         grams: input.grams,
         caloriesTotal: input.caloriesTotal,
+        servingLabel: input.servingLabel,
+        servingQty: input.servingQty,
       });
       setEditingMeal(null);
     },
@@ -98,8 +112,27 @@ export default function HomeScreen() {
         foodName: item.foodName,
         grams: item.grams,
         caloriesTotal: item.calories,
+        servingLabel: item.servingLabel ?? null,
+        servingQty: item.servingQty ?? null,
       }));
       if (inputs.length > 0) await addMeals(inputs);
+    },
+    [addMeals],
+  );
+
+  const handleAddAddon = useCallback(
+    async (mealType: MealType, addon: QuickAddon) => {
+      await addMeals([
+        {
+          mealType,
+          foodId: null,
+          foodName: addon.label,
+          grams: 0,
+          caloriesTotal: addon.calories,
+          servingLabel: null,
+          servingQty: null,
+        },
+      ]);
     },
     [addMeals],
   );
@@ -136,9 +169,11 @@ export default function HomeScreen() {
             meals={mealsByType[mealType]}
             loading={loading}
             collapsed={collapsed[mealType]}
+            quickAddons={quickAddons}
             onToggleCollapse={() => toggleCollapse(mealType)}
             onAdd={() => setAddFoodMeal(mealType)}
             onAddFavorite={() => setFavoritesMeal(mealType)}
+            onAddAddon={(addon) => handleAddAddon(mealType, addon)}
             onDelete={handleDelete}
             onEdit={handleEdit}
           />

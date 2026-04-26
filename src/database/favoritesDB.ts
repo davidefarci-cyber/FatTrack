@@ -5,6 +5,8 @@ export type FavoriteItem = {
   foodName: string;
   grams: number;
   calories: number;
+  servingLabel?: string | null;
+  servingQty?: number | null;
 };
 
 export type Favorite = {
