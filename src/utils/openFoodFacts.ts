@@ -1,16 +1,18 @@
 // Client minimo per Open Food Facts:
-// - `offSearch` → endpoint v2 sul subdomain italiano (it.openfoodfacts.org)
-// - `offByBarcode` → lookup singolo per codice a barre (api/v2/product)
-// Usiamo `it.openfoodfacts.org` + `lc=it` per privilegiare risultati con nome
-// italiano: il vecchio /cgi/search.pl restituiva troppe 503 e poco IT.
+// - `offSearch` → Search-a-licious (search.openfoodfacts.org), il motore
+//   full-text ufficiale di OFF (Elasticsearch). Sostituisce il vecchio
+//   /cgi/search.pl (troppe 503) e l'API v2 (che NON supporta `search_terms`
+//   e quindi restituisce risultati per popolarità, scollegati dalla query).
+// - `offByBarcode` → lookup singolo per codice a barre (api/v2/product).
+// Filtriamo per `langs=it` per privilegiare prodotti con scheda italiana.
 // Headers `Accept-Language: it` e `User-Agent` identificativo riducono
-// throttling. Su 5xx riproviamo con backoff (300ms, 800ms) prima di fallire.
+// throttling. Su 5xx riproviamo con backoff (400ms, 1200ms) prima di fallire.
 // Normalizziamo sia i nomi che i nutrimenti perché OFF restituisce shape
 // eterogenei (nome italiano/inglese, energia in kcal o solo kJ, prodotti senza
 // calorie). Scartiamo tutto ciò che non ha un kcal per 100 g valido: non
 // serve mostrare in UI risultati senza il dato di cui abbiamo bisogno.
 
-const SEARCH_URL = 'https://it.openfoodfacts.org/api/v2/search';
+const SEARCH_URL = 'https://search.openfoodfacts.org/search';
 const PRODUCT_URL = 'https://world.openfoodfacts.org/api/v2/product';
 
 const SEARCH_FIELDS = [
@@ -31,7 +33,8 @@ const COMMON_HEADERS: Record<string, string> = {
   'User-Agent': 'FatTrack/1.0 (https://github.com/davidefarci-cyber/FatTrack)',
 };
 
-const RETRY_DELAYS_MS = [300, 800];
+const RETRY_DELAYS_MS = [400, 1200];
+const REQUEST_TIMEOUT_MS = 10000;
 
 export type OffProduct = {
   code: string | null;
@@ -77,18 +80,20 @@ export async function offSearch(
   const trimmed = query.trim();
   if (!trimmed) return [];
   const params = new URLSearchParams({
-    search_terms: trimmed,
-    lc: 'it',
+    q: trimmed,
+    langs: 'it',
     page_size: String(limit),
     fields: SEARCH_FIELDS,
   });
   const url = `${SEARCH_URL}?${params.toString()}`;
   const res = await offFetch(url, signal);
   if (!res.ok) throw new Error(`OFF search HTTP ${res.status}`);
-  const data = (await res.json()) as { products?: OffRaw[] };
-  const products = Array.isArray(data.products) ? data.products : [];
+  // Search-a-licious risponde con `hits` (array di documenti prodotto) invece
+  // del vecchio `products`. La forma di ogni hit ricalca quella dell'API OFF.
+  const data = (await res.json()) as { hits?: OffRaw[] };
+  const hits = Array.isArray(data.hits) ? data.hits : [];
   const out: OffProduct[] = [];
-  for (const raw of products) {
+  for (const raw of hits) {
     const product = normalizeProduct(raw);
     if (product) out.push(product);
   }
@@ -109,22 +114,33 @@ export async function offByBarcode(
   return normalizeProduct(data.product);
 }
 
-// Fetch con header standard OFF e retry su 5xx con backoff.
-// AbortError non viene mai ritentato.
+// Fetch con header standard OFF, timeout per tentativo e retry su 5xx con
+// backoff. Se l'utente cancella (es. cambia query) tramite `signal`, la
+// AbortError viene rilanciata immediatamente senza retry.
 async function offFetch(url: string, signal?: AbortSignal): Promise<Response> {
   let lastErr: unknown;
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     if (attempt > 0) {
       await wait(RETRY_DELAYS_MS[attempt - 1], signal);
     }
+    const timeoutCtl = new AbortController();
+    const timer = setTimeout(() => timeoutCtl.abort(), REQUEST_TIMEOUT_MS);
+    const onUserAbort = () => timeoutCtl.abort();
+    signal?.addEventListener('abort', onUserAbort, { once: true });
     let res: Response;
     try {
-      res = await fetch(url, { signal, headers: COMMON_HEADERS });
+      res = await fetch(url, { signal: timeoutCtl.signal, headers: COMMON_HEADERS });
     } catch (err) {
-      if (isAbortError(err)) throw err;
+      // Se è stato l'utente a cancellare, non ritentare.
+      if (signal?.aborted) throw makeAbortError();
       lastErr = err;
-      if (attempt === RETRY_DELAYS_MS.length) throw err;
+      if (attempt === RETRY_DELAYS_MS.length) {
+        throw new Error('Open Food Facts non risponde, riprova');
+      }
       continue;
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onUserAbort);
     }
     if (res.status >= 500 && res.status < 600 && attempt < RETRY_DELAYS_MS.length) {
       lastErr = new Error(`HTTP ${res.status}`);
@@ -151,10 +167,6 @@ function wait(ms: number, signal?: AbortSignal): Promise<void> {
     };
     signal?.addEventListener('abort', onAbort, { once: true });
   });
-}
-
-function isAbortError(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && (err as { name?: string }).name === 'AbortError';
 }
 
 function makeAbortError(): Error {
