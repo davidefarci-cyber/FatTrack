@@ -4,13 +4,27 @@ import { CalorieRing } from '@/components/CalorieRing';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Card } from '@/components/Card';
 import { colors, radii, spacing, typography } from '@/theme';
+import type { MacroTargets } from '@/utils/macroTargets';
+
+type MacroConsumed = {
+  protein: number;
+  carbs: number;
+  fat: number;
+};
 
 type HomeSummaryCardProps = {
   consumed: number;
   target: number;
+  macrosConsumed: MacroConsumed;
+  macroTargets: MacroTargets;
 };
 
-export function HomeSummaryCard({ consumed, target }: HomeSummaryCardProps) {
+export function HomeSummaryCard({
+  consumed,
+  target,
+  macrosConsumed,
+  macroTargets,
+}: HomeSummaryCardProps) {
   const consumedRounded = Math.round(consumed);
   const remaining = Math.round(target - consumed);
   const isOver = consumed > target && target > 0;
@@ -18,6 +32,11 @@ export function HomeSummaryCard({ consumed, target }: HomeSummaryCardProps) {
   const accentColor = isOver ? colors.red : colors.green;
   const accentBg = isOver ? colors.redLight : colors.greenLight;
   const accentLabel = isOver ? 'Superate' : 'Rimanenti';
+
+  const hasMacros =
+    macrosConsumed.protein > 0 ||
+    macrosConsumed.carbs > 0 ||
+    macrosConsumed.fat > 0;
 
   return (
     <Card style={styles.card}>
@@ -57,7 +76,71 @@ export function HomeSummaryCard({ consumed, target }: HomeSummaryCardProps) {
           </Text>
         </View>
       </View>
+
+      <View style={styles.macroBlock}>
+        <Text style={typography.label}>Macro</Text>
+        {hasMacros ? (
+          <>
+            <MacroRow
+              label="Proteine"
+              consumed={macrosConsumed.protein}
+              target={macroTargets.proteinG}
+              color={colors.purple}
+            />
+            <MacroRow
+              label="Carboidrati"
+              consumed={macrosConsumed.carbs}
+              target={macroTargets.carbsG}
+              color={colors.blue}
+            />
+            <MacroRow
+              label="Grassi"
+              consumed={macrosConsumed.fat}
+              target={macroTargets.fatG}
+              color={colors.green}
+            />
+          </>
+        ) : (
+          <Text style={typography.caption}>
+            I macro compaiono qui quando registri alimenti con dati nutrizionali.
+          </Text>
+        )}
+      </View>
     </Card>
+  );
+}
+
+function MacroRow({
+  label,
+  consumed,
+  target,
+  color,
+}: {
+  label: string;
+  consumed: number;
+  target: number;
+  color: string;
+}) {
+  const consumedRounded = Math.round(consumed);
+  const ratio = target > 0 ? Math.min(consumed / target, 1) : 0;
+  const widthPct = `${Math.round(ratio * 100)}%` as const;
+
+  return (
+    <View style={styles.macroRow}>
+      <View style={styles.macroLabelCol}>
+        <Text style={typography.bodyBold}>{label}</Text>
+      </View>
+      <View style={styles.macroBarCol}>
+        <View style={styles.macroBarTrack}>
+          <View
+            style={[styles.macroBarFill, { backgroundColor: color, width: widthPct }]}
+          />
+        </View>
+      </View>
+      <Text style={[typography.caption, styles.macroValue]}>
+        {consumedRounded} / {target} g
+      </Text>
+    </View>
   );
 }
 
@@ -92,5 +175,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  macroBlock: {
+    gap: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  macroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  macroLabelCol: {
+    width: 96,
+  },
+  macroBarCol: {
+    flex: 1,
+  },
+  macroBarTrack: {
+    height: 6,
+    borderRadius: radii.round,
+    backgroundColor: colors.bg,
+    overflow: 'hidden',
+  },
+  macroBarFill: {
+    height: '100%',
+    borderRadius: radii.round,
+  },
+  macroValue: {
+    minWidth: 72,
+    textAlign: 'right',
   },
 });

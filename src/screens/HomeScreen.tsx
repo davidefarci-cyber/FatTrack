@@ -26,6 +26,7 @@ import type { NewMealInput } from '@/hooks/useDailyLog';
 import { useProfile } from '@/hooks/useProfile';
 import { colors, radii, spacing, typography } from '@/theme';
 import { DEFAULT_TARGET_KCAL } from '@/utils/calorieCalculator';
+import { computeMacroTargets } from '@/utils/macroTargets';
 
 // Abilita LayoutAnimation su Android (di default è off) per il collapse animato.
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -45,6 +46,7 @@ export default function HomeScreen() {
     loading,
     mealsByType,
     totalCalories,
+    macros,
     addMeals,
     removeMeal,
     goToPreviousDay,
@@ -78,6 +80,7 @@ export default function HomeScreen() {
   }, []);
 
   const target = targetCalories ?? DEFAULT_TARGET_KCAL;
+  const macroTargets = computeMacroTargets(target);
 
   const handleDelete = useCallback((id: number) => removeMeal(id), [removeMeal]);
 
@@ -169,7 +172,12 @@ export default function HomeScreen() {
           onToday={goToToday}
         />
 
-        <HomeSummaryCard consumed={totalCalories} target={target} />
+        <HomeSummaryCard
+          consumed={totalCalories}
+          target={target}
+          macrosConsumed={macros}
+          macroTargets={macroTargets}
+        />
 
         {MEAL_ORDER.map((mealType) => (
           <MealSection
