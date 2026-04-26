@@ -14,6 +14,7 @@ import {
 
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
+import { FoodServingsEditorModal } from '@/components/FoodServingsEditorModal';
 import { GramsInputModal } from '@/components/GramsInputModal';
 import type { GramsInputTarget, ServingOption } from '@/components/GramsInputModal';
 import { Icon } from '@/components/Icon';
@@ -206,6 +207,8 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Selected | null>(null);
   const [selectedServings, setSelectedServings] = useState<ServingOption[]>([]);
+  const [editingServings, setEditingServings] = useState<Food | null>(null);
+  const [servingsTick, setServingsTick] = useState(0);
 
   // Quando l'utente seleziona un food locale carichiamo le sue porzioni
   // alternative ("fetta", "cucchiaino"...) per popolare il GramsInputModal.
@@ -240,7 +243,7 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
     return () => {
       active = false;
     };
-  }, [selected]);
+  }, [selected, servingsTick]);
 
   useEffect(() => {
     let active = true;
@@ -447,6 +450,7 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
                   item.food.source,
                 )}`}
                 onPress={() => setSelected({ source: 'local', food: item.food })}
+                onEditServings={() => setEditingServings(item.food)}
               />
             );
           }
@@ -470,6 +474,14 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
         onClose={() => setSelected(null)}
         onConfirm={handleConfirm}
       />
+
+      <FoodServingsEditorModal
+        visible={editingServings !== null}
+        foodId={editingServings?.id ?? null}
+        foodName={editingServings?.name ?? ''}
+        onClose={() => setEditingServings(null)}
+        onChanged={() => setServingsTick((n) => n + 1)}
+      />
     </View>
   );
 }
@@ -483,11 +495,13 @@ function ResultRow({
   subtitle,
   badge,
   onPress,
+  onEditServings,
 }: {
   title: string;
   subtitle: string;
   badge?: string;
   onPress: () => void;
+  onEditServings?: () => void;
 }) {
   return (
     <Pressable onPress={onPress} style={styles.resultRow}>
@@ -503,6 +517,17 @@ function ResultRow({
         <View style={styles.badge}>
           <Text style={[typography.micro, { color: colors.blue }]}>{badge}</Text>
         </View>
+      ) : null}
+      {onEditServings ? (
+        <Pressable
+          onPress={onEditServings}
+          style={styles.servingsEditBtn}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={`Modifica porzioni di ${title}`}
+        >
+          <Icon name="pencil" size={14} color={colors.textSec} />
+        </Pressable>
       ) : null}
       <Icon name="chevron-right" size={14} color={colors.textSec} />
     </Pressable>
@@ -955,6 +980,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: radii.sm,
     backgroundColor: colors.blueLight,
+  },
+  servingsEditBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.round,
+    backgroundColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scannerStatus: {
     gap: spacing.md,
