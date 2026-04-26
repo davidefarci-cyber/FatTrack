@@ -26,13 +26,11 @@ import { MEAL_INFO, MEAL_ORDER } from '@/components/mealMeta';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { useToast } from '@/components/Toast';
-import { foodServingsDB, foodsDB, settingsDB } from '@/database';
-import type { Favorite, FavoriteItem, Food, MealType } from '@/database';
+import { foodServingsDB, foodsDB, quickAddonsDB } from '@/database';
+import type { Favorite, FavoriteItem, Food, MealType, QuickAddon } from '@/database';
 import { useFavorites } from '@/hooks/useFavorites';
 import { todayISO } from '@/hooks/useDailyLog';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
-
-const SIDE_DISH_LABEL = 'Contorno';
 
 const MEAL_OPTIONS: ReadonlyArray<{ value: MealType; label: string }> = MEAL_ORDER.map(
   (mealType) => ({ value: mealType, label: MEAL_INFO[mealType].label }),
@@ -52,16 +50,16 @@ export default function FavoritesScreen() {
 
   const [targetMeal, setTargetMeal] = useState<MealType>('pranzo');
   const [editing, setEditing] = useState<Favorite | 'new' | null>(null);
-  const [sideDishCalories, setSideDishCalories] = useState<number>(50);
+  const [quickAddons, setQuickAddons] = useState<QuickAddon[]>([]);
   const [submittingId, setSubmittingId] = useState<number | null>(null);
 
-  // Leggiamo le calorie fisse "contorno" dalle impostazioni: il valore è
-  // configurato dall'utente in SettingsScreen e usato qui come costo fisso
-  // per la voce "Contorno" nei preferiti.
+  // Carichiamo gli addon configurati in Settings: l'utente li userà come
+  // scorciatoie per aggiungere calorie fisse al preferito (contorno, olio,
+  // condimento, ecc.).
   useEffect(() => {
-    settingsDB
-      .getSettings()
-      .then((s) => setSideDishCalories(s.sideDishCalories))
+    quickAddonsDB
+      .listAddons()
+      .then(setQuickAddons)
       .catch(() => undefined);
   }, [editing]);
 
@@ -158,7 +156,7 @@ export default function FavoritesScreen() {
       <FavoriteEditorModal
         visible={editing !== null}
         editing={editing === 'new' ? null : editing}
-        sideDishCalories={sideDishCalories}
+        quickAddons={quickAddons}
         onClose={() => setEditing(null)}
         onSave={handleSave}
       />
@@ -271,7 +269,7 @@ function FavoriteRow({
 type FavoriteEditorModalProps = {
   visible: boolean;
   editing: Favorite | null;
-  sideDishCalories: number;
+  quickAddons: QuickAddon[];
   onClose: () => void;
   onSave: (name: string, items: FavoriteItem[]) => Promise<void>;
 };
@@ -281,7 +279,7 @@ const FOOD_SEARCH_DEBOUNCE_MS = 250;
 function FavoriteEditorModal({
   visible,
   editing,
-  sideDishCalories,
+  quickAddons,
   onClose,
   onSave,
 }: FavoriteEditorModalProps) {
@@ -403,17 +401,17 @@ function FavoriteEditorModal({
     [pendingFood],
   );
 
-  const handleAddSideDish = useCallback(() => {
+  const handleAddAddon = useCallback((addon: QuickAddon) => {
     setItems((prev) => [
       ...prev,
       {
         foodId: null,
-        foodName: SIDE_DISH_LABEL,
+        foodName: addon.label,
         grams: 0,
-        calories: sideDishCalories,
+        calories: addon.calories,
       },
     ]);
-  }, [sideDishCalories]);
+  }, []);
 
   const handleRemoveItem = useCallback((index: number) => {
     setItems((prev) => prev.filter((_, i) => i !== index));
@@ -574,16 +572,27 @@ function FavoriteEditorModal({
                 </View>
               )}
 
-              <Pressable
-                onPress={handleAddSideDish}
-                style={styles.sideDishBtn}
-                accessibilityRole="button"
-              >
-                <Icon name="plus" size={14} color={colors.green} />
-                <Text style={[typography.bodyBold, { color: colors.green }]}>
-                  Aggiungi contorno ({sideDishCalories} kcal)
-                </Text>
-              </Pressable>
+              {quickAddons.length > 0 ? (
+                <View style={styles.addonsRow}>
+                  {quickAddons.map((addon) => (
+                    <Pressable
+                      key={addon.id}
+                      onPress={() => handleAddAddon(addon)}
+                      style={styles.addonChip}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Aggiungi ${addon.label}`}
+                    >
+                      <Icon name="plus" size={12} color={colors.green} />
+                      <Text style={[typography.bodyBold, { color: colors.green }]}>
+                        {addon.label}
+                      </Text>
+                      <Text style={[typography.caption, { color: colors.green }]}>
+                        {Math.round(addon.calories)} kcal
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
             </View>
 
             <View style={styles.editorSection}>
@@ -981,14 +990,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sideDishBtn: {
+  addonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  addonChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.lg,
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
     backgroundColor: colors.greenLight,
-    borderRadius: radii.md,
+    borderRadius: radii.round,
     borderWidth: 1.5,
     borderColor: colors.green,
   },

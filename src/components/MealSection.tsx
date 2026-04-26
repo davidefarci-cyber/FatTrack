@@ -4,7 +4,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { Card } from '@/components/Card';
 import { Icon } from '@/components/Icon';
 import { MEAL_INFO } from '@/components/mealMeta';
-import type { Meal, MealType } from '@/database';
+import type { Meal, MealType, QuickAddon } from '@/database';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
 import { formatServing } from '@/utils/formatServing';
 
@@ -13,9 +13,11 @@ type MealSectionProps = {
   meals: Meal[];
   loading: boolean;
   collapsed: boolean;
+  quickAddons: QuickAddon[];
   onToggleCollapse: () => void;
   onAdd: () => void;
   onAddFavorite: () => void;
+  onAddAddon: (addon: QuickAddon) => void;
   onDelete: (id: number) => void;
   onEdit: (meal: Meal) => void;
 };
@@ -25,9 +27,11 @@ export function MealSection({
   meals,
   loading,
   collapsed,
+  quickAddons,
   onToggleCollapse,
   onAdd,
   onAddFavorite,
+  onAddAddon,
   onDelete,
   onEdit,
 }: MealSectionProps) {
@@ -109,6 +113,28 @@ export function MealSection({
               </Text>
             </Pressable>
           </View>
+
+          {quickAddons.length > 0 ? (
+            <View style={styles.addonsRow}>
+              {quickAddons.map((addon) => (
+                <Pressable
+                  key={addon.id}
+                  onPress={() => onAddAddon(addon)}
+                  style={styles.addonChip}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Aggiungi ${addon.label} a ${info.label}`}
+                >
+                  <Icon name="plus" size={12} color={colors.green} />
+                  <Text style={[typography.bodyBold, { color: colors.green }]}>
+                    {addon.label}
+                  </Text>
+                  <Text style={[typography.caption, { color: colors.green }]}>
+                    {Math.round(addon.calories)} kcal
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
         </>
       ) : null}
     </Card>
@@ -206,6 +232,22 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: spacing.md,
+  },
+  addonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  addonChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.greenLight,
+    borderRadius: radii.round,
+    borderWidth: 1.5,
+    borderColor: colors.green,
   },
   primaryAction: {
     flex: 1,

@@ -7,11 +7,11 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Input } from '@/components/Input';
 import { OptionSelect } from '@/components/OptionSelect';
+import { QuickAddonsCard } from '@/components/QuickAddonsCard';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { useToast } from '@/components/Toast';
-import { settingsDB } from '@/database';
-import type { ActivityLevel, DailySettings, Gender, UserProfile } from '@/database';
+import type { ActivityLevel, Gender, UserProfile } from '@/database';
 import { useProfile } from '@/hooks/useProfile';
 import { colors, radii, spacing, typography } from '@/theme';
 import {
@@ -26,7 +26,6 @@ import {
 } from '@/utils/profileOptions';
 
 const AUTOSAVE_DEBOUNCE_MS = 600;
-const DEFAULT_SIDE_DISH_KCAL = 50;
 
 type FormValues = {
   weightKg: string;
@@ -35,7 +34,6 @@ type FormValues = {
   gender: Gender | null;
   activityLevel: ActivityLevel | null;
   weeklyGoalKg: number | null;
-  sideDishCalories: string;
 };
 
 type ParsedProfile = {
@@ -51,16 +49,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const { profile, saveProfile, deleteProfile, loading: profileLoading } = useProfile();
-  const [settings, setSettings] = useState<DailySettings | null>(null);
-  const [settingsLoading, setSettingsLoading] = useState(true);
   const [resetting, setResetting] = useState(false);
-
-  useEffect(() => {
-    settingsDB
-      .getSettings()
-      .then(setSettings)
-      .finally(() => setSettingsLoading(false));
-  }, []);
 
   const {
     control,
@@ -71,19 +60,15 @@ export default function SettingsScreen() {
     mode: 'onChange',
   });
 
-  // Allinea il form ai dati appena caricati (profilo + impostazioni).
-  // Senza questo reset l'Input partirebbe con stringhe vuote anche quando
-  // in DB esistono i valori.
+  // Allinea il form al profilo appena caricato. Senza questo reset l'Input
+  // partirebbe con stringhe vuote anche quando in DB esistono i valori.
   useEffect(() => {
-    if (profileLoading || settingsLoading) return;
-    reset(buildFormValues(profile, settings));
-  }, [profile, settings, profileLoading, settingsLoading, reset]);
+    if (profileLoading) return;
+    reset(buildFormValues(profile));
+  }, [profile, profileLoading, reset]);
 
   const watched = useWatch({ control }) as FormValues;
   const parsed = useMemo(() => parseProfile(watched), [watched]);
-  const sideKcal = useMemo(() => parseSideKcal(watched.sideDishCalories), [
-    watched.sideDishCalories,
-  ]);
   const computed = useMemo(() => (parsed ? computeProfile(parsed) : null), [parsed]);
 
   // Salvataggio automatico del profilo: debounce per non scrivere a ogni tasto.
@@ -101,25 +86,7 @@ export default function SettingsScreen() {
     return () => clearTimeout(handle);
   }, [parsed, profile, profileLoading, saveProfile]);
 
-  // Salvataggio automatico delle calorie contorno (settings separate dal profilo).
-  const lastSavedSideRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (settingsLoading || !settings || sideKcal === null) return;
-    const baseline = lastSavedSideRef.current ?? settings.sideDishCalories;
-    if (sideKcal === baseline) return;
-    const handle = setTimeout(() => {
-      settingsDB
-        .updateSettings({ sideDishCalories: sideKcal })
-        .then((next) => {
-          lastSavedSideRef.current = sideKcal;
-          setSettings(next);
-        })
-        .catch(() => undefined);
-    }, AUTOSAVE_DEBOUNCE_MS);
-    return () => clearTimeout(handle);
-  }, [sideKcal, settings, settingsLoading]);
-
-  const loading = profileLoading || settingsLoading;
+  const loading = profileLoading;
 
   const handleReset = () => {
     Alert.alert(
@@ -285,32 +252,7 @@ export default function SettingsScreen() {
 
             <ResultsCard computed={computed} />
 
-            <Card style={styles.card}>
-              <Text style={typography.label}>Contorno verdure</Text>
-              <Controller
-                control={control}
-                name="sideDishCalories"
-                rules={{
-                  required: 'Inserisci le calorie',
-                  validate: (v) => validateNumber(v, 0, 2000) || 'Valore non valido',
-                }}
-                render={({ field: { value, onChange, onBlur } }) => (
-                  <FormField
-                    error={errors.sideDishCalories?.message}
-                    hint="Calorie aggiunte in automatico ad ogni pasto (es. olio, condimenti)."
-                  >
-                    <Input
-                      label="Calorie fisse contorno"
-                      unit="kcal"
-                      keyboardType="number-pad"
-                      value={value}
-                      onChangeText={onChange}
-                      onBlur={onBlur}
-                    />
-                  </FormField>
-                )}
-              />
-            </Card>
+            <QuickAddonsCard />
 
             <Card style={styles.card}>
               <Text style={typography.label}>Test</Text>
@@ -401,18 +343,11 @@ function emptyValues(): FormValues {
     gender: null,
     activityLevel: null,
     weeklyGoalKg: null,
-    sideDishCalories: String(DEFAULT_SIDE_DISH_KCAL),
   };
 }
 
-function buildFormValues(
-  profile: UserProfile | null,
-  settings: DailySettings | null,
-): FormValues {
-  const side = settings?.sideDishCalories ?? DEFAULT_SIDE_DISH_KCAL;
-  if (!profile) {
-    return { ...emptyValues(), sideDishCalories: String(side) };
-  }
+function buildFormValues(profile: UserProfile | null): FormValues {
+  if (!profile) return emptyValues();
   return {
     weightKg: String(profile.weightKg),
     heightCm: String(profile.heightCm),
@@ -420,7 +355,6 @@ function buildFormValues(
     gender: profile.gender,
     activityLevel: profile.activityLevel,
     weeklyGoalKg: profile.weeklyGoalKg,
-    sideDishCalories: String(side),
   };
 }
 
@@ -456,12 +390,6 @@ function parseProfile(v: FormValues): ParsedProfile | null {
     activityLevel: v.activityLevel,
     weeklyGoalKg: v.weeklyGoalKg,
   };
-}
-
-function parseSideKcal(raw: string): number | null {
-  const n = Number(String(raw).replace(',', '.'));
-  if (!Number.isFinite(n) || n < 0 || n > 2000) return null;
-  return n;
 }
 
 function sameProfile(a: ParsedProfile, b: Pick<UserProfile, keyof ParsedProfile>): boolean {
