@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 
-import { seedFoodsIfEmpty } from './seedFoods';
+import { seedFoodsIfEmpty, seedServingsIfEmpty } from './seedFoods';
 
 const DB_NAME = 'fattrack.db';
 
@@ -15,6 +15,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
     const db = await SQLite.openDatabaseAsync(DB_NAME);
     await migrate(db);
     await seedFoodsIfEmpty(db);
+    await seedServingsIfEmpty(db);
     dbInstance = db;
     return db;
   })();
@@ -44,6 +45,8 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       food_name TEXT NOT NULL,
       grams REAL NOT NULL,
       calories_total REAL NOT NULL,
+      serving_label TEXT,
+      serving_qty REAL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (food_id) REFERENCES foods(id) ON DELETE SET NULL
     );
@@ -62,6 +65,29 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       side_dish_calories REAL NOT NULL DEFAULT 50,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS food_servings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      food_id INTEGER NOT NULL,
+      label TEXT NOT NULL,
+      grams REAL NOT NULL,
+      is_default INTEGER NOT NULL DEFAULT 0,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (food_id) REFERENCES foods(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_food_servings_food ON food_servings(food_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_food_servings_food_label
+      ON food_servings(food_id, lower(label));
+
+    CREATE TABLE IF NOT EXISTS quick_addons (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      label TEXT NOT NULL,
+      calories REAL NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_quick_addons_position ON quick_addons(position);
 
     CREATE TABLE IF NOT EXISTS user_profile (
       id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -86,8 +112,32 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     // La colonna non esiste: niente da fare.
   }
 
+  // Migrazione: aggiunta porzioni snapshot su `meals`. Su DB nuovi le colonne
+  // sono già presenti dal CREATE; sui DB esistenti le aggiungiamo idempotente.
+  for (const sql of [
+    `ALTER TABLE meals ADD COLUMN serving_label TEXT`,
+    `ALTER TABLE meals ADD COLUMN serving_qty REAL`,
+  ]) {
+    try {
+      await db.execAsync(sql);
+    } catch {
+      // Colonna già presente.
+    }
+  }
+
   await db.runAsync(
     `INSERT OR IGNORE INTO daily_settings (id, side_dish_calories) VALUES (1, 50)`,
+  );
+
+  // Seed iniziale di `quick_addons` dal valore esistente di `side_dish_calories`,
+  // così gli utenti che hanno già configurato il contorno automatico ritrovano
+  // la stessa scorciatoia nella nuova UI "Aggiunte rapide".
+  await db.runAsync(
+    `INSERT INTO quick_addons (label, calories, position)
+     SELECT 'Contorno verdure', side_dish_calories, 0
+     FROM daily_settings
+     WHERE id = 1
+       AND NOT EXISTS (SELECT 1 FROM quick_addons LIMIT 1)`,
   );
 }
 
@@ -96,7 +146,9 @@ export async function resetDatabase(): Promise<void> {
   await db.execAsync(`
     DROP TABLE IF EXISTS meals;
     DROP TABLE IF EXISTS favorites;
+    DROP TABLE IF EXISTS food_servings;
     DROP TABLE IF EXISTS foods;
+    DROP TABLE IF EXISTS quick_addons;
     DROP TABLE IF EXISTS daily_settings;
     DROP TABLE IF EXISTS user_profile;
   `);

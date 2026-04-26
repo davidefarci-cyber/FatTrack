@@ -10,6 +10,8 @@ export type Meal = {
   foodName: string;
   grams: number;
   caloriesTotal: number;
+  servingLabel: string | null;
+  servingQty: number | null;
   createdAt: string;
 };
 
@@ -20,6 +22,8 @@ export type NewMeal = {
   foodName: string;
   grams: number;
   caloriesTotal: number;
+  servingLabel?: string | null;
+  servingQty?: number | null;
 };
 
 const COLUMNS = `
@@ -30,20 +34,24 @@ const COLUMNS = `
   food_name AS foodName,
   grams,
   calories_total AS caloriesTotal,
+  serving_label AS servingLabel,
+  serving_qty AS servingQty,
   created_at AS createdAt
 `;
 
 export async function createMeal(meal: NewMeal): Promise<Meal> {
   const db = await getDatabase();
   const result = await db.runAsync(
-    `INSERT INTO meals (date, meal_type, food_id, food_name, grams, calories_total)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO meals (date, meal_type, food_id, food_name, grams, calories_total, serving_label, serving_qty)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     meal.date,
     meal.mealType,
     meal.foodId,
     meal.foodName,
     meal.grams,
     meal.caloriesTotal,
+    meal.servingLabel ?? null,
+    meal.servingQty ?? null,
   );
   const created = await getMeal(result.lastInsertRowId);
   if (!created) throw new Error('Meal creation failed');
@@ -115,6 +123,14 @@ export async function updateMeal(
   if (patch.caloriesTotal !== undefined) {
     fields.push('calories_total = ?');
     values.push(patch.caloriesTotal);
+  }
+  if (patch.servingLabel !== undefined) {
+    fields.push('serving_label = ?');
+    values.push(patch.servingLabel);
+  }
+  if (patch.servingQty !== undefined) {
+    fields.push('serving_qty = ?');
+    values.push(patch.servingQty);
   }
   if (fields.length === 0) return getMeal(id);
 

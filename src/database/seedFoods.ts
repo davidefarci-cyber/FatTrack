@@ -68,3 +68,12 @@ export async function seedFoodsIfEmpty(db: SQLite.SQLiteDatabase): Promise<void>
     await stmt.finalizeAsync();
   }
 }
+
+// Popolamento porzioni standard. Riempito nella fase di seed: per ora stub
+// idempotente che riserva il punto di chiamata in `getDatabase()`.
+export async function seedServingsIfEmpty(db: SQLite.SQLiteDatabase): Promise<void> {
+  const row = await db.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(*) AS count FROM food_servings',
+  );
+  if (row && row.count > 0) return;
+}
