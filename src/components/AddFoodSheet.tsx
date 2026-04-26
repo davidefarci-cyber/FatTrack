@@ -15,14 +15,14 @@ import {
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { GramsInputModal } from '@/components/GramsInputModal';
-import type { GramsInputTarget } from '@/components/GramsInputModal';
+import type { GramsInputTarget, ServingOption } from '@/components/GramsInputModal';
 import { Icon } from '@/components/Icon';
 import { Input } from '@/components/Input';
 import { MEAL_INFO } from '@/components/mealMeta';
 import { ScannerView } from '@/components/ScannerView';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { useToast } from '@/components/Toast';
-import { foodsDB, mealsStore } from '@/database';
+import { foodsDB, foodServingsDB, mealsStore } from '@/database';
 import type { Food, FoodSource, MealType } from '@/database';
 import { colors, radii, spacing, typography } from '@/theme';
 import { calculateMealCalories } from '@/utils/calorieCalculator';
@@ -69,10 +69,18 @@ export function AddFoodSheet({ visible, mealType, date, onClose, onAdded }: AddF
       caloriesPer100g: number;
       grams: number;
       caloriesTotal: number;
+      servingLabel: string | null;
+      servingQty: number | null;
       source: FoodSource;
       existingFoodId?: number | null;
+      // Porzione tipica letta da OFF: la persistiamo come food_serving così
+      // la prossima volta che l'utente sceglie quel prodotto trova la
+      // scorciatoia "1 porzione = Xg" già pronta.
+      offServingQuantity?: number | null;
+      offServingLabel?: string | null;
     }) => {
       let foodId: number | null = args.existingFoodId ?? null;
+      let createdNewFood = false;
       if (foodId === null) {
         const existing = await foodsDB.findByName(args.foodName);
         if (existing) {
@@ -84,6 +92,25 @@ export function AddFoodSheet({ visible, mealType, date, onClose, onAdded }: AddF
             source: args.source,
           });
           foodId = created.id;
+          createdNewFood = true;
+        }
+      }
+      if (
+        createdNewFood &&
+        foodId !== null &&
+        args.offServingQuantity != null &&
+        args.offServingQuantity > 0
+      ) {
+        try {
+          await foodServingsDB.createServing({
+            foodId,
+            label: args.offServingLabel?.trim() || 'porzione',
+            grams: args.offServingQuantity,
+            isDefault: true,
+            position: 0,
+          });
+        } catch {
+          // Duplicato o errore minore: niente da fare.
         }
       }
       await mealsStore.createMeal({
@@ -93,6 +120,8 @@ export function AddFoodSheet({ visible, mealType, date, onClose, onAdded }: AddF
         foodName: args.foodName,
         grams: args.grams,
         caloriesTotal: args.caloriesTotal,
+        servingLabel: args.servingLabel,
+        servingQty: args.servingQty,
       });
       toast.show('Aggiunto!');
       onAdded?.();
@@ -148,8 +177,12 @@ type CommitArgs = {
   caloriesPer100g: number;
   grams: number;
   caloriesTotal: number;
+  servingLabel: string | null;
+  servingQty: number | null;
   source: FoodSource;
   existingFoodId?: number | null;
+  offServingQuantity?: number | null;
+  offServingLabel?: string | null;
 };
 
 type CommitFn = (args: CommitArgs) => Promise<void>;
@@ -172,6 +205,42 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
   const [loadingRemote, setLoadingRemote] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Selected | null>(null);
+  const [selectedServings, setSelectedServings] = useState<ServingOption[]>([]);
+
+  // Quando l'utente seleziona un food locale carichiamo le sue porzioni
+  // alternative ("fetta", "cucchiaino"...) per popolare il GramsInputModal.
+  // I food remoti partono senza porzioni: se OFF fornisce serving_quantity
+  // la usiamo come singola porzione tipica.
+  useEffect(() => {
+    if (!selected) {
+      setSelectedServings([]);
+      return;
+    }
+    if (selected.source === 'remote') {
+      const qty = selected.product.servingQuantity;
+      if (qty != null && qty > 0) {
+        setSelectedServings([{ label: 'porzione', grams: qty, isDefault: true }]);
+      } else {
+        setSelectedServings([]);
+      }
+      return;
+    }
+    let active = true;
+    foodServingsDB
+      .listServingsByFood(selected.food.id)
+      .then((rows) => {
+        if (!active) return;
+        setSelectedServings(
+          rows.map((r) => ({ label: r.label, grams: r.grams, isDefault: r.isDefault })),
+        );
+      })
+      .catch(() => {
+        if (active) setSelectedServings([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selected]);
 
   useEffect(() => {
     let active = true;
@@ -277,17 +346,29 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
         foodName: selected.food.name,
         caloriesPer100g: selected.food.caloriesPer100g,
         subtitle: sourceLabel(selected.food.source),
+        servings: selectedServings,
       };
     }
     return {
       foodName: selected.product.name,
       caloriesPer100g: selected.product.caloriesPer100g,
       subtitle: selected.product.brand ?? 'Open Food Facts',
+      servings: selectedServings,
     };
-  }, [selected]);
+  }, [selected, selectedServings]);
 
   const handleConfirm = useCallback(
-    async ({ grams, caloriesTotal }: { grams: number; caloriesTotal: number }) => {
+    async ({
+      grams,
+      caloriesTotal,
+      servingLabel,
+      servingQty,
+    }: {
+      grams: number;
+      caloriesTotal: number;
+      servingLabel: string | null;
+      servingQty: number | null;
+    }) => {
       if (!selected) return;
       if (selected.source === 'local') {
         await onCommit({
@@ -295,6 +376,8 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
           caloriesPer100g: selected.food.caloriesPer100g,
           grams,
           caloriesTotal,
+          servingLabel,
+          servingQty,
           source: selected.food.source,
           existingFoodId: selected.food.id,
         });
@@ -304,7 +387,11 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
           caloriesPer100g: selected.product.caloriesPer100g,
           grams,
           caloriesTotal,
+          servingLabel,
+          servingQty,
           source: 'api',
+          offServingQuantity: selected.product.servingQuantity,
+          offServingLabel: 'porzione',
         });
       }
       setSelected(null);
@@ -493,23 +580,46 @@ function BarcodeTab({
     setLooking(false);
   }, []);
 
+  const modalServings = useMemo<ServingOption[]>(() => {
+    if (!product) return [];
+    if (product.servingQuantity != null && product.servingQuantity > 0) {
+      return [{ label: 'porzione', grams: product.servingQuantity, isDefault: true }];
+    }
+    return [];
+  }, [product]);
+
   const modalTarget: GramsInputTarget | null = product
     ? {
         foodName: product.name,
         caloriesPer100g: product.caloriesPer100g,
         subtitle: product.brand ?? `Barcode ${scannedCode ?? ''}`.trim(),
+        servings: modalServings,
       }
     : null;
 
   const handleConfirm = useCallback(
-    async ({ grams, caloriesTotal }: { grams: number; caloriesTotal: number }) => {
+    async ({
+      grams,
+      caloriesTotal,
+      servingLabel,
+      servingQty,
+    }: {
+      grams: number;
+      caloriesTotal: number;
+      servingLabel: string | null;
+      servingQty: number | null;
+    }) => {
       if (!product) return;
       await onCommit({
         foodName: product.name,
         caloriesPer100g: product.caloriesPer100g,
         grams,
         caloriesTotal,
+        servingLabel,
+        servingQty,
         source: 'barcode',
+        offServingQuantity: product.servingQuantity,
+        offServingLabel: 'porzione',
       });
       resetScanner();
     },
@@ -636,6 +746,8 @@ function ManualTab({ onCommit }: { onCommit: CommitFn }) {
         caloriesPer100g: kcal,
         grams,
         caloriesTotal: calculateMealCalories(kcal, grams),
+        servingLabel: null,
+        servingQty: null,
         source: 'manual',
       });
       reset({ name: '', caloriesPer100g: '', grams: '100' });

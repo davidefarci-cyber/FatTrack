@@ -19,14 +19,14 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { FAB } from '@/components/FAB';
 import { GramsInputModal } from '@/components/GramsInputModal';
-import type { GramsInputTarget } from '@/components/GramsInputModal';
+import type { GramsInputTarget, ServingOption } from '@/components/GramsInputModal';
 import { Icon } from '@/components/Icon';
 import { Input } from '@/components/Input';
 import { MEAL_INFO, MEAL_ORDER } from '@/components/mealMeta';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { useToast } from '@/components/Toast';
-import { foodsDB, settingsDB } from '@/database';
+import { foodServingsDB, foodsDB, settingsDB } from '@/database';
 import type { Favorite, FavoriteItem, Food, MealType } from '@/database';
 import { useFavorites } from '@/hooks/useFavorites';
 import { todayISO } from '@/hooks/useDailyLog';
@@ -292,6 +292,7 @@ function FavoriteEditorModal({
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Food[]>([]);
   const [pendingFood, setPendingFood] = useState<Food | null>(null);
+  const [pendingServings, setPendingServings] = useState<ServingOption[]>([]);
   const [saving, setSaving] = useState(false);
   // Modal per creare un alimento nuovo al volo: viene salvato in foodsDB
   // (source='manual') così la prossima ricerca lo troverà senza dover
@@ -309,9 +310,35 @@ function FavoriteEditorModal({
     setQuery('');
     setResults([]);
     setPendingFood(null);
+    setPendingServings([]);
     setManualOpen(false);
     setManualPrefillName('');
   }, [visible, editing?.id]);
+
+  // Quando si seleziona un alimento per aggiungerlo al preferito, carichiamo
+  // le sue porzioni alternative per il GramsInputModal (stesso pattern di
+  // AddFoodSheet).
+  useEffect(() => {
+    if (!pendingFood) {
+      setPendingServings([]);
+      return;
+    }
+    let active = true;
+    foodServingsDB
+      .listServingsByFood(pendingFood.id)
+      .then((rows) => {
+        if (!active) return;
+        setPendingServings(
+          rows.map((r) => ({ label: r.label, grams: r.grams, isDefault: r.isDefault })),
+        );
+      })
+      .catch(() => {
+        if (active) setPendingServings([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [pendingFood]);
 
   // Ricerca locale: debounced per non martellare SQLite a ogni carattere.
   useEffect(() => {
@@ -346,7 +373,17 @@ function FavoriteEditorModal({
   const canSave = name.trim().length > 0 && items.length > 0 && !saving;
 
   const handleAddFood = useCallback(
-    ({ grams, caloriesTotal }: { grams: number; caloriesTotal: number }) => {
+    ({
+      grams,
+      caloriesTotal,
+      servingLabel,
+      servingQty,
+    }: {
+      grams: number;
+      caloriesTotal: number;
+      servingLabel: string | null;
+      servingQty: number | null;
+    }) => {
       if (!pendingFood) return;
       setItems((prev) => [
         ...prev,
@@ -355,6 +392,8 @@ function FavoriteEditorModal({
           foodName: pendingFood.name,
           grams,
           calories: caloriesTotal,
+          servingLabel,
+          servingQty,
         },
       ]);
       setPendingFood(null);
@@ -434,6 +473,7 @@ function FavoriteEditorModal({
         foodName: pendingFood.name,
         caloriesPer100g: pendingFood.caloriesPer100g,
         subtitle: `${pendingFood.caloriesPer100g} kcal / 100 g`,
+        servings: pendingServings,
       }
     : null;
 

@@ -18,6 +18,11 @@ export type OffProduct = {
   proteinPer100g: number | null;
   carbsPer100g: number | null;
   fatPer100g: number | null;
+  // Porzione tipica indicata dal produttore (quando esposta).
+  // - servingQuantity: peso in g di una porzione (es. 30).
+  // - servingSize: descrizione testuale (es. "1 biscotto (12g)").
+  servingQuantity: number | null;
+  servingSize: string | null;
 };
 
 type OffRaw = {
@@ -27,6 +32,8 @@ type OffRaw = {
   product_name_en?: string;
   generic_name?: string;
   brands?: string;
+  serving_quantity?: number | string;
+  serving_size?: string;
   nutriments?: {
     'energy-kcal_100g'?: number | string;
     'energy-kcal'?: number | string;
@@ -85,6 +92,12 @@ function normalizeProduct(raw: OffRaw | undefined): OffProduct | null {
   const kcal = extractKcalPer100g(raw.nutriments);
   if (kcal === null) return null;
 
+  const servingQuantity = (() => {
+    const n = toNumber(raw.serving_quantity);
+    if (n === null || n <= 0) return null;
+    return Math.round(n * 10) / 10;
+  })();
+
   return {
     code: raw.code ? String(raw.code) : null,
     name,
@@ -93,6 +106,8 @@ function normalizeProduct(raw: OffRaw | undefined): OffProduct | null {
     proteinPer100g: roundMacro(raw.nutriments?.proteins_100g),
     carbsPer100g: roundMacro(raw.nutriments?.carbohydrates_100g),
     fatPer100g: roundMacro(raw.nutriments?.fat_100g),
+    servingQuantity,
+    servingSize: firstNonEmpty(raw.serving_size) ?? null,
   };
 }
 
