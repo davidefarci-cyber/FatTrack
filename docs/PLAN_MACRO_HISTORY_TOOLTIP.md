@@ -662,3 +662,103 @@ InfoTooltip.
   `accessibilityRole="button"` sul trigger, `accessibilityLabel` esplicito.
 - **Long body**: testo `numberOfLines` non impostato → wrap libero. Card
   cresce in altezza.
+
+---
+
+## Sequenza commit suggerita
+
+Sviluppo a fasi commit-per-commit, **ogni fase passa `npm run typecheck`
+prima del commit**. Branch consigliato: `claude/macro-history-tooltip`.
+
+| # | Commit | Cosa | File principali |
+|---|--------|------|-----------------|
+| 1 | `feat(db): macro nutrients schema + DB layer` | ALTER TABLE foods+meals con macro nullable, COLUMNS aggiornate, createFood/createMeal/updateFood/updateMeal estesi, sumMacrosByDate, FavoriteItem JSON esteso | `db.ts`, `foodsDB.ts`, `mealsDB.ts`, `favoritesDB.ts` |
+| 2 | `feat(macros): capture lungo i flussi di aggiunta` | OFF già normalizza, AddFoodSheet.commitMeal calcola snapshot, ManualTab 3 input opzionali, helper scaleMacro in calorieCalculator, FavoritesScreen.handleAddFood propaga, EditMealModal ricalcola proporzionale | `AddFoodSheet.tsx`, `FavoritesScreen.tsx`, `EditMealModal.tsx`, `HomeScreen.tsx`, `calorieCalculator.ts` |
+| 3 | `feat(home): macro bar in HomeSummaryCard` | Util `macroTargets.ts`, useDailyLog aggrega macro, HomeSummaryCard con 3 mini-row + bar, stato vuoto coerente | `macroTargets.ts` (NUOVO), `useDailyLog.ts`, `HomeSummaryCard.tsx`, `HomeScreen.tsx` |
+| 4 | `feat(history): streak, trend, best day insights` | Algoritmi nell'hook useHistory, componente HistoryInsightsRow con 3 tile, integrazione HistoryScreen, gestione stati edge | `useHistory.ts`, `HistoryInsightsRow.tsx` (NUOVO), `HistoryScreen.tsx` |
+| 5 | `feat(profile): tooltip BMR/TDEE/Target` | Primitive InfoTooltip, profileExplainers, integrazione Settings ResultsCard + Onboarding ResultStep, eventuale icona info nuova | `InfoTooltip.tsx` (NUOVO), `profileExplainers.ts` (NUOVO), `SettingsScreen.tsx`, `OnboardingScreen.tsx`, `Icon.tsx` se serve |
+| 6 | `chore: cleanup + push branch` | Eventuali fix di typecheck residui, push -u origin, apertura PR | — |
+
+## Verifica end-to-end
+
+Smoke test manuali da eseguire dopo l'implementazione completa.
+
+### Macro
+
+- [ ] Cerca un food OFF con dati nutrizionali (es. "Nutella"): conferma con
+      100 g → meal con `proteinTotal`, `carbsTotal`, `fatTotal` valorizzati.
+      `HomeSummaryCard` mostra le 3 barre piene proporzionalmente.
+- [ ] Cerca un food OFF senza dati macro (raro ma esiste): meal con
+      `proteinTotal === null`. La barra macro non riceve il contributo, ma
+      le calorie sì.
+- [ ] Aggiungi via ManualTab "Test 200 kcal/100g" senza compilare i macro:
+      meal con macro `null`, calorie OK.
+- [ ] ManualTab con solo proteine compilate (carb/grassi vuoti): meal con
+      `proteinTotal` valorizzato, gli altri due `null`.
+- [ ] Apri un meal con macro in `EditMealModal`, cambia da 100 g a 50 g:
+      i macro mostrati in caption diventano la metà; salva → DB ha i nuovi
+      valori snapshot.
+- [ ] Apri un meal **senza macro** (legacy o manuale): caption macro
+      assente. UI non rotta.
+- [ ] Aggiungi un quick addon "Olio in cottura 80 kcal": calorie +80, macro
+      invariate (addon = costo fisso, no macro).
+- [ ] Crea preferito con 3 alimenti misti (con/senza macro), aggiungilo al
+      diario: macro aggregati corretti.
+
+### History insights
+
+- [ ] Profilo configurato + 3 giorni consecutivi entro target (oggi
+      incluso): card "Streak 3 giorni in target".
+- [ ] Oggi fuori target: streak === 0, copy "Inizia oggi…".
+- [ ] Profilo non configurato: tutte e 3 le card mostrano CTA verso
+      Settings.
+- [ ] Solo 5 giorni di dati: streak ok, trend "Servono 14 giorni…", best
+      day ok.
+- [ ] 14+ giorni di dati: trend mostra delta in kcal vs settimana
+      precedente con icona freccia coerente.
+- [ ] Modifica `targetCalories` in Settings: torna su History → insight
+      ricalcolati al rerender.
+
+### Tooltip
+
+- [ ] Settings → tap su "ℹ" accanto a BMR: modal con titolo + body. Tap
+      backdrop chiude. Tap "OK" chiude.
+- [ ] Stesso flow per TDEE e Target.
+- [ ] Onboarding ultimo step → stessi 3 tooltip funzionanti.
+- [ ] VoiceOver / TalkBack: il bottone è annunciato come "Informazioni su
+      BMR".
+- [ ] Modal del tooltip non blocca lo scroll della pagina sottostante una
+      volta chiuso.
+
+### Regressioni
+
+- [ ] Tutti i flussi della precedente release (porzioni, add-on, preferiti,
+      barcode, OFF search, edit meal grams-only) continuano a funzionare
+      identici.
+- [ ] `npm run typecheck` pulito.
+- [ ] Avvio app con DB esistente (post-update): nessun crash sulla
+      migrazione, macro `null` per i record vecchi.
+- [ ] `resetDatabase()` ricrea schema corretto con tutti i campi macro.
+
+## Open questions
+
+Decisioni che possono restare default ma che il nuovo agent dovrebbe
+flaggare se servono input dell'utente:
+
+1. **Split macro 30/45/25** è una guida indicativa. Se l'utente preferisce
+   altri ratio (es. high-protein 40/30/30), va parametrizzato. Per MVP:
+   default fisso, eventualmente esposto in Settings come step successivo.
+2. **Tolleranza streak ±10 %** è arbitraria. Valori sensati: 5–15 %.
+   Lasciato configurabile via costante.
+3. **Range History** resta 30 giorni (default attuale). Trend usa 7+7gg.
+   Se l'utente vuole vedere 90 giorni in History, va separato il "range
+   visualizzazione" dal "range insights".
+4. **Macro target via profilo**: in MVP no UI di configurazione. Se in
+   futuro serve, aggiungere `protein_target_g`, `carbs_target_g`,
+   `fat_target_g` su `user_profile`.
+
+## Note di sicurezza
+
+- Niente segreti, niente chiavi API in questo lavoro.
+- Open Food Facts è già integrato e non richiede auth.
+- Nessuna modifica a CI/CD, hook git, settings.json.
