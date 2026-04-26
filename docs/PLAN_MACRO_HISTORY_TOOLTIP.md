@@ -543,3 +543,122 @@ sotto al chart. Niente cambi di struttura ScrollView esistente.
   resta `null`; best day fra i giorni disponibili.
 - **Pasti su giorni futuri**: `useHistory` filtra già `<= today`. Niente da
   fare.
+
+---
+
+## 3. Tooltip BMR / TDEE / Target
+
+### 3.1 Componente `InfoTooltip`
+
+Nuovo file `src/components/InfoTooltip.tsx`. Pattern: trigger `Pressable`
+con icona "info", al tap apre un piccolo `Modal` semitrasparente con il
+testo esplicativo e `Pressable` di backdrop per chiudere.
+
+API:
+
+```ts
+type InfoTooltipProps = {
+  title: string;            // es. "BMR"
+  body: string;             // 1-3 frasi di spiegazione
+  iconColor?: string;       // default colors.textSec
+  accessibilityLabel?: string; // default `Informazioni su ${title}`
+};
+
+export function InfoTooltip({ title, body, iconColor, accessibilityLabel }: InfoTooltipProps) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <>
+      <Pressable
+        onPress={() => setVisible(true)}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? `Informazioni su ${title}`}
+        style={styles.trigger}
+      >
+        <Icon name="info" size={14} color={iconColor ?? colors.textSec} />
+      </Pressable>
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setVisible(false)} />
+        <View style={[styles.card, shadows.md]}>
+          <Text style={typography.label}>{title}</Text>
+          <Text style={typography.body}>{body}</Text>
+          <Button label="OK" variant="secondary" onPress={() => setVisible(false)} />
+        </View>
+      </Modal>
+    </>
+  );
+}
+```
+
+Styles:
+- `trigger`: cerchio piccolo (24×24), `borderRadius: radii.round`, sfondo
+  `colors.bg`.
+- `backdrop`: `StyleSheet.absoluteFillObject`, `backgroundColor: colors.overlay`.
+- `card`: centrata via `position: absolute` + transform OPPURE wrappata in
+  `View` con `flex: 1, alignItems: center, justifyContent: center` (più
+  semplice, evita math sulle dimensioni). `padding: spacing.screen`,
+  `borderRadius: radii.xxl`, `gap: spacing.lg`, max width 320.
+
+### 3.2 Icona `info`
+
+`src/components/Icon.tsx` ha già una palette di icone SVG. **Verificare**
+se `info` esiste — se no, aggiungerla. Pattern già consolidato (i `Path`
+sono inline SVG). Forma standard: cerchio con "i" minuscola al centro.
+
+### 3.3 Testi statici
+
+In italiano, breve. Centralizzati in una costante esportata dal componente
+o in un piccolo file `src/utils/profileExplainers.ts` per riusarli sia in
+Settings sia in Onboarding:
+
+```ts
+export const PROFILE_EXPLAINERS = {
+  bmr: {
+    title: 'BMR — Metabolismo basale',
+    body: 'Le calorie che il tuo corpo brucia a riposo per mantenere le funzioni vitali (respirazione, circolazione). Calcolato dalla formula di Mifflin-St Jeor sulla base di peso, altezza, età e sesso.',
+  },
+  tdee: {
+    title: 'TDEE — Fabbisogno totale',
+    body: 'Le calorie totali che bruci in una giornata, includendo il livello di attività fisica indicato. È il valore di mantenimento: mangiando questa quantità il peso resta stabile.',
+  },
+  target: {
+    title: 'Target calorie',
+    body: 'L\'obiettivo giornaliero che vedi nel diario. Calcolato dal TDEE applicando il deficit (per dimagrire) o il surplus (per aumentare di peso) corrispondente al tuo obiettivo settimanale.',
+  },
+} as const;
+```
+
+### 3.4 Integrazione `SettingsScreen`
+
+In `src/screens/SettingsScreen.tsx` la `ResultsCard` ha 3 righe (BMR,
+TDEE, Calorie target). Modificare la label di ognuna per affiancare il
+componente:
+
+```tsx
+<View style={styles.labelRow}>
+  <Text style={typography.caption}>BMR</Text>
+  <InfoTooltip {...PROFILE_EXPLAINERS.bmr} />
+</View>
+```
+
+`labelRow` è un `flexDirection: 'row', alignItems: 'center', gap: spacing.xs`.
+
+Stessa cosa per TDEE e Target.
+
+### 3.5 Integrazione Onboarding
+
+L'ultimo step dell'onboarding (`src/screens/OnboardingScreen.tsx`,
+verificare il file esatto: probabilmente `OnboardingResultStep` o un
+componente interno) mostra gli stessi 3 numeri. Stesso pattern: label +
+InfoTooltip.
+
+### 3.6 Edge case
+
+- **Modal dentro a Modal**: Settings non è dentro a un modal. Onboarding
+  potrebbe esserlo (verificare). Se lo è, RN supporta nested `Modal`
+  correttamente; backdrop ha `pointerEvents: auto` per intercettare il tap
+  outside.
+- **Accessibilità**: focus management automatico via `Modal` di RN.
+  `accessibilityRole="button"` sul trigger, `accessibilityLabel` esplicito.
+- **Long body**: testo `numberOfLines` non impostato → wrap libero. Card
+  cresce in altezza.
