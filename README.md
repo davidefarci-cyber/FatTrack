@@ -172,15 +172,23 @@ npm run build:android:production
 
 Stesso flusso, ma `versionCode` incrementato automaticamente.
 
-### 3.4 Build LOCALE (senza coda Expo)
+### 3.4 Build LOCALE (Windows native, senza EAS cloud)
 
-Per evitare i 10-20 min della coda EAS cloud, puoi compilare l'APK
-direttamente sul tuo PC. Richiede **JDK 17** + **Android SDK** una volta
-sola, poi le build successive sono **2-4 minuti** (Gradle è incrementale).
+> ⚠️ `eas build --local` **non è supportato su Windows** (limitazione
+> hard di `eas-cli`). Su Windows passiamo per **`expo prebuild` + Gradle
+> diretto**, gestito da `scripts/build-android-local.bat`.
 
-**Setup automatico (consigliato).** `crea-apk-locale.bat` (e `release.bat`
+Vantaggi vs cloud EAS:
+- Niente coda Expo, niente upload del bundle.
+- Prima build 5-10 min (download Gradle wrapper + dipendenze).
+- Build successive **1-3 min** (Gradle incrementale).
+
+Prerequisiti: **JDK 17** + **Android SDK**. Installati on-demand al
+primo run di `crea-apk-locale.bat` (vedi più sotto).
+
+**Setup automatico toolchain.** `crea-apk-locale.bat` (e `release.bat`
 quando scegli build "Locale") rileva se `JAVA_HOME` / `ANDROID_HOME`
-mancano e si offre di installare tutto automaticamente:
+mancano e si offre di installare tutto:
 
 - JDK 17 Adoptium Temurin (via `winget`)
 - Android `cmdline-tools` (download diretto da Google, ~150 MB)
@@ -192,49 +200,50 @@ mancano e si offre di installare tutto automaticamente:
 Il lavoro lo fa `scripts/install-android-build-tools.ps1`. Spazio richiesto
 ~1.5 GB, tempo 5-10 minuti la prima volta, zero le successive.
 
-**Setup manuale (se preferisci):**
-
-```powershell
-# JDK 17
-winget install --id EclipseAdoptium.Temurin.17.JDK -e
-
-# Android SDK cmdline-tools
-# 1. Scarica "Android Command line tools" da:
-#    https://developer.android.com/studio#command-line-tools-only
-# 2. Estrai in C:\Android\cmdline-tools\latest\
-# 3. Setta variabili d'ambiente:
-#       ANDROID_HOME = C:\Android
-#    Aggiungi al PATH:
-#       %ANDROID_HOME%\cmdline-tools\latest\bin
-#       %ANDROID_HOME%\platform-tools
-# 4. Installa pacchetti SDK:
-sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-```
-
 **Build:**
 
 ```bash
-# preview, prompt interattivo per ABI
+# prompt interattivo per ABI
 crea-apk-locale.bat
 
 # non interattivo: profilo + ABI come argomenti
 crea-apk-locale.bat preview arm64-v8a
 crea-apk-locale.bat preview armeabi-v7a
 crea-apk-locale.bat preview universal
-
-# o direttamente (senza prompt ABI: vince il default di eas.json = arm64-v8a)
-npm run build:android:local:preview      # eas build --local profilo preview
-npm run build:android:local:production   # eas build --local profilo production
 ```
+
+Output: `fattrack-<profilo>-<abi>.apk` nella root del repo.
+
+**Cosa fa lo script sotto al cofano** (`scripts/build-android-local.bat`):
+
+1. `npx expo prebuild --platform android --no-install` — genera la
+   cartella `android/` dal tuo `app.json` (i config plugin di
+   `expo-camera`, `expo-updates`, ecc. vengono applicati qui).
+2. **Keystore management** — la prima volta backuppa
+   `android/app/debug.keystore` in `keystore/debug.keystore` (root del
+   repo, gitignored). Le volte successive ripristina sempre quella
+   stessa keystore prima di buildare → tutte le release sono firmate
+   con la stessa chiave → Android accetta gli update senza
+   disinstallazione.
+3. `cd android && gradlew.bat assembleRelease -PreactNativeArchitectures=<abi>`.
+4. Copia `android/app/build/outputs/apk/release/app-release.apk` in root
+   col nome richiesto.
 
 **ABI di default = arm64-v8a** (~30-40 MB invece di ~90 della build
 universal). Coperti tutti gli smartphone Android moderni (>= 2017 circa).
-Se devi passare l'APK a qualcuno con un device vecchio, lancia
-`crea-apk-locale.bat` e scegli `armeabi-v7a` al prompt.
+Se devi passare l'APK a un device vecchio, scegli `armeabi-v7a` al
+prompt.
 
-Settato in `eas.json` (`env.ORG_GRADLE_PROJECT_reactNativeArchitectures`)
-per cloud + local; `crea-apk-locale.bat` può sovrascrivere via env var
-nella sessione corrente.
+> ⚠️ **`keystore/debug.keystore` è la firma di TUTTE le tue release.**
+> Non è committato ma deve sopravvivere a ogni rebuild. Fanne una copia
+> su Drive/USB. Se lo perdi, gli utenti dovranno disinstallare l'app
+> per poter installare versioni nuove (Android rifiuta APK con firma
+> diversa da quello già installato).
+
+> Per build CLOUD (es. da macchina senza Android SDK), usa il flusso
+> Expo originale: `crea-apk.bat` o `npm run build:android:preview`.
+> L'env in `eas.json` (`ORG_GRADLE_PROJECT_reactNativeArchitectures`)
+> assicura che anche le build cloud siano arm64-only.
 
 ---
 
@@ -392,8 +401,6 @@ Niente edit manuale di `version.json` ad ogni release: lo script lo fa per te.
 | `npm run typecheck` | Controllo TypeScript senza emettere output |
 | `npm run build:android:preview` | Build EAS cloud profilo preview |
 | `npm run build:android:production` | Build EAS cloud profilo production |
-| `npm run build:android:local:preview` | Build EAS LOCALE profilo preview |
-| `npm run build:android:local:production` | Build EAS LOCALE profilo production |
 | `npm run update:ota -- --message "..."` | Pubblica OTA (EAS Update) |
 
 ### .bat (Windows)
@@ -404,10 +411,11 @@ Niente edit manuale di `version.json` ad ogni release: lo script lo fa per te.
 | `avvia-dev.bat` | Avvia dev server LAN per Expo Go |
 | `avvia-dev-tunnel.bat` | Stesso ma in modalità tunnel |
 | `crea-apk.bat` | Build APK preview su **cloud EAS** |
-| `crea-apk-locale.bat` | Build APK preview **locale** (no coda) |
+| `crea-apk-locale.bat` | Build APK **locale** Windows-native (expo prebuild + Gradle) |
 | `pubblica-update.bat` | Pubblica un OTA EAS Update |
 | `release.bat` | **Release end-to-end**: bump versione + build + tag + GitHub Release |
-| `scripts\install-android-build-tools.ps1` | Installer toolchain Android (JDK 17 + cmdline-tools + sdk packages). Invocato in automatico da `crea-apk-locale.bat` e `release.bat` se serve. |
+| `scripts\build-android-local.bat` | Helper interno: lancia `expo prebuild` + Gradle. Riusato da `crea-apk-locale.bat` e `release.bat`. |
+| `scripts\install-android-build-tools.ps1` | Installer toolchain Android (JDK 17 + cmdline-tools + sdk packages). Invocato in automatico se serve. |
 
 ---
 

@@ -8,7 +8,9 @@ echo  FatTrack - Release end-to-end
 echo  Bumpa la versione, builda l'APK, taggа, pubblica su GitHub
 echo ============================================================
 echo.
-echo  Nota: la release builda solo arm64-v8a ^(impostato in eas.json^).
+echo  Nota: build LOCALE su Windows usa expo prebuild + Gradle diretto
+echo  ^(eas build --local non e' supportato su Windows^).
+echo  Build LOCALE = solo arm64-v8a, ~30-40 MB.
 echo  Per un APK armeabi-v7a spot ^(amico con device vecchio^) usa
 echo  crea-apk-locale.bat e scegli "armeabi-v7a" al prompt ABI.
 echo.
@@ -248,19 +250,11 @@ if "!BUILD_CHOICE!"=="1" goto :build_local
 if "!BUILD_CHOICE!"=="2" goto :build_cloud
 
 :build_local
-rem Forza arm64-v8a anche se eas.json non venisse propagato al subprocess
-rem Gradle. Coerente con il default del profilo production.
-set "ORG_GRADLE_PROJECT_reactNativeArchitectures=arm64-v8a"
-
-rem Toolchain gia' verificata/installata al passo 7b. Solo login EAS qui.
-call eas whoami >nul 2>nul
-if errorlevel 1 (
-    call eas login || goto :rollback
-)
-
+rem Build Windows-native via expo prebuild + Gradle diretto.
+rem (eas build --local non e' supportato su Windows.)
 echo.
-echo [ ] Build LOCALE production...
-call eas build --platform android --profile production --local --output "fattrack.apk" --non-interactive
+echo [ ] Build LOCALE production ^(arm64-v8a^)...
+call "%~dp0scripts\build-android-local.bat" "arm64-v8a" "fattrack.apk"
 if errorlevel 1 (
     echo [!] Build locale fallita.
     goto :rollback

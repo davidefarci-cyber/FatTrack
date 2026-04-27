@@ -25,6 +25,7 @@ expo-env.d.ts
 *.aab
 *.ipa
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
@@ -32,6 +33,10 @@ expo-env.d.ts
 *.orig.*
 android/
 ios/
+
+# Keystore stabile per build locali Windows (vedi scripts/build-android-local.bat).
+# CONTIENE LA CHIAVE DI FIRMA DELLE TUE RELEASE: NON COMMITTARE, FANNE BACKUP.
+keystore/
 
 # EAS
 .easignore
