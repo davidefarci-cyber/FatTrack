@@ -52,8 +52,35 @@ for /f "delims=" %%u in ('eas whoami') do echo [OK] Loggato come %%u
 rem --- Profilo ^(default: preview^) ---
 set "PROFILE=preview"
 if not "%~1"=="" set "PROFILE=%~1"
+
+rem ============================================================
+rem  Scelta ABI: di default solo arm64-v8a per APK leggero ^(~30-40 MB^).
+rem  Override: 2o argomento posizionale OPPURE prompt interattivo.
+rem ============================================================
+set "ABI=%~2"
+if "!ABI!"=="" (
+    echo.
+    echo  Architetture ABI da compilare:
+    echo    1^) arm64-v8a    ^(default - smartphone moderni, ~30-40 MB^)
+    echo    2^) armeabi-v7a  ^(vecchi smartphone, da passare a un amico^)
+    echo    3^) Universal    ^(tutte e 4 le ABI, ~90 MB - sconsigliato^)
+    echo.
+    set /p "_ABI_CHOICE=Scegli [1]: "
+    if "!_ABI_CHOICE!"=="" set "_ABI_CHOICE=1"
+    if "!_ABI_CHOICE!"=="1" set "ABI=arm64-v8a"
+    if "!_ABI_CHOICE!"=="2" set "ABI=armeabi-v7a"
+    if "!_ABI_CHOICE!"=="3" set "ABI=universal"
+)
+
+if /i "!ABI!"=="universal" (
+    rem Niente env: vince il default di gradle.properties ^(tutte le ABI^).
+    set "ORG_GRADLE_PROJECT_reactNativeArchitectures="
+) else (
+    set "ORG_GRADLE_PROJECT_reactNativeArchitectures=!ABI!"
+)
+
 echo.
-echo [ ] Avvio build LOCALE Android, profilo: !PROFILE!
+echo [ ] Avvio build LOCALE Android, profilo: !PROFILE!, ABI: !ABI!
 echo     ^(la prima build scarica Gradle/dipendenze: 5-10 min,
 echo      le successive sono incrementali: 2-4 min^)
 echo.

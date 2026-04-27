@@ -45,12 +45,6 @@
         {
           "cameraPermission": "FatTrack usa la fotocamera per scansionare i codici a barre dei prodotti alimentari."
         }
-      ],
-      [
-        "expo-barcode-scanner",
-        {
-          "cameraPermission": "FatTrack usa la fotocamera per scansionare i codici a barre dei prodotti alimentari."
-        }
       ]
     ],
     "extra": {
