@@ -172,11 +172,55 @@ npm run build:android:production
 
 Stesso flusso, ma `versionCode` incrementato automaticamente.
 
-> Se preferisci buildare localmente (senza server Expo):
-> ```bash
-> eas build --platform android --profile preview --local
-> ```
-> Richiede **Android SDK** e **JDK 17** installati.
+### 3.4 Build LOCALE (senza coda Expo)
+
+Per evitare i 10-20 min della coda EAS cloud, puoi compilare l'APK
+direttamente sul tuo PC. Richiede **JDK 17** + **Android SDK** una volta
+sola, poi le build successive sono **2-4 minuti** (Gradle è incrementale).
+
+**Setup automatico (consigliato).** `crea-apk-locale.bat` (e `release.bat`
+quando scegli build "Locale") rileva se `JAVA_HOME` / `ANDROID_HOME`
+mancano e si offre di installare tutto automaticamente:
+
+- JDK 17 Adoptium Temurin (via `winget`)
+- Android `cmdline-tools` (download diretto da Google, ~150 MB)
+- `platform-tools`, `platforms;android-34`, `build-tools;34.0.0` (via `sdkmanager`)
+- Accettazione automatica delle licenze SDK
+- `JAVA_HOME` / `ANDROID_HOME` / `PATH` settati a livello User (persistenti)
+  e nella sessione corrente
+
+Il lavoro lo fa `scripts/install-android-build-tools.ps1`. Spazio richiesto
+~1.5 GB, tempo 5-10 minuti la prima volta, zero le successive.
+
+**Setup manuale (se preferisci):**
+
+```powershell
+# JDK 17
+winget install --id EclipseAdoptium.Temurin.17.JDK -e
+
+# Android SDK cmdline-tools
+# 1. Scarica "Android Command line tools" da:
+#    https://developer.android.com/studio#command-line-tools-only
+# 2. Estrai in C:\Android\cmdline-tools\latest\
+# 3. Setta variabili d'ambiente:
+#       ANDROID_HOME = C:\Android
+#    Aggiungi al PATH:
+#       %ANDROID_HOME%\cmdline-tools\latest\bin
+#       %ANDROID_HOME%\platform-tools
+# 4. Installa pacchetti SDK:
+sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+```
+
+**Build:**
+
+```bash
+# preview
+crea-apk-locale.bat
+
+# o direttamente
+npm run build:android:local:preview      # eas build --local profilo preview
+npm run build:android:local:production   # eas build --local profilo production
+```
 
 ---
 
@@ -203,86 +247,119 @@ adb install -r ./fattrack-preview.apk
 
 ## 5. Gestione degli aggiornamenti
 
-Hai due strade, non mutuamente esclusive.
+FatTrack ha **due canali di aggiornamento**, scegli in base a cosa hai cambiato:
 
-### 5.1 Nuova build APK (aggiornamenti di codice nativo)
+| Tipo di modifica | Canale | Comando |
+| --- | --- | --- |
+| Solo `src/**` (TS/TSX/asset) | **OTA via EAS Update** (~30-90 s) | `pubblica-update.bat` |
+| Tutto il resto (deps native, `app.json`, SDK, permessi) | **Nuovo APK + GitHub Release** (~3-15 min) | `release.bat` |
 
-Per ogni cambiamento ai pacchetti nativi, a `app.json`, a permessi o alla
-versione di Expo SDK **devi** rifare la build:
+> Regola pratica: ti basta chiederti _"ho aggiunto/modificato qualcosa in
+> `package.json` o `app.json`?"_. Sì → release APK. No → OTA.
 
-```bash
-# incrementa version/versionCode se necessario
-npm run build:android:production
-```
+### 5.1 Setup una tantum
 
-Distribuisci il nuovo APK agli utenti — l'installazione sovrascrive la
-versione precedente mantenendo i dati locali (SQLite + AsyncStorage).
-
-### 5.2 Aggiornamenti OTA con EAS Update (aggiornamenti JS/asset)
-
-Per fix veloci di solo JavaScript / asset, senza ribuildare l'APK:
+Prima del primo OTA / della prima release, configura il progetto su EAS:
 
 ```bash
-# una tantum
-npx expo install expo-updates
-eas update:configure
-
-# pubblica un aggiornamento sul canale "production"
-eas update --branch production --message "fix calcolo kcal"
+eas login
+eas init                    # crea expo.extra.eas.projectId in app.json
+eas update:configure        # aggiunge updates.url in app.json + runtime config
 ```
 
-Gli utenti riceveranno l'update al successivo avvio dell'app (o al prossimo
-ritorno in foreground, a seconda della configurazione di `expo-updates`).
+Per le GitHub Release serve anche la **GitHub CLI**:
 
-> **Regola generale:** modifiche a `package.json` con nuovi pacchetti nativi
-> ⇒ serve **nuova build APK**. Modifiche solo JS/TS/asset ⇒ basta **EAS
-> Update**.
+```powershell
+winget install --id GitHub.cli -e
+gh auth login
+```
 
----
+### 5.2 OTA — fix veloci JS-only (`pubblica-update.bat`)
 
-## 6. Notifica aggiornamenti in-app
+Per modifiche al solo codice JS/TS o agli asset, **non serve un APK nuovo**.
+Lo script:
 
-FatTrack ha un check versione leggero che gira una volta per sessione al lancio
-dell'app. Confronta la versione locale (`app.json → expo.version`) con il file
-remoto `version.json` pubblicato sul branch `main` di GitHub; se la remota è
-maggiore mostra un `Alert` con pulsanti **Aggiorna** (apre l'URL dell'APK) e
-**Dopo**. Offline o errori di rete vengono ignorati silenziosamente.
+1. Verifica login EAS + project ID configurato.
+2. Avvisa se hai modifiche non committate.
+3. Chiede un messaggio per l'update.
+4. Lancia `eas update --branch production --message "..."`.
 
-Implementazione: [`src/utils/updateChecker.ts`](./src/utils/updateChecker.ts).
+L'utente riceve l'aggiornamento al prossimo lancio (o al ritorno in foreground)
+in modo silenzioso, scaricando solo poche centinaia di KB di bundle.
 
-### 6.1 Pubblicare una nuova versione
+```bash
+pubblica-update.bat
+# oppure
+npm run update:ota -- --message "fix calcolo kcal"
+```
 
-Quando hai pronto un APK da distribuire:
+> ⚠️ L'OTA può aggiornare solo codice JS compatibile con la `runtimeVersion`
+> dell'APK installato. Configurato come `policy: "appVersion"`: ogni nuovo
+> `expo.version` taglia un nuovo runtime → gli utenti su versione vecchia
+> _non_ riceveranno l'OTA, devono aggiornare l'APK.
 
-1. **Incrementa la versione** in `app.json` (campo `expo.version`) e, se è una
-   release production, anche `expo.android.versionCode`.
-2. **Builda l'APK** con EAS (vedi §3): `npm run build:android:production`.
-3. **Crea una GitHub Release** con lo stesso tag di versione (es. `v1.0.1`) e
-   carica l'APK come asset:
-   ```bash
-   gh release create v1.0.1 ./fattrack-production.apk \
-     --title "FatTrack 1.0.1" \
-     --notes "Bugfix e miglioramenti."
-   ```
-   In alternativa via UI: **Releases → Draft a new release → Upload APK**.
-4. **Aggiorna `version.json`** nella root del repo:
-   ```json
-   {
-     "version": "1.0.1",
-     "apk_url": "https://github.com/davidefarci-cyber/fattrack/releases/latest"
-   }
-   ```
-   Committa e pusha su `main`:
-   ```bash
-   git add version.json
-   git commit -m "chore: bump version.json a 1.0.1"
-   git push origin main
-   ```
-5. Gli utenti con la versione precedente vedranno l'alert al prossimo lancio.
+### 5.3 Release completa con APK (`release.bat`)
 
-> L'URL di download punta di default a `/releases/latest`, così non serve
-> aggiornare `apk_url` ad ogni release. Se hai bisogno di forzare una release
-> specifica, sostituisci l'URL con quello del `.apk` diretto.
+Quando hai cambiato qualcosa che richiede un APK nuovo, lancia:
+
+```bash
+release.bat
+```
+
+Lo script gestisce **tutto in automatico** con controlli di sicurezza:
+
+1. **Pre-check**: presenza di `node`, `git`, `eas`, `gh`, `node_modules`,
+   identità git configurata, login `gh` attivo.
+2. **Branch check**: deve essere `main`, working tree pulito, fa `git pull
+   --ff-only`.
+3. **Typecheck** (`npm run typecheck`) prima di andare avanti.
+4. **Bump versione**: ti propone `patch` / `minor` / `major` / custom partendo
+   dalla versione attuale di `app.json`. Verifica che il tag non esista già né
+   in locale né sul remoto.
+5. **Note di rilascio**: apre `notepad` con un template; quello che scrivi
+   finisce sia su `version.json` (mostrato nell'alert in-app) sia nella
+   GitHub Release.
+6. **Scelta build**: locale (veloce; se JDK 17 / Android SDK mancano lo
+   script li installa automaticamente — vedi §3.4) o cloud EAS (lenta, ma
+   nessun prerequisito locale).
+7. **Build production** con `--output fattrack.apk` (locale) o download
+   automatico dall'artifact EAS (cloud).
+8. **Commit + tag + push**: `release: vX.Y.Z`, tag `vX.Y.Z`, push di `main`
+   e del tag.
+9. **GitHub Release**: `gh release create vX.Y.Z fattrack.apk` con title e
+   note di rilascio.
+10. **Rollback automatico** di `app.json`/`version.json` se qualcosa fallisce
+    prima del commit.
+
+L'APK è caricato come asset con nome stabile `fattrack.apk`, quindi
+`version.json` può puntare al link **permanente**:
+
+```
+https://github.com/davidefarci-cyber/fattrack/releases/latest/download/fattrack.apk
+```
+
+Niente edit manuale di `version.json` ad ogni release: lo script lo fa per te.
+
+### 5.4 Cosa succede lato utente
+
+`src/utils/updateChecker.ts`:
+
+- Al lancio dell'app + a ogni ritorno in foreground (max 1 volta/ora) fa fetch
+  di `version.json` su `raw.githubusercontent.com`.
+- Se la remota è più alta della locale, mostra un `Alert` con titolo, le note
+  di rilascio e i bottoni **Dopo** / **Aggiorna**.
+- Su **Aggiorna**: scarica l'APK in cache via `expo-file-system`, poi apre
+  l'installer di sistema con `expo-intent-launcher` (`ACTION_VIEW` +
+  `FLAG_GRANT_READ_URI_PERMISSION`). Un solo tap, niente browser.
+- Se imposti `min_supported_version` ≥ versione utente, l'alert diventa
+  **bloccante** (niente bottone "Dopo").
+- Tutto questo si aggiunge a EAS Update, che gira in parallelo per i fix
+  JS-only (l'utente non vede alert: l'app riavvia con il nuovo bundle alla
+  prossima apertura).
+
+> **Permesso `REQUEST_INSTALL_PACKAGES`** è già dichiarato in `app.json`. La
+> prima volta che l'utente preme "Aggiorna", Android chiederà di abilitare
+> "Installa app sconosciute" per FatTrack. È normale, non è un errore.
 
 > `version.json` usa il pattern `MAJOR.MINOR.PATCH`. Il confronto è numerico
 > per segmento: ricorda di usare solo cifre (niente `1.0.1-beta`).
@@ -291,14 +368,32 @@ Quando hai pronto un APK da distribuire:
 
 ## Script disponibili
 
+### npm
+
 | Script | Descrizione |
 | --- | --- |
 | `npm run start` | Avvia il dev server Expo |
 | `npm run android` | Avvia il dev server e apre su Android |
 | `npm run ios` | Avvia il dev server e apre su iOS (solo macOS) |
 | `npm run typecheck` | Controllo TypeScript senza emettere output |
-| `npm run build:android:preview` | Build EAS profilo preview (APK) |
-| `npm run build:android:production` | Build EAS profilo production (APK) |
+| `npm run build:android:preview` | Build EAS cloud profilo preview |
+| `npm run build:android:production` | Build EAS cloud profilo production |
+| `npm run build:android:local:preview` | Build EAS LOCALE profilo preview |
+| `npm run build:android:local:production` | Build EAS LOCALE profilo production |
+| `npm run update:ota -- --message "..."` | Pubblica OTA (EAS Update) |
+
+### .bat (Windows)
+
+| Script | Descrizione |
+| --- | --- |
+| `setup.bat` | Setup/update ambiente (Git, Node, EAS, repo, deps) |
+| `avvia-dev.bat` | Avvia dev server LAN per Expo Go |
+| `avvia-dev-tunnel.bat` | Stesso ma in modalità tunnel |
+| `crea-apk.bat` | Build APK preview su **cloud EAS** |
+| `crea-apk-locale.bat` | Build APK preview **locale** (no coda) |
+| `pubblica-update.bat` | Pubblica un OTA EAS Update |
+| `release.bat` | **Release end-to-end**: bump versione + build + tag + GitHub Release |
+| `scripts\install-android-build-tools.ps1` | Installer toolchain Android (JDK 17 + cmdline-tools + sdk packages). Invocato in automatico da `crea-apk-locale.bat` e `release.bat` se serve. |
 
 ---
 

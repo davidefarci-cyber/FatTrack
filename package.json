@@ -11,7 +11,10 @@
     "lint": "eslint . --ext .ts,.tsx",
     "prebuild": "expo prebuild",
     "build:android:preview": "eas build --platform android --profile preview",
-    "build:android:production": "eas build --platform android --profile production"
+    "build:android:production": "eas build --platform android --profile production",
+    "build:android:local:preview": "eas build --platform android --profile preview --local",
+    "build:android:local:production": "eas build --platform android --profile production --local",
+    "update:ota": "eas update --branch production"
   },
   "dependencies": {
     "@expo-google-fonts/plus-jakarta-sans": "^0.2.3",
@@ -23,10 +26,13 @@
     "expo-barcode-scanner": "~13.0.1",
     "expo-camera": "~15.0.16",
     "expo-constants": "~16.0.2",
+    "expo-file-system": "~17.0.1",
     "expo-font": "~12.0.10",
+    "expo-intent-launcher": "~11.0.1",
     "expo-splash-screen": "~0.27.7",
     "expo-sqlite": "~14.0.6",
     "expo-status-bar": "~1.12.1",
+    "expo-updates": "~0.25.27",
     "react": "18.2.0",
     "react-hook-form": "^7.72.1",
     "react-native": "0.74.5",
