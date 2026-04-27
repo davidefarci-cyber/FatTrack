@@ -1,5 +1,5 @@
-import { BarCodeScanner } from 'expo-barcode-scanner';
-import { useEffect, useRef, useState } from 'react';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -38,24 +38,15 @@ export function ScannerView({
   variant = 'compact',
   helperText,
 }: ScannerViewProps) {
-  const [permission, setPermission] = useState<'pending' | 'granted' | 'denied'>('pending');
+  const [permission, requestPermission] = useCameraPermissions();
   const lastCodeRef = useRef<string | null>(null);
   const scanLine = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    let active = true;
-    BarCodeScanner.requestPermissionsAsync()
-      .then(({ status }) => {
-        if (!active) return;
-        setPermission(status === 'granted' ? 'granted' : 'denied');
-      })
-      .catch(() => {
-        if (active) setPermission('denied');
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+    if (permission && !permission.granted && permission.canAskAgain) {
+      requestPermission();
+    }
+  }, [permission, requestPermission]);
 
   // Scan-line animata in loop quando la scansione è attiva.
   useEffect(() => {
@@ -93,7 +84,7 @@ export function ScannerView({
     onScan(data);
   };
 
-  if (permission === 'pending') {
+  if (!permission) {
     return (
       <View style={[styles.viewport, styles.statusBox, variant === 'full' && styles.viewportFull]}>
         <ActivityIndicator color={colors.card} />
@@ -102,7 +93,7 @@ export function ScannerView({
     );
   }
 
-  if (permission === 'denied') {
+  if (!permission.granted) {
     return (
       <View style={[styles.viewport, styles.statusBox, variant === 'full' && styles.viewportFull]}>
         <Text style={[typography.body, { color: colors.card }]}>Fotocamera non disponibile</Text>
@@ -115,9 +106,12 @@ export function ScannerView({
 
   return (
     <View style={[styles.viewport, variant === 'full' && styles.viewportFull]}>
-      <BarCodeScanner
-        onBarCodeScanned={paused ? undefined : handleScanned}
+      <CameraView
         style={StyleSheet.absoluteFillObject}
+        barcodeScannerSettings={{
+          barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'],
+        }}
+        onBarcodeScanned={paused ? undefined : handleScanned}
       />
 
       <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
@@ -203,10 +197,8 @@ function CornerMarker({ position }: { position: 'tl' | 'tr' | 'bl' | 'br' }) {
 }
 
 // Toggle della torcia: rendering opzionale per la variante `full`.
-// Esposto come pulsante separato perché la gestione torch è disponibile solo
-// con `expo-camera`, mentre qui usiamo `BarCodeScanner` per parità col codice
-// precedente. L'implementazione effettiva del flash è rinviata (il prototipo
-// mostra l'icona, un futuro upgrade ad expo-camera accenderà davvero la luce).
+// Componente UI puro — il wiring effettivo a `enableTorch` di CameraView
+// è rinviato (basterebbe propagare lo stato fino a ScannerView).
 export function ScannerFlashButton({
   enabled,
   onToggle,

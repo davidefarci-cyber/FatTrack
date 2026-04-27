@@ -70,7 +70,7 @@ src/
 - Expo SDK 51, React Native 0.74, TypeScript strict
 - React Navigation v6 (`@react-navigation/bottom-tabs`)
 - `expo-sqlite` (API async: `openDatabaseAsync`, `execAsync`, ecc.)
-- `expo-camera` + `expo-barcode-scanner` (scanner non ancora collegato — va in `BarcodeScreen`)
+- `expo-camera` con `<CameraView onBarcodeScanned>` per la scansione barcode (in `BarcodeScreen`)
 - `@react-native-async-storage/async-storage` (preferenze)
 - `react-native-svg` (icone + `CalorieRing`)
 - `@expo-google-fonts/plus-jakarta-sans` + `expo-font` + `expo-splash-screen`

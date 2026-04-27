@@ -9,7 +9,7 @@ giornaliero in locale (SQLite).
 - **Expo SDK 51** + **React Native 0.74** + **TypeScript**
 - **React Navigation** (native-stack + bottom-tabs)
 - **expo-sqlite** per il database locale
-- **expo-camera** + **expo-barcode-scanner** per la scansione
+- **expo-camera** (`<CameraView onBarcodeScanned>`) per la scansione barcode
 - **@react-native-async-storage/async-storage** per le preferenze utente
 
 ## Struttura del progetto
@@ -126,7 +126,7 @@ Si apre la Expo DevTools nel terminale. Da qui:
 
 > **Nota sui permessi.** La prima volta che apri la schermata Scanner, il
 > sistema chiederà il permesso di accesso alla fotocamera. È gestito da
-> `expo-barcode-scanner` / `expo-camera` (vedi `app.json`).
+> `expo-camera` (vedi `app.json`).
 
 > **Nota su `expo-sqlite`.** Funziona solo su device/emulatore, non su web.
 
@@ -214,13 +214,27 @@ sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 **Build:**
 
 ```bash
-# preview
+# preview, prompt interattivo per ABI
 crea-apk-locale.bat
 
-# o direttamente
+# non interattivo: profilo + ABI come argomenti
+crea-apk-locale.bat preview arm64-v8a
+crea-apk-locale.bat preview armeabi-v7a
+crea-apk-locale.bat preview universal
+
+# o direttamente (senza prompt ABI: vince il default di eas.json = arm64-v8a)
 npm run build:android:local:preview      # eas build --local profilo preview
 npm run build:android:local:production   # eas build --local profilo production
 ```
+
+**ABI di default = arm64-v8a** (~30-40 MB invece di ~90 della build
+universal). Coperti tutti gli smartphone Android moderni (>= 2017 circa).
+Se devi passare l'APK a qualcuno con un device vecchio, lancia
+`crea-apk-locale.bat` e scegli `armeabi-v7a` al prompt.
+
+Settato in `eas.json` (`env.ORG_GRADLE_PROJECT_reactNativeArchitectures`)
+per cloud + local; `crea-apk-locale.bat` può sovrascrivere via env var
+nella sessione corrente.
 
 ---
 
