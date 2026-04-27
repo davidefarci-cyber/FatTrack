@@ -12,7 +12,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.fattrack.app",
@@ -28,13 +30,20 @@
       "package": "com.fattrack.app",
       "permissions": [
         "CAMERA",
-        "android.permission.REQUEST_INSTALL_PACKAGES"
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "CAMERA",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/9040fa36-c682-47b2-923f-eb1143bcd233"
     },
     "runtimeVersion": {
       "policy": "appVersion"
@@ -49,8 +58,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": ""
+        "projectId": "9040fa36-c682-47b2-923f-eb1143bcd233"
       }
-    }
+    },
+    "owner": "davide.farci"
   }
 }
