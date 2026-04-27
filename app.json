@@ -2,7 +2,7 @@
   "expo": {
     "name": "FatTrack",
     "slug": "fattrack",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -37,7 +37,8 @@
         "android.permission.REQUEST_INSTALL_PACKAGES",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
-      ]
+      ],
+      "versionCode": 1
     },
     "updates": {
       "enabled": true,
