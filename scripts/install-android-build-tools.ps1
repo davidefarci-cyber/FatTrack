@@ -168,7 +168,7 @@ foreach ($p in $pathsToAdd) {
 }
 if ($changed) {
     [Environment]::SetEnvironmentVariable('Path', $userPath, 'User')
-    Write-Ok 'PATH utente aggiornato (verra' visto da nuovi prompt automaticamente).'
+    Write-Ok "PATH utente aggiornato (verra' visto da nuovi prompt automaticamente)."
 }
 
 # ============================================================
