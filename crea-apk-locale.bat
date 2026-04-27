@@ -4,12 +4,12 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 echo ============================================================
-echo  FatTrack - Build APK preview ^(LOCALE, senza coda EAS^)
+echo  FatTrack - Build APK locale ^(Windows native, Gradle diretto^)
 echo ============================================================
 echo.
-echo  Vantaggi: niente coda Expo, niente upload del bundle.
-echo  Prerequisiti: JDK 17, Android SDK ^(ANDROID_HOME^), EAS CLI.
-echo  Se mancano, lo script si offre di installarli automaticamente.
+echo  Bypassa "eas build --local" che NON funziona su Windows.
+echo  Usa: expo prebuild + gradlew.bat assembleRelease
+echo  Prerequisiti: JDK 17, Android SDK ^(installati on demand qui sotto^).
 echo.
 
 rem --- node_modules ---
@@ -19,37 +19,14 @@ if not exist "node_modules" (
     exit /b 1
 )
 
-rem --- EAS CLI ---
-where eas >nul 2>nul
-if errorlevel 1 (
-    echo [!] EAS CLI non trovato. Lancia prima setup.bat.
-    pause
-    exit /b 1
-)
-
-rem ============================================================
-rem  Toolchain Android: check + auto-install se manca
-rem ============================================================
+rem --- Toolchain Android: check + auto-install se manca
 call :ensure_android_toolchain
 if errorlevel 1 (
     pause
     exit /b 1
 )
 
-rem --- Login EAS ^(serve anche per build --local: scarica credenziali^) ---
-call eas whoami >nul 2>nul
-if errorlevel 1 (
-    echo [ ] Non sei loggato su EAS. Avvio "eas login"...
-    call eas login
-    if errorlevel 1 (
-        echo [!] Login EAS fallito.
-        pause
-        exit /b 1
-    )
-)
-for /f "delims=" %%u in ('eas whoami') do echo [OK] Loggato come %%u
-
-rem --- Profilo ^(default: preview^) ---
+rem --- Profilo ^(default: preview, usato solo per il nome dell'APK^)
 set "PROFILE=preview"
 if not "%~1"=="" set "PROFILE=%~1"
 
@@ -72,20 +49,14 @@ if "!ABI!"=="" (
     if "!_ABI_CHOICE!"=="3" set "ABI=universal"
 )
 
-if /i "!ABI!"=="universal" (
-    rem Niente env: vince il default di gradle.properties ^(tutte le ABI^).
-    set "ORG_GRADLE_PROJECT_reactNativeArchitectures="
-) else (
-    set "ORG_GRADLE_PROJECT_reactNativeArchitectures=!ABI!"
-)
+set "OUTPUT_APK=fattrack-!PROFILE!-!ABI!.apk"
 
 echo.
 echo [ ] Avvio build LOCALE Android, profilo: !PROFILE!, ABI: !ABI!
-echo     ^(la prima build scarica Gradle/dipendenze: 5-10 min,
-echo      le successive sono incrementali: 2-4 min^)
+echo     output: !OUTPUT_APK!
 echo.
 
-call eas build --platform android --profile !PROFILE! --local
+call "%~dp0scripts\build-android-local.bat" "!ABI!" "!OUTPUT_APK!"
 if errorlevel 1 (
     echo [!] Build locale fallita.
     pause
@@ -95,7 +66,8 @@ if errorlevel 1 (
 echo.
 echo ============================================================
 echo  Build locale completata.
-echo  L'APK e' nella cartella corrente ^(file .apk creato da EAS^).
+echo  APK: !OUTPUT_APK!
+echo  Trasferiscilo sul telefono ^(USB / Drive / mail^) e installa.
 echo ============================================================
 pause
 endlocal
@@ -108,7 +80,6 @@ rem ============================================================
 :ensure_android_toolchain
 set "_NEED_INSTALL=0"
 
-rem JDK 17?
 where java >nul 2>nul
 if errorlevel 1 (
     set "_NEED_INSTALL=1"
@@ -120,7 +91,6 @@ if errorlevel 1 (
     if "!_JAVA_OK!"=="0" set "_NEED_INSTALL=1"
 )
 
-rem ANDROID_HOME / ANDROID_SDK_ROOT con sdkmanager presente?
 set "_ANDROID_OK=0"
 if defined ANDROID_HOME (
     if exist "!ANDROID_HOME!\cmdline-tools\latest\bin\sdkmanager.bat" set "_ANDROID_OK=1"
@@ -161,7 +131,6 @@ if errorlevel 1 (
     exit /b 1
 )
 
-rem Importa JAVA_HOME / ANDROID_HOME / PATH nella sessione corrente
 if not exist "%TEMP%\fattrack-android-env.cmd" (
     echo [!] Installer non ha generato il file env. Riapri il prompt e riprova.
     exit /b 1
@@ -170,5 +139,4 @@ call "%TEMP%\fattrack-android-env.cmd"
 del "%TEMP%\fattrack-android-env.cmd" >nul 2>nul
 
 echo [OK] Toolchain pronta nella sessione corrente.
-echo     ^(I prossimi prompt vedranno automaticamente JAVA_HOME/ANDROID_HOME^)
 exit /b 0
