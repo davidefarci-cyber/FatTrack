@@ -1,5 +1,8 @@
 import Constants from 'expo-constants';
-import { Alert, Linking } from 'react-native';
+import * as FileSystem from 'expo-file-system';
+import * as IntentLauncher from 'expo-intent-launcher';
+import { Alert, AppState, Linking, Platform } from 'react-native';
+import type { AppStateStatus } from 'react-native';
 
 // URL pubblico del manifest di versione: ospitato come file statico nel repo
 // GitHub, quindi non serve alcun backend. Raw content è servito con CORS
@@ -11,20 +14,43 @@ const VERSION_JSON_URL =
 // comparire un alert a schermo tardivo o rallentare il lancio.
 const FETCH_TIMEOUT_MS = 5000;
 
-// Flag a modulo: garantisce un solo check per sessione (il modulo è
-// singleton finché l'app è in memoria).
-let hasCheckedThisSession = false;
+// Per il check in foreground: throttling a 1 ora, così rientrare in app
+// 50 volte al giorno non spamma fetch.
+const FOREGROUND_RECHECK_MS = 60 * 60 * 1000;
+
+let lastCheckAt = 0;
+let isPromptOpen = false;
+let appStateSubscribed = false;
 
 type RemoteVersion = {
   version: string;
   apkUrl: string;
+  minSupportedVersion: string | null;
+  notes: string;
 };
 
 // Entry point: fire-and-forget dall'App.tsx. Non lancia mai: qualunque
 // errore (offline, JSON malformato, ecc.) viene soffocato.
+// Si registra anche un listener AppState così se l'utente lascia l'app
+// aperta in background per un po', al rientro ricontrolla.
 export async function checkForUpdates(): Promise<void> {
-  if (hasCheckedThisSession) return;
-  hasCheckedThisSession = true;
+  if (!appStateSubscribed) {
+    appStateSubscribed = true;
+    AppState.addEventListener('change', handleAppStateChange);
+  }
+  await runCheck();
+}
+
+function handleAppStateChange(state: AppStateStatus) {
+  if (state !== 'active') return;
+  // Throttle: niente fetch se abbiamo controllato di recente.
+  if (Date.now() - lastCheckAt < FOREGROUND_RECHECK_MS) return;
+  void runCheck();
+}
+
+async function runCheck(): Promise<void> {
+  if (isPromptOpen) return;
+  lastCheckAt = Date.now();
 
   try {
     const remote = await fetchRemoteVersion();
@@ -34,7 +60,10 @@ export async function checkForUpdates(): Promise<void> {
     if (!current) return;
 
     if (compareVersions(remote.version, current) > 0) {
-      promptUpdate(remote);
+      const isMandatory =
+        remote.minSupportedVersion !== null &&
+        compareVersions(current, remote.minSupportedVersion) < 0;
+      promptUpdate(remote, isMandatory);
     }
   } catch {
     // Silenziosi per design: update check è un "nice to have".
@@ -58,7 +87,15 @@ async function fetchRemoteVersion(): Promise<RemoteVersion | null> {
     if (!res.ok) return null;
     const data: unknown = await res.json();
     if (!isRemoteVersionPayload(data)) return null;
-    return { version: data.version, apkUrl: data.apk_url };
+    return {
+      version: data.version,
+      apkUrl: data.apk_url,
+      minSupportedVersion:
+        typeof data.min_supported_version === 'string'
+          ? data.min_supported_version
+          : null,
+      notes: typeof data.notes === 'string' ? data.notes : '',
+    };
   } finally {
     clearTimeout(timeoutId);
   }
@@ -66,7 +103,12 @@ async function fetchRemoteVersion(): Promise<RemoteVersion | null> {
 
 function isRemoteVersionPayload(
   data: unknown,
-): data is { version: string; apk_url: string } {
+): data is {
+  version: string;
+  apk_url: string;
+  min_supported_version?: unknown;
+  notes?: unknown;
+} {
   if (!data || typeof data !== 'object') return false;
   const obj = data as Record<string, unknown>;
   return typeof obj.version === 'string' && typeof obj.apk_url === 'string';
@@ -93,18 +135,79 @@ function toInt(segment: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function promptUpdate(remote: RemoteVersion): void {
-  Alert.alert(
-    'Aggiornamento disponibile',
-    `È disponibile la versione ${remote.version} - Vuoi scaricarla?`,
-    [
-      { text: 'Dopo', style: 'cancel' },
-      {
-        text: 'Aggiorna',
-        onPress: () => {
-          Linking.openURL(remote.apkUrl).catch(() => undefined);
-        },
+function buildAlertBody(remote: RemoteVersion): string {
+  const head = `È disponibile la versione ${remote.version}.`;
+  if (!remote.notes) return `${head}\n\nVuoi scaricarla ora?`;
+  return `${head}\n\n${remote.notes}`;
+}
+
+function promptUpdate(remote: RemoteVersion, isMandatory: boolean): void {
+  isPromptOpen = true;
+
+  const buttons: { text: string; style?: 'cancel'; onPress?: () => void }[] = [];
+  if (!isMandatory) {
+    buttons.push({
+      text: 'Dopo',
+      style: 'cancel',
+      onPress: () => {
+        isPromptOpen = false;
       },
-    ],
+    });
+  }
+  buttons.push({
+    text: 'Aggiorna',
+    onPress: () => {
+      void downloadAndInstall(remote);
+    },
+  });
+
+  Alert.alert(
+    isMandatory ? 'Aggiornamento richiesto' : 'Aggiornamento disponibile',
+    buildAlertBody(remote),
+    buttons,
+    { cancelable: !isMandatory },
   );
+}
+
+// Scarica l'APK in cache locale e apre il prompt nativo di installazione.
+// Su Android usa Intent ACTION_VIEW con FLAG_GRANT_READ_URI_PERMISSION e
+// il content:// URI risolto da expo-file-system, così PackageInstaller
+// può leggere il file. Su iOS / fallback apre l'URL nel browser.
+async function downloadAndInstall(remote: RemoteVersion): Promise<void> {
+  if (Platform.OS !== 'android') {
+    isPromptOpen = false;
+    Linking.openURL(remote.apkUrl).catch(() => undefined);
+    return;
+  }
+
+  try {
+    const cacheDir = FileSystem.cacheDirectory;
+    if (!cacheDir) throw new Error('cacheDirectory not available');
+
+    const target = `${cacheDir}fattrack-${remote.version}.apk`;
+    // Pulisci eventuali residui di tentativi precedenti.
+    try {
+      await FileSystem.deleteAsync(target, { idempotent: true });
+    } catch {
+      // ignore
+    }
+
+    const { uri, status } = await FileSystem.downloadAsync(remote.apkUrl, target);
+    if (status >= 400) {
+      throw new Error(`download failed: HTTP ${status}`);
+    }
+
+    // contentUri risolve un content:// URI su cui PackageInstaller può leggere.
+    const contentUri = await FileSystem.getContentUriAsync(uri);
+    await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+      data: contentUri,
+      flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+      type: 'application/vnd.android.package-archive',
+    });
+  } catch {
+    // Fallback: apri l'URL nel browser, l'utente scarica e installa a mano.
+    Linking.openURL(remote.apkUrl).catch(() => undefined);
+  } finally {
+    isPromptOpen = false;
+  }
 }
