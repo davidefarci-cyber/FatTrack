@@ -209,6 +209,18 @@ if not exist "%REPO_DIR%\.env" (
     )
 )
 
+rem --- Pulizia URL remote + setup gh come credential helper ---
+rem (rimuove il token read-only embeddato per il clone, cosi' i push
+rem successivi usano gh / SSH e non vanno in 403)
+if exist "%REPO_DIR%\scripts\ensure-git-push-auth.bat" (
+    echo.
+    echo [ ] Configuro auth git push ^(gh credential helper^)...
+    pushd "%REPO_DIR%"
+    call scripts\ensure-git-push-auth.bat
+    popd
+    rem Errore non fatale: setup ok anche se gh non e' installato.
+)
+
 echo.
 echo ============================================================
 echo  Setup completato!

@@ -60,6 +60,14 @@ if errorlevel 1 (
     )
 )
 
+rem --- Auth git push: pulisce token vecchi nell'URL + gh credential helper ---
+call "%~dp0scripts\ensure-git-push-auth.bat"
+if errorlevel 1 (
+    echo [!] Configurazione auth git push fallita.
+    pause
+    exit /b 1
+)
+
 rem ============================================================
 rem  3. PRE-CHECK: branch + working tree pulito + sync con remoto
 rem ============================================================
