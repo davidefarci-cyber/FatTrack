@@ -9,6 +9,7 @@ echo ============================================================
 echo.
 echo  Vantaggi: niente coda Expo, niente upload del bundle.
 echo  Prerequisiti: JDK 17, Android SDK ^(ANDROID_HOME^), EAS CLI.
+echo  Se mancano, lo script si offre di installarli automaticamente.
 echo.
 
 rem --- node_modules ---
@@ -26,53 +27,14 @@ if errorlevel 1 (
     exit /b 1
 )
 
-rem --- JDK ---
-where java >nul 2>nul
+rem ============================================================
+rem  Toolchain Android: check + auto-install se manca
+rem ============================================================
+call :ensure_android_toolchain
 if errorlevel 1 (
-    echo [!] Java non trovato sul PATH.
-    echo     Installa JDK 17, ad esempio:
-    echo         winget install --id EclipseAdoptium.Temurin.17.JDK -e
-    echo     Poi chiudi e riapri il prompt.
     pause
     exit /b 1
 )
-
-rem Verifica versione JDK ^(deve essere 17.x^)
-set "JAVA_OK=0"
-for /f "tokens=*" %%v in ('java -version 2^>^&1 ^| findstr /R "version"') do (
-    echo %%v | findstr /C:"\"17." >nul && set "JAVA_OK=1"
-)
-if "!JAVA_OK!"=="0" (
-    echo [!] La versione di Java sul PATH non sembra JDK 17.
-    echo     Build EAS richiede JDK 17. Imposta JAVA_HOME al JDK 17 e
-    echo     metti %%JAVA_HOME%%\bin in cima al PATH.
-    java -version 2>&1
-    echo.
-    set /p "GOFORCE=    Vuoi continuare comunque? [s/N]: "
-    if /i not "!GOFORCE!"=="s" exit /b 1
-)
-
-rem --- Android SDK ---
-if not defined ANDROID_HOME (
-    if defined ANDROID_SDK_ROOT (
-        set "ANDROID_HOME=!ANDROID_SDK_ROOT!"
-    )
-)
-if not defined ANDROID_HOME (
-    echo [!] ANDROID_HOME non impostata.
-    echo     Installa l'Android SDK ^(piu' leggero: cmdline-tools^):
-    echo       1^) Scarica "Android Command line tools" da
-    echo          https://developer.android.com/studio#command-line-tools-only
-    echo       2^) Scompatta in C:\Android\cmdline-tools\latest\
-    echo       3^) Setta ANDROID_HOME=C:\Android e aggiungi al PATH:
-    echo          %%ANDROID_HOME%%\cmdline-tools\latest\bin
-    echo          %%ANDROID_HOME%%\platform-tools
-    echo       4^) Lancia: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-    echo.
-    pause
-    exit /b 1
-)
-echo [OK] ANDROID_HOME = !ANDROID_HOME!
 
 rem --- Login EAS ^(serve anche per build --local: scarica credenziali^) ---
 call eas whoami >nul 2>nul
@@ -109,5 +71,77 @@ echo  Build locale completata.
 echo  L'APK e' nella cartella corrente ^(file .apk creato da EAS^).
 echo ============================================================
 pause
-
 endlocal
+exit /b 0
+
+
+rem ============================================================
+rem  Subroutine: verifica JDK17 + ANDROID_HOME, installa se manca
+rem ============================================================
+:ensure_android_toolchain
+set "_NEED_INSTALL=0"
+
+rem JDK 17?
+where java >nul 2>nul
+if errorlevel 1 (
+    set "_NEED_INSTALL=1"
+) else (
+    set "_JAVA_OK=0"
+    for /f "tokens=*" %%v in ('java -version 2^>^&1') do (
+        echo %%v | findstr /C:"\"17." >nul && set "_JAVA_OK=1"
+    )
+    if "!_JAVA_OK!"=="0" set "_NEED_INSTALL=1"
+)
+
+rem ANDROID_HOME / ANDROID_SDK_ROOT con sdkmanager presente?
+set "_ANDROID_OK=0"
+if defined ANDROID_HOME (
+    if exist "!ANDROID_HOME!\cmdline-tools\latest\bin\sdkmanager.bat" set "_ANDROID_OK=1"
+)
+if "!_ANDROID_OK!"=="0" if defined ANDROID_SDK_ROOT (
+    if exist "!ANDROID_SDK_ROOT!\cmdline-tools\latest\bin\sdkmanager.bat" (
+        set "ANDROID_HOME=!ANDROID_SDK_ROOT!"
+        set "_ANDROID_OK=1"
+    )
+)
+if "!_ANDROID_OK!"=="0" set "_NEED_INSTALL=1"
+
+if "!_NEED_INSTALL!"=="0" (
+    echo [OK] Toolchain Android gia' configurata ^(JAVA_HOME + ANDROID_HOME^).
+    exit /b 0
+)
+
+echo.
+echo [!] Toolchain Android incompleta o assente.
+echo     Posso installare automaticamente:
+echo       - JDK 17 ^(Adoptium Temurin, via winget^)
+echo       - Android SDK cmdline-tools ^(download diretto da Google^)
+echo       - platform-tools, platforms;android-34, build-tools;34.0.0
+echo       - Accettazione licenze SDK
+echo     Spazio richiesto: ~1.5 GB. Tempo: 5-10 minuti.
+echo.
+set /p "_GO=Installo ora? [s/N]: "
+if /i not "!_GO!"=="s" (
+    echo Annullato. Installa manualmente e rilancia.
+    exit /b 1
+)
+
+echo.
+echo [ ] Avvio installer PowerShell...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install-android-build-tools.ps1"
+if errorlevel 1 (
+    echo [!] Auto-install fallita. Vedi i log sopra.
+    exit /b 1
+)
+
+rem Importa JAVA_HOME / ANDROID_HOME / PATH nella sessione corrente
+if not exist "%TEMP%\fattrack-android-env.cmd" (
+    echo [!] Installer non ha generato il file env. Riapri il prompt e riprova.
+    exit /b 1
+)
+call "%TEMP%\fattrack-android-env.cmd"
+del "%TEMP%\fattrack-android-env.cmd" >nul 2>nul
+
+echo [OK] Toolchain pronta nella sessione corrente.
+echo     ^(I prossimi prompt vedranno automaticamente JAVA_HOME/ANDROID_HOME^)
+exit /b 0

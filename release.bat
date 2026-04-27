@@ -189,6 +189,18 @@ if not "!BUILD_CHOICE!"=="1" if not "!BUILD_CHOICE!"=="2" (
     exit /b 1
 )
 
+rem Per la build locale, verifica/installa la toolchain PRIMA di toccare i file
+rem ^(cosi' se l'utente rifiuta l'install non c'e' bump da rollbackare^).
+if "!BUILD_CHOICE!"=="1" (
+    call :ensure_android_toolchain
+    if errorlevel 1 (
+        del "!NOTES_FILE!" >nul 2>nul
+        del "!NOTES_CLEAN!" >nul 2>nul
+        pause
+        exit /b 1
+    )
+)
+
 rem ============================================================
 rem  8. RIEPILOGO + CONFERMA
 rem ============================================================
@@ -232,22 +244,7 @@ if "!BUILD_CHOICE!"=="1" goto :build_local
 if "!BUILD_CHOICE!"=="2" goto :build_cloud
 
 :build_local
-rem Verifica JDK + ANDROID_HOME prima di lanciare la build locale
-where java >nul 2>nul || (
-    echo [!] Java non trovato. Installa JDK 17 prima di rilasciare in locale.
-    goto :rollback
-)
-if not defined ANDROID_HOME (
-    if defined ANDROID_SDK_ROOT (
-        set "ANDROID_HOME=!ANDROID_SDK_ROOT!"
-    )
-)
-if not defined ANDROID_HOME (
-    echo [!] ANDROID_HOME non impostata. Vedi crea-apk-locale.bat per setup.
-    goto :rollback
-)
-
-rem Login EAS
+rem Toolchain gia' verificata/installata al passo 7b. Solo login EAS qui.
 call eas whoami >nul 2>nul
 if errorlevel 1 (
     call eas login || goto :rollback
@@ -364,5 +361,73 @@ del "!NOTES_FILE!" >nul 2>nul
 del "!NOTES_CLEAN!" >nul 2>nul
 pause
 exit /b 1
+
+
+rem ============================================================
+rem  Subroutine: verifica JDK17 + ANDROID_HOME, installa se manca
+rem  ^(stessa logica di crea-apk-locale.bat^)
+rem ============================================================
+:ensure_android_toolchain
+set "_NEED_INSTALL=0"
+
+where java >nul 2>nul
+if errorlevel 1 (
+    set "_NEED_INSTALL=1"
+) else (
+    set "_JAVA_OK=0"
+    for /f "tokens=*" %%v in ('java -version 2^>^&1') do (
+        echo %%v | findstr /C:"\"17." >nul && set "_JAVA_OK=1"
+    )
+    if "!_JAVA_OK!"=="0" set "_NEED_INSTALL=1"
+)
+
+set "_ANDROID_OK=0"
+if defined ANDROID_HOME (
+    if exist "!ANDROID_HOME!\cmdline-tools\latest\bin\sdkmanager.bat" set "_ANDROID_OK=1"
+)
+if "!_ANDROID_OK!"=="0" if defined ANDROID_SDK_ROOT (
+    if exist "!ANDROID_SDK_ROOT!\cmdline-tools\latest\bin\sdkmanager.bat" (
+        set "ANDROID_HOME=!ANDROID_SDK_ROOT!"
+        set "_ANDROID_OK=1"
+    )
+)
+if "!_ANDROID_OK!"=="0" set "_NEED_INSTALL=1"
+
+if "!_NEED_INSTALL!"=="0" (
+    echo [OK] Toolchain Android gia' configurata.
+    exit /b 0
+)
+
+echo.
+echo [!] Toolchain Android incompleta o assente.
+echo     Posso installare automaticamente:
+echo       - JDK 17 ^(Adoptium Temurin, via winget^)
+echo       - Android SDK cmdline-tools ^(download diretto da Google^)
+echo       - platform-tools, platforms;android-34, build-tools;34.0.0
+echo       - Accettazione licenze SDK
+echo     Spazio richiesto: ~1.5 GB. Tempo: 5-10 minuti.
+echo.
+set /p "_GO=Installo ora? [s/N]: "
+if /i not "!_GO!"=="s" (
+    echo Annullato. Installa manualmente o usa la build CLOUD.
+    exit /b 1
+)
+
+echo.
+echo [ ] Avvio installer PowerShell...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install-android-build-tools.ps1"
+if errorlevel 1 (
+    echo [!] Auto-install fallita. Vedi i log sopra.
+    exit /b 1
+)
+
+if not exist "%TEMP%\fattrack-android-env.cmd" (
+    echo [!] Installer non ha generato il file env. Riapri il prompt e riprova.
+    exit /b 1
+)
+call "%TEMP%\fattrack-android-env.cmd"
+del "%TEMP%\fattrack-android-env.cmd" >nul 2>nul
+echo [OK] Toolchain pronta nella sessione corrente.
+exit /b 0
 
 endlocal

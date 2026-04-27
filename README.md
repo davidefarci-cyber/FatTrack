@@ -178,13 +178,27 @@ Per evitare i 10-20 min della coda EAS cloud, puoi compilare l'APK
 direttamente sul tuo PC. Richiede **JDK 17** + **Android SDK** una volta
 sola, poi le build successive sono **2-4 minuti** (Gradle è incrementale).
 
-**Setup una tantum (Windows):**
+**Setup automatico (consigliato).** `crea-apk-locale.bat` (e `release.bat`
+quando scegli build "Locale") rileva se `JAVA_HOME` / `ANDROID_HOME`
+mancano e si offre di installare tutto automaticamente:
+
+- JDK 17 Adoptium Temurin (via `winget`)
+- Android `cmdline-tools` (download diretto da Google, ~150 MB)
+- `platform-tools`, `platforms;android-34`, `build-tools;34.0.0` (via `sdkmanager`)
+- Accettazione automatica delle licenze SDK
+- `JAVA_HOME` / `ANDROID_HOME` / `PATH` settati a livello User (persistenti)
+  e nella sessione corrente
+
+Il lavoro lo fa `scripts/install-android-build-tools.ps1`. Spazio richiesto
+~1.5 GB, tempo 5-10 minuti la prima volta, zero le successive.
+
+**Setup manuale (se preferisci):**
 
 ```powershell
 # JDK 17
 winget install --id EclipseAdoptium.Temurin.17.JDK -e
 
-# Android SDK (cmdline-tools, ~150 MB invece dei 4+ GB di Android Studio)
+# Android SDK cmdline-tools
 # 1. Scarica "Android Command line tools" da:
 #    https://developer.android.com/studio#command-line-tools-only
 # 2. Estrai in C:\Android\cmdline-tools\latest\
@@ -207,9 +221,6 @@ crea-apk-locale.bat
 npm run build:android:local:preview      # eas build --local profilo preview
 npm run build:android:local:production   # eas build --local profilo production
 ```
-
-Lo script `crea-apk-locale.bat` controlla JDK 17, ANDROID_HOME e login EAS
-prima di lanciare la build.
 
 ---
 
@@ -308,8 +319,9 @@ Lo script gestisce **tutto in automatico** con controlli di sicurezza:
 5. **Note di rilascio**: apre `notepad` con un template; quello che scrivi
    finisce sia su `version.json` (mostrato nell'alert in-app) sia nella
    GitHub Release.
-6. **Scelta build**: locale (veloce, richiede JDK 17 + Android SDK) o cloud
-   EAS (lenta, ma niente prerequisiti).
+6. **Scelta build**: locale (veloce; se JDK 17 / Android SDK mancano lo
+   script li installa automaticamente — vedi §3.4) o cloud EAS (lenta, ma
+   nessun prerequisito locale).
 7. **Build production** con `--output fattrack.apk` (locale) o download
    automatico dall'artifact EAS (cloud).
 8. **Commit + tag + push**: `release: vX.Y.Z`, tag `vX.Y.Z`, push di `main`
@@ -381,6 +393,7 @@ Niente edit manuale di `version.json` ad ogni release: lo script lo fa per te.
 | `crea-apk-locale.bat` | Build APK preview **locale** (no coda) |
 | `pubblica-update.bat` | Pubblica un OTA EAS Update |
 | `release.bat` | **Release end-to-end**: bump versione + build + tag + GitHub Release |
+| `scripts\install-android-build-tools.ps1` | Installer toolchain Android (JDK 17 + cmdline-tools + sdk packages). Invocato in automatico da `crea-apk-locale.bat` e `release.bat` se serve. |
 
 ---
 
