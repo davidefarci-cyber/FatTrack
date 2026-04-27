@@ -79,12 +79,52 @@ if not "!CURRENT_BRANCH!"=="main" (
     exit /b 1
 )
 
-for /f "delims=" %%s in ('git status --porcelain') do (
-    echo [!] Hai modifiche non committate nel working tree:
+rem Working tree pulito? Se no, offro di committare le modifiche tracciate
+rem (M/D) come "chore: pre-release sync" e proseguo. File untracked NON
+rem vengono toccati: se ti servono, aggiungili a mano e rilancia.
+set "_DIRTY=0"
+for /f "delims=" %%s in ('git status --porcelain') do set "_DIRTY=1"
+if "!_DIRTY!"=="1" (
+    echo.
+    echo [!] Working tree non pulito:
     git status --short
-    echo     Committa o stasha prima di rilasciare.
-    pause
-    exit /b 1
+    echo.
+    echo     Posso committare le modifiche tracciate ^(M/D^) come
+    echo     "chore: pre-release sync" e proseguire. I file untracked
+    echo     ^(?? sopra^) NON verranno toccati: aggiungili a mano se servono.
+    echo.
+    set /p "_AUTO=Auto-commit le modifiche tracciate? [s/N]: "
+    if /i not "!_AUTO!"=="s" (
+        echo Annullato. Sistema il working tree e rilancia.
+        pause
+        exit /b 1
+    )
+
+    rem Stage solo modifiche/eliminazioni di file tracciati ^(no untracked^).
+    call git add -u
+    if errorlevel 1 (
+        echo [!] git add -u fallito.
+        pause
+        exit /b 1
+    )
+
+    rem Verifica che ci sia davvero qualcosa da committare ^(potrebbero
+    rem essere stati solo file untracked, in tal caso non c'e' diff staged^).
+    call git diff --cached --quiet
+    if errorlevel 1 (
+        echo [ ] Committo "chore: pre-release sync"...
+        call git commit -m "chore: pre-release sync"
+        if errorlevel 1 (
+            echo [!] git commit fallito.
+            pause
+            exit /b 1
+        )
+    ) else (
+        echo [!] Nessun file tracciato da committare ^(solo untracked^).
+        echo     Aggiungi a mano i file che ti servono e rilancia.
+        pause
+        exit /b 1
+    )
 )
 
 echo [ ] Aggiorno il branch da remoto ^(git pull --ff-only^)...
