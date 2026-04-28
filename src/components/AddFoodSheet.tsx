@@ -25,9 +25,10 @@ import { SegmentedControl } from '@/components/SegmentedControl';
 import { useToast } from '@/components/Toast';
 import { foodsDB, foodServingsDB, mealsStore } from '@/database';
 import type { Food, FoodSource, MealType } from '@/database';
+import { useFoodSearch } from '@/hooks/useFoodSearch';
 import { colors, radii, spacing, typography } from '@/theme';
 import { calculateMealCalories, scaleMacro } from '@/utils/calorieCalculator';
-import { offByBarcode, offSearch } from '@/utils/openFoodFacts';
+import { offByBarcode } from '@/utils/openFoodFacts';
 import type { OffProduct } from '@/utils/openFoodFacts';
 
 // Bottom-sheet per l'aggiunta di un alimento al diario.
@@ -51,8 +52,6 @@ const TAB_OPTIONS: ReadonlyArray<{ value: TabKey; label: string }> = [
   { value: 'barcode', label: 'Barcode' },
   { value: 'manual', label: 'Manuale' },
 ];
-
-const SEARCH_DEBOUNCE_MS = 400;
 
 export function AddFoodSheet({ visible, mealType, date, onClose, onAdded }: AddFoodSheetProps) {
   const toast = useToast();
@@ -217,14 +216,15 @@ type Selected =
   | { source: 'remote'; product: OffProduct };
 
 function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: CommitFn }) {
-  const [query, setQuery] = useState('');
-  const [localResults, setLocalResults] = useState<Food[]>([]);
-  const [remoteResults, setRemoteResults] = useState<OffProduct[]>([]);
-  const [loadingRemote, setLoadingRemote] = useState(false);
-  const [remoteError, setRemoteError] = useState<string | null>(null);
-  // Incrementato dal tasto "Riprova" per ri-triggerare la fetch OFF senza
-  // costringere l'utente a modificare la query.
-  const [retryTick, setRetryTick] = useState(0);
+  const {
+    query,
+    setQuery,
+    localResults,
+    remoteResults,
+    loadingRemote,
+    remoteError,
+    retry: retryRemote,
+  } = useFoodSearch();
   const [selected, setSelected] = useState<Selected | null>(null);
   const [selectedServings, setSelectedServings] = useState<ServingOption[]>([]);
   const [editingServings, setEditingServings] = useState<Food | null>(null);
@@ -264,57 +264,6 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
       active = false;
     };
   }, [selected, servingsTick]);
-
-  useEffect(() => {
-    let active = true;
-    const trimmed = query.trim();
-    const promise = trimmed.length === 0
-      ? foodsDB.listFoods(30)
-      : foodsDB.searchFoods(trimmed, 30);
-    promise
-      .then((rows) => {
-        if (active) setLocalResults(rows);
-      })
-      .catch(() => {
-        if (active) setLocalResults([]);
-      });
-    return () => {
-      active = false;
-    };
-  }, [query]);
-
-  useEffect(() => {
-    const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setRemoteResults([]);
-      setLoadingRemote(false);
-      setRemoteError(null);
-      return;
-    }
-    const controller = new AbortController();
-    const handle = setTimeout(() => {
-      setLoadingRemote(true);
-      setRemoteError(null);
-      offSearch(trimmed, controller.signal)
-        .then((products) => {
-          setRemoteResults(products);
-        })
-        .catch((err: unknown) => {
-          if (controller.signal.aborted) return;
-          setRemoteResults([]);
-          setRemoteError(
-            err instanceof Error ? err.message : 'Impossibile contattare Open Food Facts',
-          );
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setLoadingRemote(false);
-        });
-    }, SEARCH_DEBOUNCE_MS);
-    return () => {
-      clearTimeout(handle);
-      controller.abort();
-    };
-  }, [query, retryTick]);
 
   const items = useMemo<SearchItem[]>(() => {
     const out: SearchItem[] = [];
@@ -467,7 +416,7 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
                   {item.message}
                 </Text>
                 <Pressable
-                  onPress={() => setRetryTick((n) => n + 1)}
+                  onPress={retryRemote}
                   style={styles.retryBtn}
                   hitSlop={8}
                 >
