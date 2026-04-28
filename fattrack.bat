@@ -719,16 +719,24 @@ exit /b 0
 
 :ensure_android_toolchain
 set "_NEED_INSTALL=0"
+set "_MISSING_JAVA=0"
+set "_MISSING_ANDROID=0"
 
+rem Check JDK 17 delegato a PowerShell: l'output di "java -version" va su
+rem stderr e contiene virgolette (es. openjdk version "17.0.10"), e il
+rem pattern findstr con \"17. dentro un blocco "if (...) else (...)"
+rem rompe il quoting di CMD (gli argomenti dopo le virgolette vengono
+rem passati come filename a findstr -> "FINDSTR: Impossibile aprire >nul").
 where java >nul 2>nul
 if errorlevel 1 (
     set "_NEED_INSTALL=1"
+    set "_MISSING_JAVA=1"
 ) else (
-    set "_JAVA_OK=0"
-    for /f "tokens=*" %%v in ('java -version 2^>^&1') do (
-        echo %%v | findstr /C:"\"17." >nul && set "_JAVA_OK=1"
+    powershell -NoProfile -Command "$o = (& java -version 2>&1) -join \"`n\"; if ($o -match 'version \"17\\.') { exit 0 } else { exit 1 }" >nul 2>nul
+    if errorlevel 1 (
+        set "_NEED_INSTALL=1"
+        set "_MISSING_JAVA=1"
     )
-    if "!_JAVA_OK!"=="0" set "_NEED_INSTALL=1"
 )
 
 set "_ANDROID_OK=0"
@@ -741,7 +749,10 @@ if "!_ANDROID_OK!"=="0" if defined ANDROID_SDK_ROOT (
         set "_ANDROID_OK=1"
     )
 )
-if "!_ANDROID_OK!"=="0" set "_NEED_INSTALL=1"
+if "!_ANDROID_OK!"=="0" (
+    set "_NEED_INSTALL=1"
+    set "_MISSING_ANDROID=1"
+)
 
 if "!_NEED_INSTALL!"=="0" (
     echo [OK] Toolchain Android gia' configurata.
@@ -749,7 +760,9 @@ if "!_NEED_INSTALL!"=="0" (
 )
 
 echo.
-echo [!] Toolchain Android incompleta o assente.
+echo [!] Toolchain Android incompleta:
+if "!_MISSING_JAVA!"=="1"    echo     - JDK 17 mancante o versione diversa.
+if "!_MISSING_ANDROID!"=="1" echo     - Android SDK / cmdline-tools non trovato.
 echo     Posso installare:
 echo       - JDK 17 ^(Adoptium Temurin via winget^)
 echo       - Android SDK cmdline-tools ^(download diretto Google^)
