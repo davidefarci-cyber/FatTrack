@@ -21,39 +21,27 @@ import { GramsInputModal } from '@/components/GramsInputModal';
 import type { GramsInputTarget, ServingOption } from '@/components/GramsInputModal';
 import { Icon } from '@/components/Icon';
 import { Input } from '@/components/Input';
-import { MEAL_INFO, MEAL_ORDER } from '@/components/mealMeta';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { SegmentedControl } from '@/components/SegmentedControl';
-import { useToast } from '@/components/Toast';
 import { foodServingsDB, foodsDB, quickAddonsDB } from '@/database';
-import type { Favorite, FavoriteItem, Food, MealType, QuickAddon } from '@/database';
+import type { Favorite, FavoriteItem, Food, QuickAddon } from '@/database';
 import { useFavorites } from '@/hooks/useFavorites';
-import { todayISO } from '@/hooks/useDailyLog';
 import { useFoodSearch } from '@/hooks/useFoodSearch';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
 import { scaleMacro } from '@/utils/calorieCalculator';
 import type { OffProduct } from '@/utils/openFoodFacts';
 
-const MEAL_OPTIONS: ReadonlyArray<{ value: MealType; label: string }> = MEAL_ORDER.map(
-  (mealType) => ({ value: mealType, label: MEAL_INFO[mealType].label }),
-);
-
 export default function FavoritesScreen() {
   const insets = useSafeAreaInsets();
-  const toast = useToast();
   const {
     favorites,
     loading,
     createFavorite,
     updateFavorite,
     deleteFavorite,
-    addToDay,
   } = useFavorites();
 
-  const [targetMeal, setTargetMeal] = useState<MealType>('pranzo');
   const [editing, setEditing] = useState<Favorite | 'new' | null>(null);
   const [quickAddons, setQuickAddons] = useState<QuickAddon[]>([]);
-  const [submittingId, setSubmittingId] = useState<number | null>(null);
 
   // Carichiamo gli addon configurati in Settings: l'utente li userà come
   // scorciatoie per aggiungere calorie fisse al preferito (contorno, olio,
@@ -65,20 +53,6 @@ export default function FavoritesScreen() {
       .catch(() => undefined);
   }, [editing]);
 
-  const handleAddToToday = useCallback(
-    async (favorite: Favorite) => {
-      if (favorite.items.length === 0) return;
-      setSubmittingId(favorite.id);
-      try {
-        await addToDay(favorite, targetMeal, todayISO());
-        toast.show('Aggiunto!');
-      } finally {
-        setSubmittingId(null);
-      }
-    },
-    [addToDay, targetMeal, toast],
-  );
-
   const handleSave = useCallback(
     async (name: string, items: FavoriteItem[]) => {
       if (editing === 'new' || editing === null) {
@@ -89,8 +63,6 @@ export default function FavoritesScreen() {
     },
     [editing, createFavorite, updateFavorite],
   );
-
-  const targetInfo = MEAL_INFO[targetMeal];
 
   return (
     <View style={styles.container}>
@@ -107,18 +79,6 @@ export default function FavoritesScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Card style={styles.selectorCard}>
-          <Text style={typography.label}>Aggiungi al pasto</Text>
-          <SegmentedControl
-            options={MEAL_OPTIONS}
-            value={targetMeal}
-            onChange={setTargetMeal}
-          />
-          <Text style={typography.caption}>
-            Tocca un preferito per aggiungerlo a {targetInfo.label.toLowerCase()} di oggi.
-          </Text>
-        </Card>
-
         {loading ? (
           <Card style={styles.placeholderCard}>
             <ActivityIndicator color={colors.textSec} />
@@ -135,11 +95,6 @@ export default function FavoritesScreen() {
             <FavoriteRow
               key={favorite.id}
               favorite={favorite}
-              accentColor={targetInfo.color}
-              accentBg={targetInfo.bg}
-              submitting={submittingId === favorite.id}
-              disabled={submittingId !== null && submittingId !== favorite.id}
-              onAdd={() => handleAddToToday(favorite)}
               onEdit={() => setEditing(favorite)}
               onDelete={() => deleteFavorite(favorite.id)}
             />
@@ -167,31 +122,19 @@ export default function FavoritesScreen() {
 }
 
 // -----------------------------------------------------------------------------
-// Riga preferito: swipe-left per eliminare, tap per aggiungere al diario,
-// icona matita per modificare.
+// Riga preferito: swipe-left per eliminare, icona matita per aprire l'editor.
+// La schermata Preferiti \u00e8 un editor puro: non aggiunge direttamente al
+// diario (per registrare un preferito come pasto si passa da Home \u2192 MealSection
+// \u2192 "Dai preferiti").
 // -----------------------------------------------------------------------------
 
 type FavoriteRowProps = {
   favorite: Favorite;
-  accentColor: string;
-  accentBg: string;
-  submitting: boolean;
-  disabled: boolean;
-  onAdd: () => void;
   onEdit: () => void;
   onDelete: () => void;
 };
 
-function FavoriteRow({
-  favorite,
-  accentColor,
-  accentBg,
-  submitting,
-  disabled,
-  onAdd,
-  onEdit,
-  onDelete,
-}: FavoriteRowProps) {
+function FavoriteRow({ favorite, onEdit, onDelete }: FavoriteRowProps) {
   const totalKcal = Math.round(
     favorite.items.reduce((sum, item) => sum + item.calories, 0),
   );
@@ -211,19 +154,8 @@ function FavoriteRow({
       )}
       overshootRight={false}
     >
-      <Card
-        style={[
-          styles.favoriteCard,
-          (submitting || disabled) && styles.favoriteCardMuted,
-        ]}
-      >
-        <Pressable
-          onPress={onAdd}
-          disabled={disabled || submitting}
-          style={styles.favoriteBody}
-          accessibilityRole="button"
-          accessibilityLabel={`Aggiungi ${favorite.name} al diario`}
-        >
+      <Card style={styles.favoriteCard}>
+        <View style={styles.favoriteBody}>
           <View style={styles.favoriteBadge}>
             <Icon name="heart" size={20} color={colors.purple} />
           </View>
@@ -237,19 +169,9 @@ function FavoriteRow({
                 : `${favorite.items.length} ${favorite.items.length === 1 ? 'alimento' : 'alimenti'} \u00b7 ${totalKcal.toLocaleString('it-IT')} kcal`}
             </Text>
           </View>
-          <View style={[styles.favoriteChip, { backgroundColor: accentBg }]}>
-            {submitting ? (
-              <ActivityIndicator color={accentColor} />
-            ) : (
-              <Text style={[typography.bodyBold, { color: accentColor }]}>
-                Aggiungi
-              </Text>
-            )}
-          </View>
-        </Pressable>
+        </View>
         <Pressable
           onPress={onEdit}
-          disabled={disabled || submitting}
           style={styles.favoriteEditBtn}
           hitSlop={8}
           accessibilityRole="button"
@@ -821,10 +743,6 @@ const styles = StyleSheet.create({
     padding: spacing.screen,
     gap: spacing.screen,
   },
-  selectorCard: {
-    padding: spacing.screen,
-    gap: spacing.xl,
-  },
   placeholderCard: {
     padding: spacing.screen,
     gap: spacing.sm,
@@ -835,9 +753,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.xl,
     gap: spacing.xl,
-  },
-  favoriteCardMuted: {
-    opacity: 0.6,
   },
   favoriteBody: {
     flex: 1,
@@ -856,14 +771,6 @@ const styles = StyleSheet.create({
   favoriteText: {
     flex: 1,
     gap: spacing.xxs,
-  },
-  favoriteChip: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    borderRadius: radii.round,
-    minWidth: 88,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   favoriteEditBtn: {
     width: 32,
