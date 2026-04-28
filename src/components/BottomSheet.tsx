@@ -36,7 +36,7 @@ const DISMISS_THRESHOLD_PX = 80;
 export function BottomSheet({
   visible,
   onClose,
-  maxHeightPercent = 76,
+  maxHeightPercent = 87,
   children,
   contentStyle,
 }: BottomSheetProps) {

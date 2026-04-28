@@ -533,7 +533,7 @@ function FavoriteEditorModal({
               label="Nome del pasto"
               value={name}
               onChangeText={setName}
-              placeholder="Es. Pranzo tipo luned\u00ec"
+              placeholder="Es. Pranzo tipo lunedì"
               autoCapitalize="sentences"
             />
 
