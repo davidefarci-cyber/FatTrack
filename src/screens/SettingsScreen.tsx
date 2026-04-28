@@ -12,6 +12,7 @@ import { QuickAddonsCard } from '@/components/QuickAddonsCard';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { useToast } from '@/components/Toast';
+import { mealsStore, resetDatabase } from '@/database';
 import type { ActivityLevel, Gender, UserProfile } from '@/database';
 import { useProfile } from '@/hooks/useProfile';
 import { colors, radii, spacing, typography } from '@/theme';
@@ -51,8 +52,9 @@ type ParsedProfile = {
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const { profile, saveProfile, deleteProfile, loading: profileLoading } = useProfile();
+  const { profile, saveProfile, deleteProfile, reload: reloadProfile, loading: profileLoading } = useProfile();
   const [resetting, setResetting] = useState(false);
+  const [resettingDb, setResettingDb] = useState(false);
 
   const {
     control,
@@ -107,6 +109,36 @@ export default function SettingsScreen() {
               toast.show('App resettata');
             } finally {
               setResetting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleResetDb = () => {
+    Alert.alert(
+      'Reset completo del database',
+      'Cancella tutto: profilo, pasti, preferiti, aggiunte rapide. Il DB ripartira’ da zero (food default + aggiunte rapide riseminate). Vuoi procedere?',
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Cancella tutto',
+          style: 'destructive',
+          onPress: async () => {
+            setResettingDb(true);
+            try {
+              await resetDatabase();
+              // La cache in-memory dello store dei pasti sopravvive al drop
+              // delle tabelle: la svuotiamo a mano per evitare di mostrare
+              // pasti fantasma dalle date gia' visitate.
+              mealsStore.clearCache();
+              // Aggiorna la snapshot del profilo: ora e' null (tabella vuota)
+              // e il RootNavigator passa automaticamente all'OnboardingScreen.
+              await reloadProfile();
+              toast.show('Database resettato');
+            } finally {
+              setResettingDb(false);
             }
           },
         },
@@ -268,6 +300,17 @@ export default function SettingsScreen() {
                 variant="secondary"
                 onPress={handleReset}
                 loading={resetting}
+              />
+              <Text style={typography.caption}>
+                Reset totale: cancella anche pasti, preferiti e aggiunte
+                rapide. Il database riparte da zero con i food e le aggiunte
+                rapide di default.
+              </Text>
+              <Button
+                label="Reset DB (azzera tutto)"
+                variant="secondary"
+                onPress={handleResetDb}
+                loading={resettingDb}
               />
             </Card>
           </>
