@@ -1,6 +1,6 @@
 {
-  "version": "1.0.3",
+  "version": "1.0.4",
   "apk_url": "https://github.com/davidefarci-cyber/fattrack/releases/latest/download/fattrack.apk",
   "min_supported_version": "1.0.0",
-  "notes": "gestita dimensione errata apk"
+  "notes": "altro tentativo per dimensioni"
 }
