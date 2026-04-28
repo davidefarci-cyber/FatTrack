@@ -722,17 +722,17 @@ set "_NEED_INSTALL=0"
 set "_MISSING_JAVA=0"
 set "_MISSING_ANDROID=0"
 
-rem Check JDK 17 delegato a PowerShell: l'output di "java -version" va su
-rem stderr e contiene virgolette (es. openjdk version "17.0.10"), e il
-rem pattern findstr con \"17. dentro un blocco "if (...) else (...)"
-rem rompe il quoting di CMD (gli argomenti dopo le virgolette vengono
-rem passati come filename a findstr -> "FINDSTR: Impossibile aprire >nul").
+rem Check JDK 17 delegato a scripts\check-jdk17.ps1: l'output di
+rem "java -version" va su stderr e contiene virgolette, e ogni
+rem combinazione di findstr/inline-PowerShell dentro un blocco
+rem "if (...) else (...)" rompe il quoting di CMD. Un .ps1 dedicato
+rem evita il problema alla radice.
 where java >nul 2>nul
 if errorlevel 1 (
     set "_NEED_INSTALL=1"
     set "_MISSING_JAVA=1"
 ) else (
-    powershell -NoProfile -Command "$o = (& java -version 2>&1) -join \"`n\"; if ($o -match 'version \"17\\.') { exit 0 } else { exit 1 }" >nul 2>nul
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\check-jdk17.ps1" >nul 2>nul
     if errorlevel 1 (
         set "_NEED_INSTALL=1"
         set "_MISSING_JAVA=1"
