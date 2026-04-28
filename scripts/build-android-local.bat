@@ -80,20 +80,28 @@ if not exist "android\app\build.gradle" (
 )
 
 rem ============================================================
-rem  2-bis. Forza reactNativeArchitectures in gradle.properties
+rem  2-bis. Forza arm64-only su due livelli (post-prebuild)
 rem
-rem  Il template Expo SDK 51 ha come default
-rem    reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
-rem  Il flag -PreactNativeArchitectures sulla command line di Gradle in
-rem  alcuni casi edge non viene onorato dal task mergeReleaseNativeLibs
-rem  (cache dei task non invalidata) -> APK con 4 ABI anche se passi -P.
-rem  Riscrivendo la property nel file, Gradle la legge sempre come
-rem  default e non c'e' modo che le altre ABI si infilino nel build.
+rem  reactNativeArchitectures (gradle.properties): controlla quali .so
+rem  RN core compila. Da solo NON basta: i moduli nativi di terze parti
+rem  (expo-camera, expo-sqlite, react-native-screens, ...) hanno le loro
+rem  .so precompilate per tutte le 4 ABI nei rispettivi AAR e quelle
+rem  finiscono nell'APK indipendentemente da reactNativeArchitectures.
+rem
+rem  ndk.abiFilters (build.gradle defaultConfig): filtra le ABI a livello
+rem  di packaging finale dell'APK. Anche se le .so per altre ABI esistono
+rem  nei dipendency, vengono escluse dall'APK. Questo e' il fix che
+rem  davvero porta l'APK a ~30-40 MB.
 rem ============================================================
 if /i not "!ABI!"=="universal" (
     powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0force-react-native-architectures.ps1" -Abi "!ABI!"
     if errorlevel 1 (
         echo [!] Impossibile aggiornare gradle.properties.
+        exit /b 1
+    )
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0force-abi-filters.ps1" -Abi "!ABI!"
+    if errorlevel 1 (
+        echo [!] Impossibile aggiornare android\app\build.gradle.
         exit /b 1
     )
 )
@@ -127,27 +135,14 @@ if exist "keystore\debug.keystore" (
 )
 
 rem ============================================================
-rem  4. Gradle clean + assembleRelease
+rem  4. Gradle assembleRelease (incrementale, no clean automatico)
 rem
-rem  Il "clean" butta gli artefatti di build precedenti (in particolare
-rem  le .so di altre ABI compilate quando ancora non c'era il flag arm64).
-rem  Senza clean, la cache dei task di Gradle puo' re-impacchettare quelle
-rem  .so anche se la property ora le esclude. Costo: ~30-60s extra.
-rem  Skip per ABI=universal, dove di proposito vogliamo tutte le 4.
+rem  abiFilters in build.gradle filtra le ABI a livello di packaging,
+rem  quindi non serve "gradlew clean" preventivo per produrre arm64-only.
+rem  Se la build sembra rotta (output stranamente grande, .so vecchie
+rem  che si ostinano a entrare, ...), pulisci la cache da:
+rem    fattrack.bat -> [6] Verifica/installa dipendenze -> Pulisci cache build
 rem ============================================================
-if /i not "!ABI!"=="universal" (
-    echo.
-    echo [ ] gradlew clean ^(azzera la cache di build^)...
-    pushd android
-    call gradlew.bat clean
-    set "CLEAN_RC=!errorlevel!"
-    popd
-    if not "!CLEAN_RC!"=="0" (
-        echo [!] gradlew clean fallito ^(exit !CLEAN_RC!^).
-        exit /b 1
-    )
-)
-
 echo.
 echo [ ] Avvio Gradle assembleRelease...
 echo     ^(prima volta: scarica Gradle wrapper + dipendenze, 5-10 min^)
