@@ -1,3 +1,5 @@
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { useNavigation } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
 import {
   LayoutAnimation,
@@ -25,6 +27,7 @@ import { useDailyLog } from '@/hooks/useDailyLog';
 import type { NewMealInput } from '@/hooks/useDailyLog';
 import { useProfile } from '@/hooks/useProfile';
 import { colors, radii, spacing, typography } from '@/theme';
+import type { TabParamList } from '@/types';
 import { DEFAULT_TARGET_KCAL } from '@/utils/calorieCalculator';
 import { computeMacroTargets } from '@/utils/macroTargets';
 
@@ -38,6 +41,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 // interazioni sono gestite con state locale e renderizzate qui.
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<BottomTabNavigationProp<TabParamList>>();
   const { targetCalories } = useProfile();
   const {
     date,
@@ -155,6 +159,16 @@ export default function HomeScreen() {
         title="Diario di oggi"
         subtitle="Pasti e calorie giornaliere"
         style={{ paddingTop: insets.top + spacing.xl }}
+        right={
+          <Pressable
+            onPress={() => navigation.navigate('Settings')}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Apri impostazioni"
+          >
+            <Icon name="cog" size={24} color={colors.textSec} />
+          </Pressable>
+        }
       />
 
       <ScrollView
