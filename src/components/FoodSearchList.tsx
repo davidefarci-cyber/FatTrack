@@ -29,8 +29,8 @@ import type { OffProduct } from '@/utils/openFoodFacts';
 
 type FoodSearchListProps = {
   search: UseFoodSearchResult;
-  onPickLocal: (food: Food) => void;
-  onPickRemote: (product: OffProduct) => void;
+  onPickLocal?: (food: Food) => void;
+  onPickRemote?: (product: OffProduct) => void;
   // Quando settato mostra l'icona matita per editare le porzioni di un food
   // locale (usato solo in AddFoodSheet).
   onEditServings?: (food: Food) => void;
@@ -43,6 +43,10 @@ type FoodSearchListProps = {
   // questa modalità il container non occupa più tutto lo spazio (niente
   // flex:1), così l'altezza si adatta al contenuto.
   scrollEnabled?: boolean;
+  // Lookup informativo (FoodSearchScreen): righe non cliccabili, niente
+  // chevron-right. I sottotitoli mostrano kcal e — se disponibili — le macro
+  // per 100 g, così la riga è sufficiente da sola senza dover navigare.
+  readOnly?: boolean;
 };
 
 type SearchItem =
@@ -61,6 +65,7 @@ export function FoodSearchList({
   searchPlaceholder = 'Cerca alimento',
   showSourceLabel = false,
   scrollEnabled = true,
+  readOnly = false,
 }: FoodSearchListProps) {
   const {
     query,
@@ -176,17 +181,19 @@ export function FoodSearchList({
             );
           }
           if (item.kind === 'local') {
-            const subtitle = showSourceLabel
+            const baseSubtitle = showSourceLabel
               ? `${item.food.caloriesPer100g} kcal / 100 g · ${sourceLabel(item.food.source)}`
               : `${item.food.caloriesPer100g} kcal / 100 g`;
             return (
               <ResultRow
                 title={item.food.name}
-                subtitle={subtitle}
-                onPress={() => onPickLocal(item.food)}
+                subtitle={baseSubtitle}
+                macroLine={readOnly ? formatMacros(item.food) : undefined}
+                onPress={readOnly ? undefined : () => onPickLocal?.(item.food)}
                 onEditServings={
-                  onEditServings ? () => onEditServings(item.food) : undefined
+                  !readOnly && onEditServings ? () => onEditServings(item.food) : undefined
                 }
+                showChevron={!readOnly}
               />
             );
           }
@@ -196,8 +203,10 @@ export function FoodSearchList({
               subtitle={`${item.product.caloriesPer100g} kcal / 100 g · ${
                 item.product.brand ?? 'Open Food Facts'
               }`}
+              macroLine={readOnly ? formatMacros(item.product) : undefined}
               badge="OFF"
-              onPress={() => onPickRemote(item.product)}
+              onPress={readOnly ? undefined : () => onPickRemote?.(item.product)}
+              showChevron={!readOnly}
             />
           );
         }}
@@ -213,18 +222,22 @@ function ListSeparator() {
 function ResultRow({
   title,
   subtitle,
+  macroLine,
   badge,
   onPress,
   onEditServings,
+  showChevron = true,
 }: {
   title: string;
   subtitle: string;
+  macroLine?: string;
   badge?: string;
-  onPress: () => void;
+  onPress?: () => void;
   onEditServings?: () => void;
+  showChevron?: boolean;
 }) {
-  return (
-    <Pressable onPress={onPress} style={styles.resultRow}>
+  const body = (
+    <>
       <View style={styles.resultText}>
         <Text style={typography.body} numberOfLines={1}>
           {title}
@@ -232,6 +245,11 @@ function ResultRow({
         <Text style={typography.caption} numberOfLines={1}>
           {subtitle}
         </Text>
+        {macroLine ? (
+          <Text style={[typography.micro, styles.macroLine]} numberOfLines={1}>
+            {macroLine}
+          </Text>
+        ) : null}
       </View>
       {badge ? (
         <View style={styles.badge}>
@@ -249,9 +267,28 @@ function ResultRow({
           <Icon name="pencil" size={14} color={colors.textSec} />
         </Pressable>
       ) : null}
-      <Icon name="chevron-right" size={14} color={colors.textSec} />
-    </Pressable>
+      {showChevron ? (
+        <Icon name="chevron-right" size={14} color={colors.textSec} />
+      ) : null}
+    </>
   );
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} style={styles.resultRow}>
+        {body}
+      </Pressable>
+    );
+  }
+  return <View style={styles.resultRow}>{body}</View>;
+}
+
+function formatMacros(item: { proteinPer100g: number | null; carbsPer100g: number | null; fatPer100g: number | null }): string | undefined {
+  const p = item.proteinPer100g;
+  const c = item.carbsPer100g;
+  const f = item.fatPer100g;
+  if (p == null && c == null && f == null) return undefined;
+  const fmt = (n: number | null) => (n == null ? '—' : `${n}`);
+  return `P ${fmt(p)} g · C ${fmt(c)} g · G ${fmt(f)} g`;
 }
 
 function sourceLabel(source: FoodSource): string {
@@ -346,6 +383,9 @@ const styles = StyleSheet.create({
   resultText: {
     flex: 1,
     gap: spacing.xxs,
+  },
+  macroLine: {
+    color: colors.textSec,
   },
   badge: {
     paddingVertical: spacing.xxs,
