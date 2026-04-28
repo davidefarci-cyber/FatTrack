@@ -378,4 +378,247 @@ calorie ha la Nutella o un grana, senza l'intento di registrarlo come pasto.
 
 ---
 
-## Fase 3 — (in scrittura nei prossimi commit)
+## Fase 3 — Navigazione, header con gear icon, cleanup Preferiti
+
+Scopo: portare la ricerca cibo (Fase 2C) come 5ª voce della tab bar al posto
+di Settings, riportare Settings dietro un'icona ingranaggio in alto a destra
+di Home, e semplificare la schermata Preferiti come puro editor.
+
+### 3A. `ScreenHeader` con slot `right`
+
+**Stato attuale**
+
+`src/components/ScreenHeader.tsx` accetta solo `title`, `subtitle`, `style`.
+Non ha alcun modo di renderizzare un'icona/azione in alto a destra accanto
+al titolo.
+
+**Modifica**
+
+Aggiungere prop opzionale `right?: ReactNode` e modificare il layout in
+`flexDirection: 'row'`, `justifyContent: 'space-between'`, con il blocco
+testo a sinistra (la coppia title+subtitle) e `right` a destra
+verticalmente centrato (o allineato al titolo se preferiamo).
+
+```tsx
+type ScreenHeaderProps = {
+  title: string;
+  subtitle?: string;
+  style?: StyleProp<ViewStyle>;
+  right?: ReactNode;
+};
+```
+
+Container nuovo:
+
+```tsx
+<View style={[styles.container, style]}>
+  <View style={styles.textBlock}>
+    <Text style={styles.title}>{title}</Text>
+    {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+  </View>
+  {right ? <View style={styles.rightSlot}>{right}</View> : null}
+</View>
+```
+
+Stili: `container.flexDirection = 'row'`, `container.alignItems = 'center'`,
+`textBlock.flex = 1`. Tutti gli altri consumer di `ScreenHeader` (Barcode,
+History, Settings, Favorites, FoodSearch) non passano `right` → comportamento
+invariato.
+
+**File toccati**
+
+- `src/components/ScreenHeader.tsx` (estensione del type + layout).
+
+### 3B. Gear icon su HomeScreen → naviga a Settings
+
+**Modifica**
+
+In `src/screens/HomeScreen.tsx` (linea 154) la chiamata attuale:
+
+```tsx
+<ScreenHeader
+  title="Diario di oggi"
+  subtitle="Pasti e calorie giornaliere"
+  style={{ paddingTop: insets.top + spacing.xl }}
+/>
+```
+
+diventa:
+
+```tsx
+<ScreenHeader
+  title="Diario di oggi"
+  subtitle="Pasti e calorie giornaliere"
+  style={{ paddingTop: insets.top + spacing.xl }}
+  right={
+    <Pressable
+      onPress={() => navigation.navigate('Settings')}
+      hitSlop={12}
+      accessibilityRole="button"
+      accessibilityLabel="Apri impostazioni"
+    >
+      <Icon name="cog" size={24} color={colors.textSec} />
+    </Pressable>
+  }
+/>
+```
+
+`navigation` è già a disposizione perché `HomeScreen` è un Tab.Screen e
+riceve i prop di navigazione da React Navigation. L'icona `cog` esiste già
+in `src/components/Icon.tsx:74`.
+
+**File toccati**
+
+- `src/screens/HomeScreen.tsx`.
+
+### 3C. Tab bar — Settings via gear, FoodSearch al suo posto
+
+**Modifiche necessarie**
+
+1. `src/types/index.ts` (TabParamList linea 4–10): aggiungere la rotta
+   `FoodSearch: undefined;`. Settings rimane registrato.
+
+2. `src/navigation/MainTabNavigator.tsx`: registrare il nuovo Tab.Screen
+   `FoodSearch` (componente da Fase 2C). Settings rimane registrato come
+   Tab.Screen — è solo nascosto dalla bar.
+
+   ```tsx
+   <Tab.Screen name="Barcode" component={BarcodeScreen} />
+   <Tab.Screen name="Favorites" component={FavoritesScreen} />
+   <Tab.Screen name="Home" component={HomeScreen} />
+   <Tab.Screen name="History" component={HistoryScreen} />
+   <Tab.Screen name="FoodSearch" component={FoodSearchScreen} />
+   <Tab.Screen name="Settings" component={SettingsScreen} />
+   ```
+
+   `initialRouteName="Home"` invariato. Il back-handler hardware (Fase 0,
+   commit `ca3d112`) continua a riportare a Home da qualunque tab.
+
+3. `src/components/BottomTabBar.tsx` (linee 16–22): rimuovere `Settings` da
+   `TAB_CONFIG` e aggiungere `FoodSearch`. Il bar già skippa le rotte non
+   presenti in `TAB_CONFIG` con `if (!config) return null;` (linea 31).
+
+   ```ts
+   const TAB_CONFIG: Record<string, TabConfig> = {
+     Barcode: { routeName: 'Barcode', label: 'Scansiona', icon: 'barcode' },
+     Favorites: { routeName: 'Favorites', label: 'Preferiti', icon: 'star' },
+     Home: { routeName: 'Home', label: 'Home', icon: 'home' },
+     History: { routeName: 'History', label: 'Storico', icon: 'chart' },
+     FoodSearch: { routeName: 'FoodSearch', label: 'Cerca', icon: 'search' },
+   };
+   ```
+
+   L'icona `search` esiste già (`Icon.tsx:151`). Layout della bar invariato:
+   5 chip a `flex: 1`, Home centrale con FAB rialzato.
+
+**Effetti**
+
+- Tab bar visibile: Barcode · Preferiti · Home (FAB) · Storico · Cerca.
+- Settings raggiungibile **solo** dall'ingranaggio in alto a destra di Home
+  (per ora — non aggiungiamo deep-link da altre schermate).
+- Quando l'utente sta in Settings, nessuna chip della bar è evidenziata: il
+  bar continua a essere visibile, e il back hardware riporta a Home.
+
+**File toccati**
+
+- `src/types/index.ts`.
+- `src/navigation/MainTabNavigator.tsx`.
+- `src/components/BottomTabBar.tsx`.
+
+### 3D. Cleanup `FavoritesScreen` — rimuovi aggiunta diretta
+
+**Stato attuale**
+
+- `src/screens/FavoritesScreen.tsx:109–119` — Card "Aggiungi al pasto" con
+  `<SegmentedControl options={MEAL_OPTIONS}>` e un caption che dice "Tocca un
+  preferito per aggiungerlo a {targetInfo.label} di oggi".
+- `:219–247` — `<Pressable onPress={onAdd}>` che è il corpo cliccabile della
+  riga preferito (oltre al pulsante "Modifica" e allo swipe-to-delete).
+- `:52` — `const [targetMeal, setTargetMeal] = useState<MealType>('pranzo')`
+  (o simile) come stato del selettore.
+- `:67–79, 92` — handler `onAdd`/`addFavoriteToDay` che usano `targetMeal` per
+  scrivere su `mealsStore`.
+
+**Modifica**
+
+1. **Rimuovere** la Card "Aggiungi al pasto" (linee 109–119). Le righe del
+   `SegmentedControl` e i suoi import locali (se non usati altrove) vanno
+   ripuliti.
+2. **Rimuovere** il `<Pressable onPress={onAdd}>` (linee 219–247) e
+   sostituirlo con un `<View style={styles.favoriteBody}>` che renderizza
+   solo le info (badge cuore, nome, righe items). Il preferito non è più
+   tap-to-add.
+3. **Mantenere** intatti il pulsante `<Pressable>` "Modifica" (linee 249–258)
+   che apre l'editor, e lo swipe-to-delete del preferito.
+4. **Rimuovere** lo stato `targetMeal`, gli handler `addFavoriteToDay`/`onAdd`
+   e gli import correlati (`mealsStore.createMeals` se usato solo qui).
+   Lasciare `addFavoriteToDay` se è esportato e consumato altrove (verifica
+   con `grep`).
+5. **Pulire** gli stili orfani in `StyleSheet.create` (es. `selectorCard`,
+   `addChip`).
+
+**Effetti**
+
+- La schermata Preferiti diventa un editor puro: lista preferiti, modifica,
+  eliminazione (swipe). Per registrare un preferito come pasto si passa dal
+  flusso Home → MealSection → "Dai preferiti", che resta invariato.
+- Niente regressioni nei dati: i preferiti continuano a esistere, solo
+  l'azione di aggiunta dalla schermata stessa è rimossa.
+
+**File toccati**
+
+- `src/screens/FavoritesScreen.tsx`.
+
+### Verifica Fase 3
+
+**Test manuale**
+
+1. **3A + 3B** — Apri Home: in alto a destra deve esserci un'icona
+   ingranaggio. Tap → si apre la schermata Settings (con BottomTabBar visibile
+   ma nessuna chip evidenziata). Tap del back hardware → torna a Home.
+2. **3C** — La 5ª chip in basso a destra ora è "Cerca" con icona lente
+   (`search`). Tap → si apre la `FoodSearchScreen` (Fase 2C). La chip
+   "Impostazioni" non esiste più nella bar.
+3. **3D** — Apri Preferiti: in alto **non** c'è più la card "Aggiungi al
+   pasto". Tap su una card preferito non aggiunge nulla a oggi (solo il
+   bottone "Modifica" apre l'editor). Lo swipe-to-delete continua a
+   funzionare.
+
+**Checklist commit Fase 3**
+
+- [ ] `ScreenHeader` esteso con prop `right`.
+- [ ] `HomeScreen` con icona ingranaggio top-right che naviga a Settings.
+- [ ] `TabParamList` con `FoodSearch`.
+- [ ] `MainTabNavigator` registra `FoodSearch` Tab.Screen, mantiene
+      `Settings` registrato.
+- [ ] `BottomTabBar` con `TAB_CONFIG` aggiornato (Settings rimosso,
+      FoodSearch aggiunto).
+- [ ] `FavoritesScreen` ripulito (no card selector, no tap-to-add, codice
+      orfano rimosso).
+- [ ] `npm run typecheck` pulito.
+- [ ] 1–2 commit:
+      `feat(nav): gear icon su Home, Settings via header, Cerca tab al posto`,
+      `chore(favorites): rimuovi aggiunta diretta da pasto`.
+
+---
+
+## Note finali e consegna
+
+- I tasti di test "Reset app" e "Reset DB" della card Test in
+  `SettingsScreen` rimangono in piedi finché l'utente non chiede di toglierli.
+- Per consegnare le modifiche al telefono dopo aver completato tutte le 3
+  fasi:
+  1. Merge del branch `claude/fix-back-button-navigation-5GmCa` su `main`
+     (`git checkout main && git merge --no-ff …` + `git push`).
+  2. `fattrack.bat` → voce 4 (release completa) → bump patch
+     (1.0.4 → 1.0.5) → build LOCALE → tag + GitHub Release.
+  3. Al cold-start successivo l'app prompta l'aggiornamento via
+     `updateChecker` custom (`Constants.expoConfig.version` < remote
+     `version.json`) e installa l'APK 1.0.5.
+- Da v1.0.5 in poi gli OTA voce 5 funzioneranno per fix JS-only entro lo
+  stesso `runtimeVersion: "1.0.0"` (Fase 1A). Per release con bump native
+  (nuove dipendenze native) bumpare manualmente `runtimeVersion` in
+  `app.json` prima di buildare il nuovo APK.
+- Ogni fase è indipendente: si possono buildare e rilasciare in 3 release
+  separate (1.0.5 = Fase 1, 1.0.6 = Fase 2, 1.0.7 = Fase 3) o tutte in una
+  sola release.
