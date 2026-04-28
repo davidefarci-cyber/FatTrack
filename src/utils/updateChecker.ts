@@ -211,11 +211,22 @@ async function downloadAndInstall(remote: RemoteVersion): Promise<void> {
     if (!cacheDir) throw new Error('cacheDirectory not available');
 
     const target = `${cacheDir}fattrack-${remote.version}.apk`;
-    // Pulisci eventuali residui di tentativi precedenti.
+    // Pulisci dalla cache tutti gli APK FatTrack residui (versioni
+    // precedenti, install annullati, target di un tentativo parziale)
+    // prima di scaricare quello nuovo. Senza questo cleanup gli APK si
+    // accumulano in cacheDir (~30-40 MB ciascuno) finche' Android non
+    // decide di liberare spazio o l'utente svuota la cache a mano.
     try {
-      await FileSystem.deleteAsync(target, { idempotent: true });
+      const entries = await FileSystem.readDirectoryAsync(cacheDir);
+      await Promise.all(
+        entries
+          .filter((name) => /^fattrack-.+\.apk$/.test(name))
+          .map((name) =>
+            FileSystem.deleteAsync(`${cacheDir}${name}`, { idempotent: true }),
+          ),
+      );
     } catch {
-      // ignore
+      // Best-effort: downloadAsync sovrascrive comunque il target.
     }
 
     const { uri, status } = await FileSystem.downloadAsync(remote.apkUrl, target);
