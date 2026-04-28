@@ -611,6 +611,7 @@ echo  [1] Mostra versioni tool installati
 echo  [2] Reinstalla node_modules (npm install)
 echo  [3] Installa toolchain Android (JDK17 + SDK)
 echo  [4] Configura auth git push (gh credential helper)
+echo  [5] Pulisci cache build Android (gradlew clean + opz. android\app\build\)
 echo  [0] Indietro
 echo.
 set "_D="
@@ -620,6 +621,7 @@ if "!_D!"=="1" goto :deps_versions
 if "!_D!"=="2" goto :deps_npm
 if "!_D!"=="3" goto :deps_android
 if "!_D!"=="4" goto :deps_gh
+if "!_D!"=="5" goto :deps_clean_build
 echo [!] Scelta non valida.
 timeout /t 1 >nul
 goto :menu_deps
@@ -656,6 +658,38 @@ goto :menu_deps
 
 :deps_gh
 call "%~dp0scripts\ensure-git-push-auth.bat"
+pause
+goto :menu_deps
+
+:deps_clean_build
+echo.
+echo === Pulizia cache build Android ===
+echo  Da fare quando la build sembra rotta o quando hai cambiato config
+echo  importanti (ABI, NDK, Hermes). Le build successive saranno piu'
+echo  lente la prima volta, poi tornano veloci appena la cache si riempie.
+echo.
+if not exist "android" (
+    echo [!] Cartella android\ non presente. Lancia [3] o [4] almeno una volta
+    echo     per generarla con expo prebuild.
+    pause
+    goto :menu_deps
+)
+echo [ ] gradlew clean...
+pushd android
+call gradlew.bat clean
+set "_CLEAN_RC=!errorlevel!"
+popd
+if not "!_CLEAN_RC!"=="0" echo [!] gradlew clean fallito ^(exit !_CLEAN_RC!^).
+echo.
+set "_RM="
+set /p "_RM=Cancello anche android\app\build\ ^(piu' aggressivo, libera ~500MB^)? [s/N]: "
+if /i "!_RM!"=="s" (
+    if exist "android\app\build" (
+        rmdir /s /q "android\app\build"
+        echo [OK] android\app\build cancellata.
+    )
+)
+echo.
 pause
 goto :menu_deps
 
