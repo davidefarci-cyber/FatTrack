@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -9,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -18,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { FAB } from '@/components/FAB';
+import { FoodSearchList } from '@/components/FoodSearchList';
 import { GramsInputModal } from '@/components/GramsInputModal';
 import type { GramsInputTarget, ServingOption } from '@/components/GramsInputModal';
 import { Icon } from '@/components/Icon';
@@ -30,8 +29,10 @@ import { foodServingsDB, foodsDB, quickAddonsDB } from '@/database';
 import type { Favorite, FavoriteItem, Food, MealType, QuickAddon } from '@/database';
 import { useFavorites } from '@/hooks/useFavorites';
 import { todayISO } from '@/hooks/useDailyLog';
+import { useFoodSearch } from '@/hooks/useFoodSearch';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
 import { scaleMacro } from '@/utils/calorieCalculator';
+import type { OffProduct } from '@/utils/openFoodFacts';
 
 const MEAL_OPTIONS: ReadonlyArray<{ value: MealType; label: string }> = MEAL_ORDER.map(
   (mealType) => ({ value: mealType, label: MEAL_INFO[mealType].label }),
@@ -275,8 +276,6 @@ type FavoriteEditorModalProps = {
   onSave: (name: string, items: FavoriteItem[]) => Promise<void>;
 };
 
-const FOOD_SEARCH_DEBOUNCE_MS = 250;
-
 function FavoriteEditorModal({
   visible,
   editing,
@@ -288,8 +287,8 @@ function FavoriteEditorModal({
 
   const [name, setName] = useState('');
   const [items, setItems] = useState<FavoriteItem[]>([]);
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Food[]>([]);
+  const search = useFoodSearch({ enabled: visible });
+  const { setQuery: setSearchQuery } = search;
   const [pendingFood, setPendingFood] = useState<Food | null>(null);
   const [pendingServings, setPendingServings] = useState<ServingOption[]>([]);
   const [saving, setSaving] = useState(false);
@@ -306,13 +305,12 @@ function FavoriteEditorModal({
     if (!visible) return;
     setName(editing?.name ?? '');
     setItems(editing?.items ?? []);
-    setQuery('');
-    setResults([]);
+    setSearchQuery('');
     setPendingFood(null);
     setPendingServings([]);
     setManualOpen(false);
     setManualPrefillName('');
-  }, [visible, editing?.id]);
+  }, [visible, editing?.id, setSearchQuery]);
 
   // Quando si seleziona un alimento per aggiungerlo al preferito, carichiamo
   // le sue porzioni alternative per il GramsInputModal (stesso pattern di
@@ -338,31 +336,6 @@ function FavoriteEditorModal({
       active = false;
     };
   }, [pendingFood]);
-
-  // Ricerca locale: debounced per non martellare SQLite a ogni carattere.
-  useEffect(() => {
-    if (!visible) return;
-    const trimmed = query.trim();
-    if (trimmed.length === 0) {
-      setResults([]);
-      return;
-    }
-    let active = true;
-    const handle = setTimeout(() => {
-      foodsDB
-        .searchFoods(trimmed, 20)
-        .then((rows) => {
-          if (active) setResults(rows);
-        })
-        .catch(() => {
-          if (active) setResults([]);
-        });
-    }, FOOD_SEARCH_DEBOUNCE_MS);
-    return () => {
-      active = false;
-      clearTimeout(handle);
-    };
-  }, [query, visible]);
 
   const totalKcal = useMemo(
     () => Math.round(items.reduce((sum, it) => sum + it.calories, 0)),
@@ -399,11 +372,42 @@ function FavoriteEditorModal({
         },
       ]);
       setPendingFood(null);
-      setQuery('');
-      setResults([]);
+      setSearchQuery('');
     },
-    [pendingFood],
+    [pendingFood, setSearchQuery],
   );
+
+  const handleSelectRemote = useCallback(async (product: OffProduct) => {
+    // L'utente ha tappato un risultato Open Food Facts: persistiamo subito
+    // il prodotto come Food locale (source='api') e, se disponibile, la
+    // porzione tipica come food_serving. Poi lo trattiamo come pendingFood
+    // normale così l'editor riusa il flusso GramsInputModal già esistente.
+    let food = await foodsDB.findByName(product.name);
+    if (!food) {
+      food = await foodsDB.createFood({
+        name: product.name,
+        caloriesPer100g: product.caloriesPer100g,
+        proteinPer100g: product.proteinPer100g,
+        carbsPer100g: product.carbsPer100g,
+        fatPer100g: product.fatPer100g,
+        source: 'api',
+      });
+      if (product.servingQuantity != null && product.servingQuantity > 0) {
+        try {
+          await foodServingsDB.createServing({
+            foodId: food.id,
+            label: 'porzione',
+            grams: product.servingQuantity,
+            isDefault: true,
+            position: 0,
+          });
+        } catch {
+          // duplicate o errore minore: niente da fare.
+        }
+      }
+    }
+    setPendingFood(food);
+  }, []);
 
   const handleAddAddon = useCallback((addon: QuickAddon) => {
     setItems((prev) => [
@@ -450,10 +454,9 @@ function FavoriteEditorModal({
       ]);
       setManualOpen(false);
       setManualPrefillName('');
-      setQuery('');
-      setResults([]);
+      setSearchQuery('');
     },
-    [],
+    [setSearchQuery],
   );
 
   const openManualWithName = useCallback((prefill: string) => {
@@ -604,62 +607,16 @@ function FavoriteEditorModal({
 
             <View style={styles.editorSection}>
               <Text style={typography.label}>Cerca alimento</Text>
-              <View style={styles.searchField}>
-                <Icon name="search" size={16} color={colors.textSec} />
-                <TextInput
-                  value={query}
-                  onChangeText={setQuery}
-                  placeholder="Cerca nel database"
-                  placeholderTextColor={colors.textSec}
-                  style={styles.searchInput}
-                  autoCorrect={false}
-                  returnKeyType="search"
-                />
-              </View>
-
-              {query.trim().length > 0 && results.length === 0 ? (
-                <Pressable
-                  onPress={() => openManualWithName(query)}
-                  style={styles.manualEmptyBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel="Aggiungi alimento manualmente"
-                >
-                  <Text style={typography.caption}>
-                    Nessun alimento trovato.
-                  </Text>
-                  <Text style={[typography.bodyBold, { color: colors.green }]}>
-                    + Aggiungilo manualmente
-                  </Text>
-                </Pressable>
-              ) : results.length > 0 ? (
-                <FlatList
-                  data={results}
-                  keyExtractor={(food) => String(food.id)}
-                  scrollEnabled={false}
-                  ItemSeparatorComponent={() => <View style={styles.resultSeparator} />}
-                  renderItem={({ item }) => (
-                    <Pressable
-                      onPress={() => setPendingFood(item)}
-                      style={styles.resultRow}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Aggiungi ${item.name}`}
-                    >
-                      <View style={styles.resultText}>
-                        <Text style={typography.body} numberOfLines={1}>
-                          {item.name}
-                        </Text>
-                        <Text style={typography.caption} numberOfLines={1}>
-                          {item.caloriesPer100g} kcal / 100 g
-                        </Text>
-                      </View>
-                      <Icon name="plus" size={14} color={colors.textSec} />
-                    </Pressable>
-                  )}
-                />
-              ) : null}
+              <FoodSearchList
+                search={search}
+                onPickLocal={setPendingFood}
+                onPickRemote={handleSelectRemote}
+                searchPlaceholder="Cerca nel database o online"
+                scrollEnabled={false}
+              />
 
               <Pressable
-                onPress={() => openManualWithName('')}
+                onPress={() => openManualWithName(search.query)}
                 style={styles.manualAddBtn}
                 accessibilityRole="button"
                 accessibilityLabel="Aggiungi alimento manualmente"
@@ -1024,16 +981,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.blue,
   },
-  manualEmptyBtn: {
-    gap: spacing.xxs,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    backgroundColor: colors.bg,
-    borderRadius: radii.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
   manualRoot: {
     flex: 1,
     justifyContent: 'center',
@@ -1045,41 +992,6 @@ const styles = StyleSheet.create({
     borderRadius: radii.xxl,
     padding: spacing.screen,
     gap: spacing.xl,
-  },
-  searchField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.bg,
-    borderRadius: radii.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.xl,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: spacing.lg,
-    fontSize: 14,
-    color: colors.text,
-    fontFamily: typography.body.fontFamily,
-  },
-  resultSeparator: {
-    height: spacing.xs,
-  },
-  resultRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xl,
-    backgroundColor: colors.card,
-    borderRadius: radii.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-  },
-  resultText: {
-    flex: 1,
-    gap: spacing.xxs,
   },
   totalsCard: {
     flexDirection: 'row',
