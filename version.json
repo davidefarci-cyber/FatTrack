@@ -1,6 +1,6 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "apk_url": "https://github.com/davidefarci-cyber/fattrack/releases/latest/download/fattrack.apk",
   "min_supported_version": "1.0.0",
-  "notes": "corretto problemi di autocommit"
+  "notes": "corretto aggiornamento multiplo e altri bug"
 }
