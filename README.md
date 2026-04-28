@@ -43,17 +43,21 @@ FatTrack/
 ## 0. Setup rapido su Windows (script)
 
 Se sei su Windows 10/11 e hai solo VS Code installato, puoi usare lo script
-`setup.bat` incluso nel repo. Fa tutto da solo: installa **Git**, **Node.js
-LTS** (via `winget`), **EAS CLI**, clona il repo e lancia `npm install`.
-Rilanciandolo in seguito, esegue `git pull` e aggiorna le dipendenze.
+`setup.bat`. Fa tutto da solo: installa **Git**, **Node.js LTS** (via
+`winget`), **EAS CLI**, clona il repo e lancia `npm install`. Rilanciandolo in
+seguito, esegue `git pull` e aggiorna le dipendenze.
 
 Scarica lo script in una cartella di lavoro (es. `C:\dev`) e lancialo:
 
 ```powershell
-# da PowerShell, nella cartella di lavoro in cui vuoi clonare
+# da PowerShell, nella cartella in cui vuoi clonare
 iwr -Uri https://raw.githubusercontent.com/davidefarci-cyber/fattrack/main/setup.bat -OutFile setup.bat
 .\setup.bat
 ```
+
+A fine setup `setup.bat` ti propone di lanciare direttamente
+**`fattrack.bat`**, il menu unico da cui parte tutto il workflow
+quotidiano (dev server, build APK, release, OTA, gestione dipendenze).
 
 > Se `winget` non è installato, lo script ti manda al link di "App Installer"
 > sul Microsoft Store; installa e rilancia. Dopo che Git o Node.js vengono
@@ -184,10 +188,11 @@ Vantaggi vs cloud EAS:
 - Build successive **1-3 min** (Gradle incrementale).
 
 Prerequisiti: **JDK 17** + **Android SDK**. Installati on-demand al
-primo run di `crea-apk-locale.bat` (vedi più sotto).
+primo run di `fattrack.bat` quando scegli "Build APK rapido" o "Release"
+con build locale (vedi più sotto).
 
-**Setup automatico toolchain.** `crea-apk-locale.bat` (e `release.bat`
-quando scegli build "Locale") rileva se `JAVA_HOME` / `ANDROID_HOME`
+**Setup automatico toolchain.** Quando scegli una build locale dal menu
+di `fattrack.bat`, lo script rileva se `JAVA_HOME` / `ANDROID_HOME`
 mancano e si offre di installare tutto:
 
 - JDK 17 Adoptium Temurin (via `winget`)
@@ -203,16 +208,19 @@ Il lavoro lo fa `scripts/install-android-build-tools.ps1`. Spazio richiesto
 **Build:**
 
 ```bash
-# prompt interattivo per ABI
-crea-apk-locale.bat
-
-# non interattivo: profilo + ABI come argomenti
-crea-apk-locale.bat preview arm64-v8a
-crea-apk-locale.bat preview armeabi-v7a
-crea-apk-locale.bat preview universal
+# Lancia il menu unico e scegli l'opzione 3 (Build APK rapido).
+fattrack.bat
 ```
 
-Output: `fattrack-<profilo>-<abi>.apk` nella root del repo.
+Al prompt scegli l'ABI (default `arm64-v8a`). Output: `fattrack-test-<abi>.apk`
+nella root del repo.
+
+Per uno script di build diretto (senza menu) puoi invocare lo step Gradle
+sotto al cofano:
+
+```bash
+scripts\build-android-local.bat arm64-v8a fattrack-test.apk
+```
 
 **Cosa fa lo script sotto al cofano** (`scripts/build-android-local.bat`):
 
@@ -240,10 +248,11 @@ prompt.
 > per poter installare versioni nuove (Android rifiuta APK con firma
 > diversa da quello già installato).
 
-> Per build CLOUD (es. da macchina senza Android SDK), usa il flusso
-> Expo originale: `crea-apk.bat` o `npm run build:android:preview`.
-> L'env in `eas.json` (`ORG_GRADLE_PROJECT_reactNativeArchitectures`)
-> assicura che anche le build cloud siano arm64-only.
+> Per build CLOUD (es. da macchina senza Android SDK), nel menu
+> `fattrack.bat` scegli **Release completa → Cloud EAS**, oppure
+> esegui `npm run build:android:preview`. L'env in `eas.json`
+> (`ORG_GRADLE_PROJECT_reactNativeArchitectures`) assicura che anche
+> le build cloud siano arm64-only.
 
 ---
 
@@ -272,10 +281,10 @@ adb install -r ./fattrack-preview.apk
 
 FatTrack ha **due canali di aggiornamento**, scegli in base a cosa hai cambiato:
 
-| Tipo di modifica | Canale | Comando |
+| Tipo di modifica | Canale | Voce menu in `fattrack.bat` |
 | --- | --- | --- |
-| Solo `src/**` (TS/TSX/asset) | **OTA via EAS Update** (~30-90 s) | `pubblica-update.bat` |
-| Tutto il resto (deps native, `app.json`, SDK, permessi) | **Nuovo APK + GitHub Release** (~3-15 min) | `release.bat` |
+| Solo `src/**` (TS/TSX/asset) | **OTA via EAS Update** (~30-90 s) | `[5] Pubblica update OTA` |
+| Tutto il resto (deps native, `app.json`, SDK, permessi) | **Nuovo APK + GitHub Release** (~3-15 min) | `[4] Release completa` |
 
 > Regola pratica: ti basta chiederti _"ho aggiunto/modificato qualcosa in
 > `package.json` o `app.json`?"_. Sì → release APK. No → OTA.
@@ -297,10 +306,10 @@ winget install --id GitHub.cli -e
 gh auth login
 ```
 
-### 5.2 OTA — fix veloci JS-only (`pubblica-update.bat`)
+### 5.2 OTA — fix veloci JS-only (menu `[5]`)
 
 Per modifiche al solo codice JS/TS o agli asset, **non serve un APK nuovo**.
-Lo script:
+Da `fattrack.bat` scegli **`[5] Pubblica update OTA`**. Lo script:
 
 1. Verifica login EAS + project ID configurato.
 2. Avvisa se hai modifiche non committate.
@@ -310,9 +319,9 @@ Lo script:
 L'utente riceve l'aggiornamento al prossimo lancio (o al ritorno in foreground)
 in modo silenzioso, scaricando solo poche centinaia di KB di bundle.
 
+In alternativa via npm:
+
 ```bash
-pubblica-update.bat
-# oppure
 npm run update:ota -- --message "fix calcolo kcal"
 ```
 
@@ -321,15 +330,11 @@ npm run update:ota -- --message "fix calcolo kcal"
 > `expo.version` taglia un nuovo runtime → gli utenti su versione vecchia
 > _non_ riceveranno l'OTA, devono aggiornare l'APK.
 
-### 5.3 Release completa con APK (`release.bat`)
+### 5.3 Release completa con APK (menu `[4]`)
 
-Quando hai cambiato qualcosa che richiede un APK nuovo, lancia:
-
-```bash
-release.bat
-```
-
-Lo script gestisce **tutto in automatico** con controlli di sicurezza:
+Quando hai cambiato qualcosa che richiede un APK nuovo, da `fattrack.bat`
+scegli **`[4] Release completa`**. Lo script gestisce **tutto in automatico**
+con controlli di sicurezza:
 
 1. **Pre-check**: presenza di `node`, `git`, `eas`, `gh`, `node_modules`,
    identità git configurata, login `gh` attivo.
@@ -407,15 +412,12 @@ Niente edit manuale di `version.json` ad ogni release: lo script lo fa per te.
 
 | Script | Descrizione |
 | --- | --- |
-| `setup.bat` | Setup/update ambiente (Git, Node, EAS, repo, deps) |
-| `avvia-dev.bat` | Avvia dev server LAN per Expo Go |
-| `avvia-dev-tunnel.bat` | Stesso ma in modalità tunnel |
-| `crea-apk.bat` | Build APK preview su **cloud EAS** |
-| `crea-apk-locale.bat` | Build APK **locale** Windows-native (expo prebuild + Gradle) |
-| `pubblica-update.bat` | Pubblica un OTA EAS Update |
-| `release.bat` | **Release end-to-end**: bump versione + build + tag + GitHub Release |
-| `scripts\build-android-local.bat` | Helper interno: lancia `expo prebuild` + Gradle. Riusato da `crea-apk-locale.bat` e `release.bat`. |
-| `scripts\install-android-build-tools.ps1` | Installer toolchain Android (JDK 17 + cmdline-tools + sdk packages). Invocato in automatico se serve. |
+| `setup.bat` | Bootstrap pre-clone: Git, Node, EAS, clone repo, `npm install`. Lanciabile dalla cartella in cui vuoi clonare il repo. |
+| `fattrack.bat` | **Menu unico** per tutto il workflow quotidiano: aggiorna repo, dev server (Expo Go), build APK rapido, release completa, OTA, gestione dipendenze. |
+| `scripts\build-android-local.bat` | Helper interno: `expo prebuild` + Gradle assemble release. Invocato dalle voci di build di `fattrack.bat`. |
+| `scripts\ensure-git-push-auth.bat` | Helper interno: ripulisce token in URL remote + configura `gh` come credential helper. Invocato da `fattrack.bat → release` e da `setup.bat`. |
+| `scripts\install-android-build-tools.ps1` | Installer toolchain Android (JDK 17 + cmdline-tools + sdk packages). Invocato in automatico quando serve. |
+| `scripts\detect-lan-ip.ps1` | Helper interno: rileva l'IP LAN per Expo Go. Invocato da `fattrack.bat → dev server`. |
 
 ---
 

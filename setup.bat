@@ -225,12 +225,24 @@ echo.
 echo ============================================================
 echo  Setup completato!
 echo.
-echo  Prossimi passi ^(dentro "%REPO_DIR%\"^):
-echo    avvia-dev.bat    -^> test con Expo Go ^(QR code + hot reload^)
-echo    crea-apk.bat     -^> build APK installabile ^(cloud EAS^)
+echo  Tutto il workflow quotidiano passa da un menu unico:
+echo    %REPO_DIR%\fattrack.bat   ^(dev server, build APK, release, OTA, deps^)
 echo.
-echo  Rilancia questo script in qualunque momento per aggiornare
-echo  il repo ^(git pull^) e reinstallare le dipendenze.
+echo  Rilancia setup.bat in qualunque momento per aggiornare
+echo  l'ambiente (Git/Node/EAS) e fare git pull del repo.
 echo ============================================================
+
+if exist "%REPO_DIR%\fattrack.bat" (
+    set "_LAUNCH="
+    set /p "_LAUNCH=Avvio il menu fattrack.bat ora? [s/N]: "
+    if /i "!_LAUNCH!"=="s" (
+        pushd "%REPO_DIR%"
+        call fattrack.bat
+        popd
+        endlocal
+        exit /b 0
+    )
+)
+
 pause
 endlocal

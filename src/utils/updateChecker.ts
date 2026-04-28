@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system';
 import * as IntentLauncher from 'expo-intent-launcher';
@@ -14,11 +15,13 @@ const VERSION_JSON_URL =
 // comparire un alert a schermo tardivo o rallentare il lancio.
 const FETCH_TIMEOUT_MS = 5000;
 
-// Per il check in foreground: throttling a 1 ora, così rientrare in app
-// 50 volte al giorno non spamma fetch.
-const FOREGROUND_RECHECK_MS = 60 * 60 * 1000;
+// Throttling a 1 ora: vale sia su foreground transitions sia su cold-start.
+// Persistito in AsyncStorage così riavviare l'app non bypassa il limite.
+const RECHECK_MS = 60 * 60 * 1000;
 
-let lastCheckAt = 0;
+const STORAGE_KEY_LAST_CHECK = '@fattrack/updateCheck/lastCheckAt';
+const STORAGE_KEY_DISMISSED = '@fattrack/updateCheck/dismissedVersion';
+
 let isPromptOpen = false;
 let appStateSubscribed = false;
 
@@ -43,14 +46,16 @@ export async function checkForUpdates(): Promise<void> {
 
 function handleAppStateChange(state: AppStateStatus) {
   if (state !== 'active') return;
-  // Throttle: niente fetch se abbiamo controllato di recente.
-  if (Date.now() - lastCheckAt < FOREGROUND_RECHECK_MS) return;
   void runCheck();
 }
 
 async function runCheck(): Promise<void> {
   if (isPromptOpen) return;
-  lastCheckAt = Date.now();
+
+  // Throttle persistito: rispettato anche al cold-start.
+  const lastCheckAt = await readLastCheckAt();
+  if (Date.now() - lastCheckAt < RECHECK_MS) return;
+  void AsyncStorage.setItem(STORAGE_KEY_LAST_CHECK, String(Date.now()));
 
   try {
     const remote = await fetchRemoteVersion();
@@ -63,10 +68,28 @@ async function runCheck(): Promise<void> {
       const isMandatory =
         remote.minSupportedVersion !== null &&
         compareVersions(current, remote.minSupportedVersion) < 0;
+
+      // Se l'utente ha già detto "Dopo" per questa versione e l'update non è
+      // obbligatorio, non riprompare finché non esce una versione successiva.
+      if (!isMandatory) {
+        const dismissed = await AsyncStorage.getItem(STORAGE_KEY_DISMISSED);
+        if (dismissed === remote.version) return;
+      }
+
       promptUpdate(remote, isMandatory);
     }
   } catch {
     // Silenziosi per design: update check è un "nice to have".
+  }
+}
+
+async function readLastCheckAt(): Promise<number> {
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY_LAST_CHECK);
+    const n = raw ? parseInt(raw, 10) : 0;
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
   }
 }
 
@@ -150,6 +173,9 @@ function promptUpdate(remote: RemoteVersion, isMandatory: boolean): void {
       text: 'Dopo',
       style: 'cancel',
       onPress: () => {
+        // Persisti la dismissione: niente prompt finché non esce una versione
+        // diversa da questa (anche dopo cold-start).
+        void AsyncStorage.setItem(STORAGE_KEY_DISMISSED, remote.version);
         isPromptOpen = false;
       },
     });
@@ -185,11 +211,22 @@ async function downloadAndInstall(remote: RemoteVersion): Promise<void> {
     if (!cacheDir) throw new Error('cacheDirectory not available');
 
     const target = `${cacheDir}fattrack-${remote.version}.apk`;
-    // Pulisci eventuali residui di tentativi precedenti.
+    // Pulisci dalla cache tutti gli APK FatTrack residui (versioni
+    // precedenti, install annullati, target di un tentativo parziale)
+    // prima di scaricare quello nuovo. Senza questo cleanup gli APK si
+    // accumulano in cacheDir (~30-40 MB ciascuno) finche' Android non
+    // decide di liberare spazio o l'utente svuota la cache a mano.
     try {
-      await FileSystem.deleteAsync(target, { idempotent: true });
+      const entries = await FileSystem.readDirectoryAsync(cacheDir);
+      await Promise.all(
+        entries
+          .filter((name) => /^fattrack-.+\.apk$/.test(name))
+          .map((name) =>
+            FileSystem.deleteAsync(`${cacheDir}${name}`, { idempotent: true }),
+          ),
+      );
     } catch {
-      // ignore
+      // Best-effort: downloadAsync sovrascrive comunque il target.
     }
 
     const { uri, status } = await FileSystem.downloadAsync(remote.apkUrl, target);
