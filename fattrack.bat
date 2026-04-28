@@ -18,8 +18,8 @@ echo ============================================================
 echo.
 echo  [1] Aggiorna repo (git pull)
 echo  [2] Avvia dev server (Expo Go)
-echo  [3] Build APK rapido (locale, solo test)
-echo  [4] Release completa (bump + APK + GitHub Release)
+echo  [3] Build APK senza release (firmato, niente push/upload)
+echo  [4] Release completa (pull + bump + APK + GitHub Release)
 echo  [5] Pubblica update OTA (JS/TS only)
 echo  [6] Verifica/installa dipendenze
 echo  [0] Esci
@@ -127,11 +127,18 @@ exit /b 0
 
 
 rem ============================================================
-rem  VOCE 3: Build APK rapido (locale, no commit)
+rem  VOCE 3: Build APK senza release (locale, firmato, no push)
+rem  Stessa keystore stabile della release: l'APK e' installabile
+rem  come update di una versione precedente. Niente bump versione,
+rem  niente commit/tag/push, niente upload su GitHub: gli altri
+rem  utenti NON ricevono il prompt di update.
 rem ============================================================
 :menu_build_quick
 echo.
-echo === Build APK rapido (locale) ===
+echo === Build APK senza release ===
+echo  APK release-grade firmato con la keystore stabile.
+echo  Ideale per testarlo sul tuo telefono prima di pubblicare.
+echo.
 call :check_node_modules || exit /b 1
 call :ensure_android_toolchain || exit /b 1
 
@@ -268,12 +275,29 @@ if "!_DIRTY!"=="1" (
     )
 )
 
+set "_HEAD_BEFORE="
+for /f "delims=" %%c in ('git rev-parse HEAD 2^>nul') do set "_HEAD_BEFORE=%%c"
+
 echo [ ] git pull --ff-only...
 call git pull --ff-only
 if errorlevel 1 (
     echo [!] git pull --ff-only fallito.
     pause
     exit /b 1
+)
+
+rem Se sono arrivati commit nuovi, riallinea node_modules: package.json e
+rem package-lock potrebbero essere stati toccati dal merge.
+set "_HEAD_AFTER="
+for /f "delims=" %%c in ('git rev-parse HEAD 2^>nul') do set "_HEAD_AFTER=%%c"
+if not "!_HEAD_BEFORE!"=="!_HEAD_AFTER!" (
+    echo [ ] Nuovi commit ricevuti: eseguo npm install...
+    call npm install
+    if errorlevel 1 (
+        echo [!] npm install fallito.
+        pause
+        exit /b 1
+    )
 )
 
 rem --- 4. typecheck ---
