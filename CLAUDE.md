@@ -91,8 +91,9 @@ src/
 ## 5. Git & deploy
 
 - **Branch di sviluppo**: `main` (default). Push diretto autorizzato.
-- **Build Android APK**: `npm run build:android:preview` (EAS).
-- **Setup Windows**: `setup.bat` nella root (winget → Git + Node LTS + EAS + clone/pull).
+- **Workflow Windows**: tutto passa da `fattrack.bat` (menu unico) — aggiorna repo, dev server Expo Go, build APK rapido, release completa (bump + APK + GitHub Release per update auto), OTA, gestione dipendenze.
+- **Bootstrap pre-clone**: `setup.bat` (winget → Git + Node LTS + EAS + clone/pull). A fine setup propone di lanciare `fattrack.bat`.
+- **Build APK** alternative dirette: `npm run build:android:preview` (cloud EAS) oppure `scripts\build-android-local.bat <abi> <output.apk>` (locale Gradle).
 - Mai `git push --force` o hook-skip senza chiederlo.
 
 ---
