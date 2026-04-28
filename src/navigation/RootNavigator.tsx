@@ -1,9 +1,14 @@
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 
 import { useProfile } from '@/hooks/useProfile';
 import OnboardingScreen from '@/screens/OnboardingScreen';
+import type { TabParamList } from '@/types';
 
 import { MainTabNavigator } from './MainTabNavigator';
+
+// Esposto come singleton per agganciare il back handler hardware (Android)
+// dentro MainTabNavigator senza passare ref via props.
+export const navigationRef = createNavigationContainerRef<TabParamList>();
 
 // Navigatore radice: al primo avvio controlla il profilo salvato in SQLite.
 // Se manca mostra l'OnboardingScreen (fuori dal tab navigator), altrimenti
@@ -19,7 +24,7 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       {profile === null ? <OnboardingScreen /> : <MainTabNavigator />}
     </NavigationContainer>
   );
