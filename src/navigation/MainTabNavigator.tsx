@@ -63,6 +63,12 @@ export function MainTabNavigator() {
   return (
     <Tab.Navigator
       initialRouteName="Home"
+      // backBehavior="none" disattiva la gestione del back interna al
+      // bottom-tab navigator (il default "firstRoute" porterebbe al primo
+      // tab dichiarato — Barcode — facendo "rimbalzare" Home -> Barcode
+      // anche dopo che il nostro handler ha gia' navigato a Home).
+      // L'unico gestore del back hardware e' l'useEffect qui sopra.
+      backBehavior="none"
       tabBar={(props) => <BottomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
