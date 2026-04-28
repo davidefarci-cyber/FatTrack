@@ -6,6 +6,7 @@ import { BottomTabBar } from '@/components/BottomTabBar';
 import { useToast } from '@/components/Toast';
 import BarcodeScreen from '@/screens/BarcodeScreen';
 import FavoritesScreen from '@/screens/FavoritesScreen';
+import FoodSearchScreen from '@/screens/FoodSearchScreen';
 import HistoryScreen from '@/screens/HistoryScreen';
 import HomeScreen from '@/screens/HomeScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
@@ -17,7 +18,10 @@ const Tab = createBottomTabNavigator<TabParamList>();
 
 const EXIT_DOUBLE_TAP_MS = 2000;
 
-// Bottom tab a 5 voci (design originale): Barcode · Preferiti · Home · Storico · Impostazioni.
+// Bottom tab a 5 voci visibili: Barcode · Preferiti · Home · Storico · Cerca.
+// `Settings` resta registrato come Tab.Screen (è raggiungibile dall'icona
+// ingranaggio in alto a destra di Home), ma `BottomTabBar` lo nasconde
+// dalla bar perché non è in `TAB_CONFIG`.
 // La Home resta centrale nel design (FAB rialzato) e `initialRouteName`
 // garantisce l'avvio sulla Home anche se viene prima nell'ordine di rendering.
 export function MainTabNavigator() {
@@ -76,6 +80,7 @@ export function MainTabNavigator() {
       <Tab.Screen name="Favorites" component={FavoritesScreen} />
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="History" component={HistoryScreen} />
+      <Tab.Screen name="FoodSearch" component={FoodSearchScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );

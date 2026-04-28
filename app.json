@@ -44,11 +44,12 @@
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0,
-      "url": "https://u.expo.dev/9040fa36-c682-47b2-923f-eb1143bcd233"
+      "url": "https://u.expo.dev/9040fa36-c682-47b2-923f-eb1143bcd233",
+      "requestHeaders": {
+        "expo-channel-name": "production"
+      }
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "plugins": [
       [
         "expo-camera",

@@ -2,18 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
-  FlatList,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
+import { FoodSearchList } from '@/components/FoodSearchList';
 import { FoodServingsEditorModal } from '@/components/FoodServingsEditorModal';
 import { GramsInputModal } from '@/components/GramsInputModal';
 import type { GramsInputTarget, ServingOption } from '@/components/GramsInputModal';
@@ -25,9 +23,10 @@ import { SegmentedControl } from '@/components/SegmentedControl';
 import { useToast } from '@/components/Toast';
 import { foodsDB, foodServingsDB, mealsStore } from '@/database';
 import type { Food, FoodSource, MealType } from '@/database';
+import { useFoodSearch } from '@/hooks/useFoodSearch';
 import { colors, radii, spacing, typography } from '@/theme';
 import { calculateMealCalories, scaleMacro } from '@/utils/calorieCalculator';
-import { offByBarcode, offSearch } from '@/utils/openFoodFacts';
+import { offByBarcode } from '@/utils/openFoodFacts';
 import type { OffProduct } from '@/utils/openFoodFacts';
 
 // Bottom-sheet per l'aggiunta di un alimento al diario.
@@ -51,8 +50,6 @@ const TAB_OPTIONS: ReadonlyArray<{ value: TabKey; label: string }> = [
   { value: 'barcode', label: 'Barcode' },
   { value: 'manual', label: 'Manuale' },
 ];
-
-const SEARCH_DEBOUNCE_MS = 400;
 
 export function AddFoodSheet({ visible, mealType, date, onClose, onAdded }: AddFoodSheetProps) {
   const toast = useToast();
@@ -204,27 +201,12 @@ type CommitArgs = {
 
 type CommitFn = (args: CommitArgs) => Promise<void>;
 
-type SearchItem =
-  | { kind: 'section'; title: string; key: string }
-  | { kind: 'local'; food: Food; key: string }
-  | { kind: 'remote'; product: OffProduct; key: string }
-  | { kind: 'empty'; message: string; key: string }
-  | { kind: 'error'; message: string; key: string }
-  | { kind: 'loading'; key: string };
-
 type Selected =
   | { source: 'local'; food: Food }
   | { source: 'remote'; product: OffProduct };
 
 function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: CommitFn }) {
-  const [query, setQuery] = useState('');
-  const [localResults, setLocalResults] = useState<Food[]>([]);
-  const [remoteResults, setRemoteResults] = useState<OffProduct[]>([]);
-  const [loadingRemote, setLoadingRemote] = useState(false);
-  const [remoteError, setRemoteError] = useState<string | null>(null);
-  // Incrementato dal tasto "Riprova" per ri-triggerare la fetch OFF senza
-  // costringere l'utente a modificare la query.
-  const [retryTick, setRetryTick] = useState(0);
+  const search = useFoodSearch();
   const [selected, setSelected] = useState<Selected | null>(null);
   const [selectedServings, setSelectedServings] = useState<ServingOption[]>([]);
   const [editingServings, setEditingServings] = useState<Food | null>(null);
@@ -264,103 +246,6 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
       active = false;
     };
   }, [selected, servingsTick]);
-
-  useEffect(() => {
-    let active = true;
-    const trimmed = query.trim();
-    const promise = trimmed.length === 0
-      ? foodsDB.listFoods(30)
-      : foodsDB.searchFoods(trimmed, 30);
-    promise
-      .then((rows) => {
-        if (active) setLocalResults(rows);
-      })
-      .catch(() => {
-        if (active) setLocalResults([]);
-      });
-    return () => {
-      active = false;
-    };
-  }, [query]);
-
-  useEffect(() => {
-    const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setRemoteResults([]);
-      setLoadingRemote(false);
-      setRemoteError(null);
-      return;
-    }
-    const controller = new AbortController();
-    const handle = setTimeout(() => {
-      setLoadingRemote(true);
-      setRemoteError(null);
-      offSearch(trimmed, controller.signal)
-        .then((products) => {
-          setRemoteResults(products);
-        })
-        .catch((err: unknown) => {
-          if (controller.signal.aborted) return;
-          setRemoteResults([]);
-          setRemoteError(
-            err instanceof Error ? err.message : 'Impossibile contattare Open Food Facts',
-          );
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setLoadingRemote(false);
-        });
-    }, SEARCH_DEBOUNCE_MS);
-    return () => {
-      clearTimeout(handle);
-      controller.abort();
-    };
-  }, [query, retryTick]);
-
-  const items = useMemo<SearchItem[]>(() => {
-    const out: SearchItem[] = [];
-    out.push({ kind: 'section', title: 'Dal tuo database', key: 'sec-local' });
-    if (localResults.length === 0) {
-      out.push({ kind: 'empty', message: 'Nessun alimento locale', key: 'empty-local' });
-    } else {
-      for (const food of localResults) {
-        out.push({ kind: 'local', food, key: `local-${food.id}` });
-      }
-    }
-
-    out.push({ kind: 'section', title: 'Da Open Food Facts', key: 'sec-remote' });
-    if (query.trim().length < 2) {
-      out.push({
-        kind: 'empty',
-        message: 'Scrivi almeno 2 caratteri per cercare online',
-        key: 'empty-remote-hint',
-      });
-    } else if (loadingRemote) {
-      out.push({ kind: 'loading', key: 'loading-remote' });
-    } else if (remoteError) {
-      out.push({ kind: 'error', message: remoteError, key: 'error-remote' });
-    } else {
-      const localNames = new Set(localResults.map((f) => f.name.toLowerCase()));
-      const filtered = remoteResults.filter(
-        (p) => !localNames.has(p.name.toLowerCase()),
-      );
-      if (filtered.length === 0) {
-        out.push({
-          kind: 'empty',
-          message: 'Nessun risultato online',
-          key: 'empty-remote',
-        });
-      } else {
-        for (const product of filtered) {
-          out.push({
-            kind: 'remote',
-            product,
-            key: `remote-${product.code ?? product.name}`,
-          });
-        }
-      }
-    }
-    return out;
-  }, [localResults, remoteResults, loadingRemote, remoteError, query]);
 
   const modalTarget: GramsInputTarget | null = useMemo(() => {
     if (!selected) return null;
@@ -430,83 +315,12 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
 
   return (
     <View style={styles.tabContainer}>
-      <View style={styles.searchField}>
-        <Icon name="search" size={16} color={colors.textSec} />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Cerca alimento"
-          placeholderTextColor={colors.textSec}
-          style={styles.searchInput}
-          autoCorrect={false}
-          returnKeyType="search"
-        />
-      </View>
-
-      <FlatList
-        data={items}
-        keyExtractor={(item) => item.key}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.listContent}
-        ItemSeparatorComponent={ListSeparator}
-        renderItem={({ item }) => {
-          if (item.kind === 'section') {
-            return (
-              <Text style={[typography.label, styles.sectionTitle]}>{item.title}</Text>
-            );
-          }
-          if (item.kind === 'empty') {
-            return (
-              <Text style={[typography.caption, styles.emptyText]}>{item.message}</Text>
-            );
-          }
-          if (item.kind === 'error') {
-            return (
-              <View style={styles.errorRow}>
-                <Text style={[typography.caption, styles.errorText]} numberOfLines={2}>
-                  {item.message}
-                </Text>
-                <Pressable
-                  onPress={() => setRetryTick((n) => n + 1)}
-                  style={styles.retryBtn}
-                  hitSlop={8}
-                >
-                  <Text style={[typography.label, styles.retryText]}>Riprova</Text>
-                </Pressable>
-              </View>
-            );
-          }
-          if (item.kind === 'loading') {
-            return (
-              <View style={styles.loadingRow}>
-                <ActivityIndicator color={colors.textSec} />
-                <Text style={typography.caption}>Cercando su Open Food Facts…</Text>
-              </View>
-            );
-          }
-          if (item.kind === 'local') {
-            return (
-              <ResultRow
-                title={item.food.name}
-                subtitle={`${item.food.caloriesPer100g} kcal / 100 g · ${sourceLabel(
-                  item.food.source,
-                )}`}
-                onPress={() => setSelected({ source: 'local', food: item.food })}
-                onEditServings={() => setEditingServings(item.food)}
-              />
-            );
-          }
-          return (
-            <ResultRow
-              title={item.product.name}
-              subtitle={`${item.product.caloriesPer100g} kcal / 100 g · ${
-                item.product.brand ?? 'Open Food Facts'
-              }`}
-              badge="OFF"
-              onPress={() => setSelected({ source: 'remote', product: item.product })}
-            />
-          );
-        }}
+      <FoodSearchList
+        search={search}
+        onPickLocal={(food) => setSelected({ source: 'local', food })}
+        onPickRemote={(product) => setSelected({ source: 'remote', product })}
+        onEditServings={(food) => setEditingServings(food)}
+        showSourceLabel
       />
 
       <GramsInputModal
@@ -525,54 +339,6 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
         onChanged={() => setServingsTick((n) => n + 1)}
       />
     </View>
-  );
-}
-
-function ListSeparator() {
-  return <View style={{ height: spacing.xs }} />;
-}
-
-function ResultRow({
-  title,
-  subtitle,
-  badge,
-  onPress,
-  onEditServings,
-}: {
-  title: string;
-  subtitle: string;
-  badge?: string;
-  onPress: () => void;
-  onEditServings?: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={styles.resultRow}>
-      <View style={styles.resultText}>
-        <Text style={typography.body} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text style={typography.caption} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      </View>
-      {badge ? (
-        <View style={styles.badge}>
-          <Text style={[typography.micro, { color: colors.blue }]}>{badge}</Text>
-        </View>
-      ) : null}
-      {onEditServings ? (
-        <Pressable
-          onPress={onEditServings}
-          style={styles.servingsEditBtn}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={`Modifica porzioni di ${title}`}
-        >
-          <Icon name="pencil" size={14} color={colors.textSec} />
-        </Pressable>
-      ) : null}
-      <Icon name="chevron-right" size={14} color={colors.textSec} />
-    </Pressable>
   );
 }
 
@@ -1075,93 +841,11 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.xl,
   },
-  searchField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.bg,
-    borderRadius: radii.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.xl,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: Platform.OS === 'ios' ? spacing.lg : spacing.md,
-    fontSize: 14,
-    color: colors.text,
-    fontFamily: typography.body.fontFamily,
-  },
-  listContent: {
-    paddingBottom: spacing.screen,
-    gap: spacing.xs,
-  },
-  sectionTitle: {
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  emptyText: {
-    paddingVertical: spacing.md,
-  },
-  errorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    backgroundColor: colors.redLight,
-    borderRadius: radii.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-  },
-  errorText: {
-    flex: 1,
-    color: colors.red,
-  },
-  retryBtn: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    borderRadius: radii.round,
-    backgroundColor: colors.blueLight,
-  },
-  retryText: {
-    color: colors.blue,
-  },
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     paddingVertical: spacing.md,
-  },
-  resultRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xl,
-    backgroundColor: colors.card,
-    borderRadius: radii.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.xl,
-  },
-  resultText: {
-    flex: 1,
-    gap: spacing.xxs,
-  },
-  badge: {
-    paddingVertical: spacing.xxs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radii.sm,
-    backgroundColor: colors.blueLight,
-  },
-  servingsEditBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: radii.round,
-    backgroundColor: colors.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   scannerStatus: {
     gap: spacing.md,

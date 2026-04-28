@@ -9,16 +9,20 @@ import type { IconName } from './Icon';
 
 type TabConfig = { routeName: string; label: string; icon: IconName };
 
-// Tab bar a 5 voci: Barcode · Preferiti · Home (FAB centrale) · Storico · Impostazioni.
+// Tab bar a 5 voci: Barcode · Preferiti · Home (FAB centrale) · Storico · Cerca.
 // L'ordine nel TabParamList mette la Home al centro così il FAB rialzato è
 // visualmente centrato; `initialRouteName` sul Tab.Navigator garantisce comunque
 // l'avvio sulla Home.
+// Settings resta registrato come Tab.Screen ma non è in TAB_CONFIG: il
+// renderer salta le rotte non configurate (`if (!config) return null;`),
+// quindi non appare nella bar. È raggiungibile dall'icona ingranaggio in
+// alto a destra di Home.
 const TAB_CONFIG: Record<string, TabConfig> = {
   Barcode: { routeName: 'Barcode', label: 'Scansiona', icon: 'barcode' },
   Favorites: { routeName: 'Favorites', label: 'Preferiti', icon: 'star' },
   Home: { routeName: 'Home', label: 'Home', icon: 'home' },
   History: { routeName: 'History', label: 'Storico', icon: 'chart' },
-  Settings: { routeName: 'Settings', label: 'Impostazioni', icon: 'cog' },
+  FoodSearch: { routeName: 'FoodSearch', label: 'Cerca', icon: 'search' },
 };
 
 export function BottomTabBar({ state, navigation }: BottomTabBarProps) {
