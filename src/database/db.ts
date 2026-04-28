@@ -154,16 +154,30 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     `INSERT OR IGNORE INTO daily_settings (id, side_dish_calories) VALUES (1, 50)`,
   );
 
-  // Seed iniziale di `quick_addons` dal valore esistente di `side_dish_calories`,
-  // così gli utenti che hanno già configurato il contorno automatico ritrovano
-  // la stessa scorciatoia nella nuova UI "Aggiunte rapide".
-  await db.runAsync(
-    `INSERT INTO quick_addons (label, calories, position)
-     SELECT 'Contorno verdure', side_dish_calories, 0
-     FROM daily_settings
-     WHERE id = 1
-       AND NOT EXISTS (SELECT 1 FROM quick_addons LIMIT 1)`,
+  // Seed iniziale di `quick_addons` con i 4 default proposti. Modalità A:
+  // si applica SOLO se la tabella e' vuota (DB nuovo o appena resettato).
+  // Gli utenti con `quick_addons` gia' popolato (anche solo dalla legacy
+  // "Contorno verdure" 50 kcal) NON vengono toccati, per non sovrascrivere
+  // eventuali personalizzazioni.
+  const seedRow = await db.getFirstAsync<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM quick_addons`,
   );
+  if ((seedRow?.n ?? 0) === 0) {
+    const DEFAULT_QUICK_ADDONS: Array<[string, number, number]> = [
+      ['Contorno verdure (200g)', 60, 0],
+      ['Olio condimento (1 cucchiaio)', 90, 1],
+      ['Grana sulla pasta (1 cucchiaio)', 40, 2],
+      ['Zucchero (1 cucchiaino)', 16, 3],
+    ];
+    for (const [label, calories, position] of DEFAULT_QUICK_ADDONS) {
+      await db.runAsync(
+        `INSERT INTO quick_addons (label, calories, position) VALUES (?, ?, ?)`,
+        label,
+        calories,
+        position,
+      );
+    }
+  }
 }
 
 export async function resetDatabase(): Promise<void> {

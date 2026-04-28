@@ -116,6 +116,14 @@ export function getMealsForDate(date: string): ReadonlyArray<Meal> | undefined {
   return snapshot.get(date);
 }
 
+// Svuota la cache in-memory dei pasti. Da chiamare dopo `resetDatabase()`,
+// altrimenti i consumer continuerebbero a vedere le date gia' visitate
+// nello snapshot precedente (la cache sopravvive al drop delle tabelle).
+export function clearCache(): void {
+  inflight.clear();
+  notify(new Map());
+}
+
 // Hook che restituisce i pasti di una data. Innesca il primo load on-mount
 // e si re-sottoscrive automaticamente a ogni notify.
 export function useMealsForDate(date: string): {
