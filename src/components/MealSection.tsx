@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 
 import { Card } from '@/components/Card';
 import { Icon } from '@/components/Icon';
 import { MEAL_INFO } from '@/components/mealMeta';
+import { QuickAddonsSheet } from '@/components/QuickAddonsSheet';
 import type { Meal, MealType, QuickAddon } from '@/database';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
 import { formatServing } from '@/utils/formatServing';
@@ -38,6 +40,7 @@ export function MealSection({
   const info = MEAL_INFO[mealType];
   const subtotal = Math.round(meals.reduce((sum, m) => sum + m.caloriesTotal, 0));
   const count = meals.length;
+  const [addonsSheetOpen, setAddonsSheetOpen] = useState(false);
 
   return (
     <Card style={[styles.card, !collapsed && { backgroundColor: info.bg }]}>
@@ -115,28 +118,28 @@ export function MealSection({
           </View>
 
           {quickAddons.length > 0 ? (
-            <View style={styles.addonsRow}>
-              {quickAddons.map((addon) => (
-                <Pressable
-                  key={addon.id}
-                  onPress={() => onAddAddon(addon)}
-                  style={styles.addonChip}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Aggiungi ${addon.label} a ${info.label}`}
-                >
-                  <Icon name="plus" size={12} color={colors.green} />
-                  <Text style={[typography.bodyBold, { color: colors.green }]}>
-                    {addon.label}
-                  </Text>
-                  <Text style={[typography.caption, { color: colors.green }]}>
-                    {Math.round(addon.calories)} kcal
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            <Pressable
+              onPress={() => setAddonsSheetOpen(true)}
+              style={styles.addonsTrigger}
+              accessibilityRole="button"
+              accessibilityLabel={`Apri aggiunte rapide per ${info.label}`}
+            >
+              <Icon name="plus" size={14} color={colors.green} />
+              <Text style={[typography.bodyBold, { color: colors.green }]}>
+                Aggiunte rapide
+              </Text>
+            </Pressable>
           ) : null}
         </>
       ) : null}
+
+      <QuickAddonsSheet
+        visible={addonsSheetOpen}
+        onClose={() => setAddonsSheetOpen(false)}
+        title={`Aggiungi a ${info.label}`}
+        addons={quickAddons}
+        onPick={onAddAddon}
+      />
     </Card>
   );
 }
@@ -233,19 +236,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
   },
-  addonsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  addonChip: {
+  addonsTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
+    borderRadius: radii.md,
     backgroundColor: colors.greenLight,
-    borderRadius: radii.round,
     borderWidth: 1.5,
     borderColor: colors.green,
   },
