@@ -152,7 +152,7 @@ export default function SettingsScreen() {
     <View style={styles.container}>
       <ScreenHeader
         title="Impostazioni"
-        subtitle="Aggiorna i tuoi dati: il salvataggio \u00e8 automatico"
+        subtitle="Aggiorna i tuoi dati: il salvataggio è automatico"
         style={{ paddingTop: insets.top + spacing.xl }}
       />
       <ScrollView
@@ -165,7 +165,7 @@ export default function SettingsScreen() {
       >
         {loading ? (
           <Card style={styles.card}>
-            <Text style={typography.body}>Caricamento\u2026</Text>
+            <Text style={typography.body}>Caricamento…</Text>
           </Card>
         ) : (
           <>
@@ -197,7 +197,7 @@ export default function SettingsScreen() {
                 control={control}
                 name="heightCm"
                 rules={{
-                  required: 'Inserisci l\u2019altezza',
+                  required: 'Inserisci l’altezza',
                   validate: (v) => validateNumber(v, 100, 250) || 'Altezza non valida',
                 }}
                 render={({ field: { value, onChange, onBlur } }) => (
@@ -218,13 +218,13 @@ export default function SettingsScreen() {
                 control={control}
                 name="age"
                 rules={{
-                  required: 'Inserisci l\u2019et\u00e0',
-                  validate: (v) => validateInteger(v, 10, 120) || 'Et\u00e0 non valida',
+                  required: 'Inserisci l’età',
+                  validate: (v) => validateInteger(v, 10, 120) || 'Età non valida',
                 }}
                 render={({ field: { value, onChange, onBlur } }) => (
                   <FormField error={errors.age?.message}>
                     <Input
-                      label="Et\u00e0"
+                      label="Età"
                       unit="anni"
                       keyboardType="number-pad"
                       value={value}
@@ -252,11 +252,11 @@ export default function SettingsScreen() {
             </Card>
 
             <Card style={styles.card}>
-              <Text style={typography.label}>Livello di attivit\u00e0</Text>
+              <Text style={typography.label}>Livello di attività</Text>
               <Controller
                 control={control}
                 name="activityLevel"
-                rules={{ required: 'Seleziona il livello di attivit\u00e0' }}
+                rules={{ required: 'Seleziona il livello di attività' }}
                 render={({ field: { value, onChange } }) => (
                   <FormField error={errors.activityLevel?.message}>
                     <OptionSelect
@@ -388,17 +388,17 @@ function ResultsCard({ computed }: { computed: ReturnType<typeof computeProfile>
         <ResultRow
           label="BMR"
           explainer="bmr"
-          value={computed ? `${Math.round(computed.bmr)} kcal` : '\u2014'}
+          value={computed ? `${Math.round(computed.bmr)} kcal` : '—'}
         />
         <ResultRow
           label="TDEE"
           explainer="tdee"
-          value={computed ? `${Math.round(computed.tdee)} kcal` : '\u2014'}
+          value={computed ? `${Math.round(computed.tdee)} kcal` : '—'}
         />
         <ResultRow
           label="Calorie target"
           explainer="target"
-          value={computed ? `${Math.round(computed.target)} kcal` : '\u2014'}
+          value={computed ? `${Math.round(computed.target)} kcal` : '—'}
           highlight
         />
       </View>
