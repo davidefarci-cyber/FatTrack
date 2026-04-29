@@ -7,6 +7,7 @@ import { ToastProvider } from '@/components/Toast';
 import { getDatabase } from '@/database';
 import { useFonts } from '@/hooks/useFonts';
 import { RootNavigator } from '@/navigation';
+import { useOtaNotifier } from '@/utils/otaNotifier';
 import { checkForUpdates } from '@/utils/updateChecker';
 
 export default function App() {
@@ -30,10 +31,18 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ToastProvider>
+          <OtaNotifierMount />
           <StatusBar style="dark" />
           <RootNavigator />
         </ToastProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
+}
+
+// useOtaNotifier dipende da useToast: deve girare dentro ToastProvider.
+// Componente figlio senza UI, esiste solo per agganciare l'hook.
+function OtaNotifierMount(): null {
+  useOtaNotifier();
+  return null;
 }
