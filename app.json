@@ -49,7 +49,9 @@
         "expo-channel-name": "production"
       }
     },
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "plugins": [
       [
         "expo-camera",
