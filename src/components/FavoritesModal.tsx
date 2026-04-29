@@ -126,7 +126,7 @@ export function FavoritesModal({
                       </Text>
                       <Text style={typography.caption} numberOfLines={1}>
                         {item.items.length}{' '}
-                        {item.items.length === 1 ? 'alimento' : 'alimenti'} \u00b7{' '}
+                        {item.items.length === 1 ? 'alimento' : 'alimenti'} ·{' '}
                         {totalKcal} kcal
                       </Text>
                     </View>

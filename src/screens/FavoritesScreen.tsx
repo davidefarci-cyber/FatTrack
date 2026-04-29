@@ -123,7 +123,7 @@ export default function FavoritesScreen() {
 
 // -----------------------------------------------------------------------------
 // Riga preferito: swipe-left per eliminare, icona matita per aprire l'editor.
-// La schermata Preferiti \u00e8 un editor puro: non aggiunge direttamente al
+// La schermata Preferiti è un editor puro: non aggiunge direttamente al
 // diario (per registrare un preferito come pasto si passa da Home \u2192 MealSection
 // \u2192 "Dai preferiti").
 // -----------------------------------------------------------------------------
@@ -166,7 +166,7 @@ function FavoriteRow({ favorite, onEdit, onDelete }: FavoriteRowProps) {
             <Text style={typography.caption} numberOfLines={1}>
               {favorite.items.length === 0
                 ? 'Pasto vuoto'
-                : `${favorite.items.length} ${favorite.items.length === 1 ? 'alimento' : 'alimenti'} \u00b7 ${totalKcal.toLocaleString('it-IT')} kcal`}
+                : `${favorite.items.length} ${favorite.items.length === 1 ? 'alimento' : 'alimenti'} · ${totalKcal.toLocaleString('it-IT')} kcal`}
             </Text>
           </View>
         </View>
@@ -486,7 +486,7 @@ function FavoriteEditorModal({
                           {item.foodId === null
                             ? 'Costo fisso'
                             : `${formatGrams(item.grams)} g`}
-                          {' \u00b7 '}
+                          {' · '}
                           {Math.round(item.calories).toLocaleString('it-IT')} kcal
                         </Text>
                       </View>
