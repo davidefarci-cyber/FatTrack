@@ -219,6 +219,19 @@ if errorlevel 1 (
     )
 )
 
+rem EAS serve a fine release per pubblicare l'OTA allineato al nuovo APK.
+rem Senza login qui fallirebbe lo step finale dopo aver gia' tag/pushato.
+call eas whoami >nul 2>nul
+if errorlevel 1 (
+    echo [ ] EAS non autenticato. Avvio "eas login"...
+    call eas login
+    if errorlevel 1 (
+        echo [!] eas login fallito. Serve per pubblicare l'OTA a fine release.
+        pause
+        exit /b 1
+    )
+)
+
 call "%~dp0scripts\ensure-git-push-auth.bat"
 if errorlevel 1 (
     echo [!] Configurazione auth git push fallita.
@@ -406,6 +419,7 @@ if "!BUILD_CHOICE!"=="1" echo  Build:       LOCALE ^(arm64-v8a^)
 if "!BUILD_CHOICE!"=="2" echo  Build:       CLOUD EAS
 echo  Branch:      main ^(commit + tag + push^)
 echo  GitHub:      gh release create !TAG! ./fattrack.apk
+echo  OTA:         eas update --branch production ^(allinea JS al nuovo APK^)
 echo ============================================================
 set "CONFIRM="
 set /p "CONFIRM=Procedo? [s/N]: "
@@ -518,14 +532,35 @@ if errorlevel 1 (
     exit /b 1
 )
 
+rem --- 13. OTA SYNC (allinea il bundle JS al nuovo APK) ---
+rem  app.json fissa runtimeVersion="1.0.0" e channel="production": ogni
+rem  APK fatto da qui in poi cerca OTA su quel canale al primo lancio.
+rem  Se il canale ha un bundle vecchio (l'ultimo "eas update" prima della
+rem  release), l'APK lo scarica e mostra JS vecchio sopra il native nuovo.
+rem  Pubblicando OTA dallo stesso commit della release il canale resta
+rem  allineato: il bundle remoto e' funzionalmente identico all'embedded.
+echo.
+echo [ ] eas update --branch production ^(allineo OTA al nuovo APK^)...
+call eas update --branch production --message "release !TAG!" --non-interactive
+if errorlevel 1 (
+    echo.
+    echo [!] eas update fallito. RELEASE NATIVA OK ma OTA NON allineato:
+    echo     gli utenti col nuovo APK potrebbero caricare il JS della
+    echo     versione precedente. Risolvi a mano con "fattrack.bat" voce 5
+    echo     prima che qualcuno aggiorni.
+    pause
+    exit /b 1
+)
+echo [OK] OTA pubblicato su "production" ^(allineato a !TAG!^).
+
 del "!NOTES_FILE!" >nul 2>nul
 del "!NOTES_CLEAN!" >nul 2>nul
 
 echo.
 echo ============================================================
 echo  RELEASE COMPLETATA
-echo  Versione !NEW_VER! pubblicata. Gli utenti riceveranno
-echo  l'alert al prossimo lancio dell'app.
+echo  Versione !NEW_VER! pubblicata ^(APK GitHub + OTA production^).
+echo  Gli utenti riceveranno l'alert al prossimo lancio dell'app.
 echo ============================================================
 pause
 exit /b 0
