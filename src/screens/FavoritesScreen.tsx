@@ -17,6 +17,7 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { FAB } from '@/components/FAB';
 import { FoodSearchList } from '@/components/FoodSearchList';
+import { FoodServingsEditorModal } from '@/components/FoodServingsEditorModal';
 import { GramsInputModal } from '@/components/GramsInputModal';
 import type { GramsInputTarget, ServingOption } from '@/components/GramsInputModal';
 import { Icon } from '@/components/Icon';
@@ -28,6 +29,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useFoodSearch } from '@/hooks/useFoodSearch';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
 import { scaleMacro } from '@/utils/calorieCalculator';
+import { inheritServingsForRemoteFood } from '@/utils/inheritServings';
 import type { OffProduct } from '@/utils/openFoodFacts';
 
 export default function FavoritesScreen() {
@@ -213,6 +215,8 @@ function FavoriteEditorModal({
   const { setQuery: setSearchQuery } = search;
   const [pendingFood, setPendingFood] = useState<Food | null>(null);
   const [pendingServings, setPendingServings] = useState<ServingOption[]>([]);
+  const [editingServings, setEditingServings] = useState<Food | null>(null);
+  const [servingsTick, setServingsTick] = useState(0);
   const [saving, setSaving] = useState(false);
   // Modal per creare un alimento nuovo al volo: viene salvato in foodsDB
   // (source='manual') così la prossima ricerca lo troverà senza dover
@@ -230,6 +234,7 @@ function FavoriteEditorModal({
     setSearchQuery('');
     setPendingFood(null);
     setPendingServings([]);
+    setEditingServings(null);
     setManualOpen(false);
     setManualPrefillName('');
   }, [visible, editing?.id, setSearchQuery]);
@@ -257,7 +262,7 @@ function FavoriteEditorModal({
     return () => {
       active = false;
     };
-  }, [pendingFood]);
+  }, [pendingFood, servingsTick]);
 
   const totalKcal = useMemo(
     () => Math.round(items.reduce((sum, it) => sum + it.calories, 0)),
@@ -301,9 +306,11 @@ function FavoriteEditorModal({
 
   const handleSelectRemote = useCallback(async (product: OffProduct) => {
     // L'utente ha tappato un risultato Open Food Facts: persistiamo subito
-    // il prodotto come Food locale (source='api') e, se disponibile, la
-    // porzione tipica come food_serving. Poi lo trattiamo come pendingFood
-    // normale così l'editor riusa il flusso GramsInputModal già esistente.
+    // il prodotto come Food locale (source='api') ed ereditiamo le porzioni
+    // dal seed via match semantico (es. "Banana Chiquita" -> porzioni di
+    // "Banana"); fallback al `serving_quantity` di OFF quando non c'è match.
+    // Poi lo trattiamo come pendingFood normale così l'editor riusa il
+    // flusso GramsInputModal già esistente.
     let food = await foodsDB.findByName(product.name);
     if (!food) {
       food = await foodsDB.createFood({
@@ -314,19 +321,11 @@ function FavoriteEditorModal({
         fatPer100g: product.fatPer100g,
         source: 'api',
       });
-      if (product.servingQuantity != null && product.servingQuantity > 0) {
-        try {
-          await foodServingsDB.createServing({
-            foodId: food.id,
-            label: 'porzione',
-            grams: product.servingQuantity,
-            isDefault: true,
-            position: 0,
-          });
-        } catch {
-          // duplicate o errore minore: niente da fare.
-        }
-      }
+      await inheritServingsForRemoteFood({
+        newFoodId: food.id,
+        remoteName: product.name,
+        offServingQuantity: product.servingQuantity,
+      });
     }
     setPendingFood(food);
   }, []);
@@ -578,6 +577,17 @@ function FavoriteEditorModal({
         onClose={() => setPendingFood(null)}
         onConfirm={handleAddFood}
         confirmLabel="Aggiungi al pasto"
+        onRequestAddServing={
+          pendingFood ? () => setEditingServings(pendingFood) : undefined
+        }
+      />
+
+      <FoodServingsEditorModal
+        visible={editingServings !== null}
+        foodId={editingServings?.id ?? null}
+        foodName={editingServings?.name ?? ''}
+        onClose={() => setEditingServings(null)}
+        onChanged={() => setServingsTick((n) => n + 1)}
       />
 
       <ManualFoodEntryModal
