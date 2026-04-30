@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 
-import { seedFoodsIfEmpty, seedServingsIfEmpty } from './seedFoods';
+import { applySeedServings, seedFoodsIfEmpty } from './seedFoods';
 
 const DB_NAME = 'fattrack.db';
 
@@ -15,7 +15,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
     const db = await SQLite.openDatabaseAsync(DB_NAME);
     await migrate(db);
     await seedFoodsIfEmpty(db);
-    await seedServingsIfEmpty(db);
+    await applySeedServings(db);
     dbInstance = db;
     return db;
   })();

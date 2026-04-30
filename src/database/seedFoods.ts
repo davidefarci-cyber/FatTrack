@@ -10,7 +10,10 @@ type SeedFood = {
 // Valori kcal/100g indicativi (fonte CREA - INRAN / USDA, arrotondati).
 // Le porzioni sono pesi medi tipici per facilitare l'input rapido (vedi
 // `food_servings`); l'utente può comunque continuare a digitare i grammi.
+// Riferimento principale per i pesi commerciali (frutto medio, fetta,
+// cucchiai, scatolette, vasetti): tabella pesi megamediateam + CREA.
 export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
+  // -- Carni ---------------------------------------------------------------
   {
     name: 'Petto di pollo',
     caloriesPer100g: 165,
@@ -31,25 +34,48 @@ export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
     caloriesPer100g: 193,
     servings: [{ label: 'porzione media', grams: 150, isDefault: true }],
   },
+  // -- Salumi --------------------------------------------------------------
   {
     name: 'Bresaola',
     caloriesPer100g: 151,
-    servings: [{ label: 'fetta', grams: 8, isDefault: true }],
+    servings: [
+      { label: 'fetta', grams: 8, isDefault: true },
+      { label: 'porzione', grams: 50 },
+    ],
   },
   {
     name: 'Prosciutto crudo',
     caloriesPer100g: 224,
-    servings: [{ label: 'fetta', grams: 15, isDefault: true }],
+    servings: [
+      { label: 'fetta piccola', grams: 10 },
+      { label: 'fetta', grams: 15, isDefault: true },
+      { label: 'fetta grande', grams: 20 },
+    ],
   },
   {
     name: 'Prosciutto cotto',
     caloriesPer100g: 146,
-    servings: [{ label: 'fetta', grams: 20, isDefault: true }],
+    servings: [
+      { label: 'fetta piccola', grams: 10 },
+      { label: 'fetta', grams: 20, isDefault: true },
+    ],
   },
+  {
+    name: 'Salame',
+    caloriesPer100g: 398,
+    servings: [
+      { label: 'fetta sottile', grams: 7, isDefault: true },
+      { label: 'fetta spessa', grams: 11 },
+    ],
+  },
+  // -- Pesce ---------------------------------------------------------------
   {
     name: 'Tonno al naturale (sgocciolato)',
     caloriesPer100g: 116,
-    servings: [{ label: 'scatoletta', grams: 52, isDefault: true }],
+    servings: [
+      { label: 'scatoletta piccola', grams: 52, isDefault: true },
+      { label: 'scatoletta', grams: 80 },
+    ],
   },
   {
     name: 'Salmone',
@@ -62,25 +88,32 @@ export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
     servings: [{ label: 'filetto', grams: 130, isDefault: true }],
   },
   { name: 'Gamberi', caloriesPer100g: 99 },
+  // -- Uova ----------------------------------------------------------------
   {
     name: 'Uovo intero',
     caloriesPer100g: 143,
     servings: [
       { label: 'uovo medio', grams: 55, isDefault: true },
       { label: 'uovo grande', grams: 65 },
+      { label: 'tuorlo', grams: 18 },
     ],
   },
   {
     name: 'Albume d’uovo',
     caloriesPer100g: 52,
-    servings: [{ label: 'albume', grams: 33, isDefault: true }],
+    servings: [
+      { label: 'albume', grams: 33, isDefault: true },
+      { label: 'albume grande', grams: 35 },
+    ],
   },
+  // -- Cereali / pasta / pane ---------------------------------------------
   {
     name: 'Pasta di semola (secca)',
     caloriesPer100g: 353,
     servings: [
       { label: 'porzione', grams: 80, isDefault: true },
       { label: 'mezza porzione', grams: 60 },
+      { label: 'cucchiaio colmo', grams: 14 },
     ],
   },
   {
@@ -89,6 +122,8 @@ export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
     servings: [
       { label: 'porzione', grams: 70, isDefault: true },
       { label: 'mezza porzione', grams: 50 },
+      { label: 'cucchiaio colmo', grams: 18 },
+      { label: 'bicchiere', grams: 200 },
     ],
   },
   {
@@ -101,7 +136,10 @@ export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
     caloriesPer100g: 265,
     servings: [
       { label: 'fetta', grams: 30, isDefault: true },
-      { label: 'panino', grams: 50 },
+      { label: 'panino tartina', grams: 32 },
+      { label: 'rosetta', grams: 55 },
+      { label: 'panino', grams: 60 },
+      { label: 'ciabattina', grams: 75 },
     ],
   },
   {
@@ -110,35 +148,103 @@ export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
     servings: [{ label: 'fetta', grams: 30, isDefault: true }],
   },
   {
+    name: 'Pancarrè',
+    caloriesPer100g: 290,
+    servings: [{ label: 'fetta', grams: 18, isDefault: true }],
+  },
+  {
     name: 'Fette biscottate',
     caloriesPer100g: 408,
     servings: [{ label: 'fetta', grams: 10, isDefault: true }],
   },
   {
+    name: 'Biscotti secchi',
+    caloriesPer100g: 440,
+    servings: [
+      { label: 'biscotto', grams: 7, isDefault: true },
+      { label: 'frollino', grams: 8 },
+    ],
+  },
+  {
+    name: 'Grissini',
+    caloriesPer100g: 431,
+    servings: [{ label: 'grissino', grams: 5, isDefault: true }],
+  },
+  {
+    name: 'Cracker',
+    caloriesPer100g: 428,
+    servings: [{ label: 'cracker', grams: 6, isDefault: true }],
+  },
+  {
+    name: 'Fiocchi d’avena',
+    caloriesPer100g: 372,
+    servings: [
+      { label: 'porzione', grams: 40, isDefault: true },
+      { label: 'tazza', grams: 85 },
+    ],
+  },
+  // -- Tuberi / legumi / verdure ------------------------------------------
+  {
     name: 'Patate',
     caloriesPer100g: 77,
-    servings: [{ label: 'patata media', grams: 150, isDefault: true }],
+    servings: [
+      { label: 'patata media', grams: 150, isDefault: true },
+      { label: 'patata piccola', grams: 100 },
+    ],
   },
   { name: 'Fagioli cannellini (cotti)', caloriesPer100g: 139 },
   { name: 'Ceci (cotti)', caloriesPer100g: 164 },
   { name: 'Lenticchie (cotte)', caloriesPer100g: 116 },
-  { name: 'Zucchine', caloriesPer100g: 17 },
-  { name: 'Pomodoro', caloriesPer100g: 18 },
+  {
+    name: 'Zucchine',
+    caloriesPer100g: 17,
+    servings: [{ label: 'zucchina piccola', grams: 100, isDefault: true }],
+  },
+  {
+    name: 'Pomodoro',
+    caloriesPer100g: 18,
+    servings: [
+      { label: 'pomodoro medio', grams: 170, isDefault: true },
+      { label: 'pomodoro piccolo', grams: 100 },
+    ],
+  },
   { name: 'Spinaci freschi', caloriesPer100g: 23 },
   { name: 'Lattuga', caloriesPer100g: 15 },
-  { name: 'Carote', caloriesPer100g: 41 },
+  {
+    name: 'Carote',
+    caloriesPer100g: 41,
+    servings: [{ label: 'carota piccola', grams: 80, isDefault: true }],
+  },
+  {
+    name: 'Cipolla',
+    caloriesPer100g: 26,
+    servings: [{ label: 'cipolla media', grams: 50, isDefault: true }],
+  },
   { name: 'Peperoni', caloriesPer100g: 31 },
   { name: 'Melanzane', caloriesPer100g: 25 },
   { name: 'Broccoli', caloriesPer100g: 34 },
   { name: 'Finocchi', caloriesPer100g: 31 },
   {
+    name: 'Olive verdi',
+    caloriesPer100g: 145,
+    servings: [
+      { label: 'oliva', grams: 5, isDefault: true },
+      { label: 'manciata', grams: 25 },
+    ],
+  },
+  // -- Frutta --------------------------------------------------------------
+  {
     name: 'Mela',
     caloriesPer100g: 52,
-    servings: [{ label: 'mela media', grams: 180, isDefault: true }],
+    servings: [
+      { label: 'mela media', grams: 180, isDefault: true },
+      { label: 'mela grande', grams: 240 },
+    ],
   },
   {
     name: 'Banana',
     caloriesPer100g: 89,
+    // Peso indicato della parte edibile: 200 g è banana intera con buccia.
     servings: [{ label: 'banana media', grams: 120, isDefault: true }],
   },
   {
@@ -151,21 +257,43 @@ export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
     caloriesPer100g: 57,
     servings: [{ label: 'pera media', grams: 170, isDefault: true }],
   },
+  {
+    name: 'Albicocca',
+    caloriesPer100g: 28,
+    servings: [{ label: 'albicocca', grams: 25, isDefault: true }],
+  },
+  {
+    name: 'Prugna',
+    caloriesPer100g: 46,
+    servings: [{ label: 'prugna', grams: 30, isDefault: true }],
+  },
   { name: 'Fragole', caloriesPer100g: 32 },
+  // -- Latticini -----------------------------------------------------------
   {
     name: 'Mozzarella',
     caloriesPer100g: 253,
     servings: [
-      { label: 'mozzarella', grams: 125, isDefault: true },
+      { label: 'mozzarella in busta', grams: 125, isDefault: true },
       { label: 'fetta', grams: 30 },
     ],
+  },
+  {
+    name: 'Sottiletta',
+    caloriesPer100g: 280,
+    servings: [{ label: 'sottiletta', grams: 20, isDefault: true }],
+  },
+  {
+    name: 'Formaggino',
+    caloriesPer100g: 253,
+    servings: [{ label: 'formaggino', grams: 20, isDefault: true }],
   },
   {
     name: 'Parmigiano Reggiano',
     caloriesPer100g: 393,
     servings: [
       { label: 'scaglia', grams: 10, isDefault: true },
-      { label: 'cucchiaio grattugiato', grams: 5 },
+      { label: 'cucchiaino grattugiato', grams: 5 },
+      { label: 'cucchiaio grattugiato', grams: 15 },
     ],
   },
   {
@@ -173,7 +301,8 @@ export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
     caloriesPer100g: 146,
     servings: [
       { label: 'porzione', grams: 80, isDefault: true },
-      { label: 'cucchiaio', grams: 25 },
+      { label: 'cucchiaio raso', grams: 15 },
+      { label: 'cucchiaio colmo', grams: 20 },
     ],
   },
   {
@@ -192,31 +321,63 @@ export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
     servings: [
       { label: 'bicchiere', grams: 200, isDefault: true },
       { label: 'tazza', grams: 250 },
+      { label: 'cucchiaio', grams: 12 },
+      { label: 'cucchiaino', grams: 5 },
     ],
   },
+  {
+    name: 'Panna fresca',
+    caloriesPer100g: 337,
+    servings: [
+      { label: 'cucchiaio', grams: 12, isDefault: true },
+      { label: 'cucchiaino', grams: 5 },
+    ],
+  },
+  // -- Grassi / condimenti ------------------------------------------------
   {
     name: 'Olio extravergine d’oliva',
     caloriesPer100g: 884,
     servings: [
       { label: 'cucchiaino', grams: 5, isDefault: true },
-      { label: 'cucchiaio', grams: 12 },
+      { label: 'cucchiaio', grams: 10 },
+      { label: 'bicchiere', grams: 200 },
     ],
   },
   {
     name: 'Burro',
     caloriesPer100g: 717,
     servings: [
-      { label: 'noce', grams: 10, isDefault: true },
+      { label: 'noce', grams: 20, isDefault: true },
+      { label: 'cucchiaino raso', grams: 5 },
+      { label: 'cucchiaio colmo', grams: 15 },
+      { label: 'confezione alberghiera', grams: 12 },
+    ],
+  },
+  {
+    name: 'Margarina',
+    caloriesPer100g: 720,
+    servings: [
+      { label: 'cucchiaio colmo', grams: 14, isDefault: true },
       { label: 'cucchiaino', grams: 5 },
     ],
   },
+  // -- Zuccheri / dolcificanti --------------------------------------------
   {
     name: 'Zucchero',
     caloriesPer100g: 387,
     servings: [
       { label: 'cucchiaino', grams: 5, isDefault: true },
+      { label: 'cucchiaio', grams: 15 },
       { label: 'zolletta', grams: 5 },
-      { label: 'cucchiaio', grams: 12 },
+      { label: 'bustina', grams: 7 },
+    ],
+  },
+  {
+    name: 'Zucchero a velo',
+    caloriesPer100g: 387,
+    servings: [
+      { label: 'cucchiaino colmo', grams: 7, isDefault: true },
+      { label: 'cucchiaio colmo', grams: 15 },
     ],
   },
   {
@@ -225,8 +386,19 @@ export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
     servings: [
       { label: 'cucchiaino', grams: 7, isDefault: true },
       { label: 'cucchiaio', grams: 21 },
+      { label: 'confezione alberghiera', grams: 20 },
     ],
   },
+  {
+    name: 'Marmellata',
+    caloriesPer100g: 250,
+    servings: [
+      { label: 'cucchiaino raso', grams: 5, isDefault: true },
+      { label: 'cucchiaio colmo', grams: 30 },
+      { label: 'confezione alberghiera', grams: 28 },
+    ],
+  },
+  // -- Frutta secca --------------------------------------------------------
   {
     name: 'Noci',
     caloriesPer100g: 654,
@@ -243,7 +415,56 @@ export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
       { label: 'mandorla', grams: 1 },
     ],
   },
+  {
+    name: 'Nocciole',
+    caloriesPer100g: 628,
+    servings: [
+      { label: 'manciata', grams: 30, isDefault: true },
+      { label: 'nocciola', grams: 3 },
+    ],
+  },
+  {
+    name: 'Arachidi',
+    caloriesPer100g: 567,
+    servings: [
+      { label: 'manciata', grams: 30, isDefault: true },
+      { label: 'arachide', grams: 4 },
+    ],
+  },
+  // -- Bevande -------------------------------------------------------------
+  {
+    name: 'Vino rosso',
+    caloriesPer100g: 85,
+    servings: [
+      { label: 'bicchiere', grams: 130, isDefault: true },
+      { label: 'bicchiere grande', grams: 150 },
+    ],
+  },
+  {
+    name: 'Succo di frutta',
+    caloriesPer100g: 50,
+    servings: [
+      { label: 'bottiglietta', grams: 125, isDefault: true },
+      { label: 'cartoncino', grams: 200 },
+    ],
+  },
+  {
+    name: 'Bibita zuccherata',
+    caloriesPer100g: 42,
+    servings: [
+      { label: 'lattina', grams: 330, isDefault: true },
+      { label: 'bottiglietta', grams: 200 },
+    ],
+  },
 ];
+
+// Versione del seed delle porzioni. Bumpa quando cambiano valori/label
+// dei `servings` qui sopra: alla prima apertura dopo l'aggiornamento,
+// `applySeedServings` allinea ogni porzione del seed (grammi + default)
+// sui valori correnti, ANCHE sovrascrivendo eventuali modifiche manuali
+// dell'utente. Le porzioni con label non-seed (custom dell'utente)
+// rimangono intatte.
+const SEED_SERVINGS_VERSION = '2';
 
 export async function seedFoodsIfEmpty(db: SQLite.SQLiteDatabase): Promise<void> {
   const row = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) AS count FROM foods');
@@ -261,17 +482,30 @@ export async function seedFoodsIfEmpty(db: SQLite.SQLiteDatabase): Promise<void>
   }
 }
 
-// Popola le porzioni standard solo se la tabella è vuota. Idempotente:
-// utenti con DB esistente recuperano le porzioni al primo avvio successivo
-// all'aggiornamento. Lo stesso passaggio si occupa di inserire eventuali food
-// del seed che mancano (es. "Zucchero" introdotto dopo il primo seed) — il
-// match avviene per nome esatto case-insensitive, così rinominazioni manuali
-// dell'utente non rischiano di rifondere i suoi food.
-export async function seedServingsIfEmpty(db: SQLite.SQLiteDatabase): Promise<void> {
-  const row = await db.getFirstAsync<{ count: number }>(
-    'SELECT COUNT(*) AS count FROM food_servings',
+// Allinea le porzioni del seed nel DB ai valori correnti di
+// `DEFAULT_ITALIAN_FOODS`. Versionata: il lavoro vero parte solo se
+// `app_meta.seed_servings_version` non corrisponde a `SEED_SERVINGS_VERSION`.
+//
+// Comportamento:
+// - Inserisce i food del seed mancanti (match case-insensitive sul nome).
+// - Per ogni porzione del seed:
+//   - se la label esiste già: UPDATE dei grammi al valore del seed.
+//   - se non esiste: INSERT con position incrementale.
+// - Per ogni food, se il seed dichiara una porzione `isDefault`, quella
+//   diventa la default (azzerando le altre). Sovrascrive eventuali default
+//   scelte manualmente dall'utente: il caller ha approvato esplicitamente.
+// - NON tocca le porzioni con label non presenti nel seed (custom dell'utente).
+export async function applySeedServings(db: SQLite.SQLiteDatabase): Promise<void> {
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS app_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+  const versionRow = await db.getFirstAsync<{ value: string }>(
+    `SELECT value FROM app_meta WHERE key = 'seed_servings_version'`,
   );
-  if (row && row.count > 0) return;
+  if (versionRow?.value === SEED_SERVINGS_VERSION) return;
 
   const existingFoods = await db.getAllAsync<{ id: number; name: string }>(
     `SELECT id, LOWER(name) AS name FROM foods`,
@@ -279,37 +513,68 @@ export async function seedServingsIfEmpty(db: SQLite.SQLiteDatabase): Promise<vo
   const foodIdByName = new Map<string, number>();
   for (const f of existingFoods) foodIdByName.set(f.name, f.id);
 
-  const insertFood = await db.prepareAsync(
-    `INSERT INTO foods (name, calories_per_100g, source) VALUES (?, ?, 'manual')`,
-  );
-  const insertServing = await db.prepareAsync(
-    `INSERT INTO food_servings (food_id, label, grams, is_default, position)
-     VALUES (?, ?, ?, ?, ?)`,
-  );
-  try {
-    for (const food of DEFAULT_ITALIAN_FOODS) {
-      const key = food.name.toLowerCase();
-      let foodId = foodIdByName.get(key);
-      if (foodId === undefined) {
-        const result = await insertFood.executeAsync([food.name, food.caloriesPer100g]);
-        foodId = result.lastInsertRowId as number;
-        foodIdByName.set(key, foodId);
-      }
-      if (!food.servings || food.servings.length === 0) continue;
-      let position = 0;
-      for (const serving of food.servings) {
-        await insertServing.executeAsync([
+  for (const food of DEFAULT_ITALIAN_FOODS) {
+    const key = food.name.toLowerCase();
+    let foodId = foodIdByName.get(key);
+    if (foodId === undefined) {
+      const result = await db.runAsync(
+        `INSERT INTO foods (name, calories_per_100g, source) VALUES (?, ?, 'manual')`,
+        food.name,
+        food.caloriesPer100g,
+      );
+      foodId = result.lastInsertRowId as number;
+      foodIdByName.set(key, foodId);
+    }
+    if (!food.servings || food.servings.length === 0) continue;
+
+    const existing = await db.getAllAsync<{ id: number; label: string; position: number }>(
+      `SELECT id, lower(label) AS label, position FROM food_servings WHERE food_id = ?`,
+      foodId,
+    );
+    const existingByLabel = new Map<string, { id: number; position: number }>();
+    for (const r of existing) existingByLabel.set(r.label, { id: r.id, position: r.position });
+    let nextPos = existing.reduce((m, r) => Math.max(m, r.position), -1) + 1;
+
+    let defaultServingId: number | null = null;
+    for (const serving of food.servings) {
+      const labelKey = serving.label.trim().toLowerCase();
+      const found = existingByLabel.get(labelKey);
+      if (found) {
+        await db.runAsync(
+          `UPDATE food_servings SET grams = ? WHERE id = ?`,
+          serving.grams,
+          found.id,
+        );
+        if (serving.isDefault) defaultServingId = found.id;
+      } else {
+        const result = await db.runAsync(
+          `INSERT INTO food_servings (food_id, label, grams, is_default, position)
+           VALUES (?, ?, ?, 0, ?)`,
           foodId,
           serving.label,
           serving.grams,
-          serving.isDefault ? 1 : 0,
-          position,
-        ]);
-        position += 1;
+          nextPos,
+        );
+        nextPos += 1;
+        if (serving.isDefault) defaultServingId = result.lastInsertRowId as number;
       }
     }
-  } finally {
-    await insertFood.finalizeAsync();
-    await insertServing.finalizeAsync();
+
+    if (defaultServingId !== null) {
+      await db.runAsync(
+        `UPDATE food_servings SET is_default = 0 WHERE food_id = ?`,
+        foodId,
+      );
+      await db.runAsync(
+        `UPDATE food_servings SET is_default = 1 WHERE id = ?`,
+        defaultServingId,
+      );
+    }
   }
+
+  await db.runAsync(
+    `INSERT INTO app_meta (key, value) VALUES ('seed_servings_version', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    SEED_SERVINGS_VERSION,
+  );
 }

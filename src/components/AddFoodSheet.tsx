@@ -26,6 +26,8 @@ import type { Food, FoodSource, MealType } from '@/database';
 import { useFoodSearch } from '@/hooks/useFoodSearch';
 import { colors, radii, spacing, typography } from '@/theme';
 import { calculateMealCalories, scaleMacro } from '@/utils/calorieCalculator';
+import { findMatchingLocalFood } from '@/utils/foodMatcher';
+import { inheritServingsForRemoteFood } from '@/utils/inheritServings';
 import { offByBarcode } from '@/utils/openFoodFacts';
 import type { OffProduct } from '@/utils/openFoodFacts';
 
@@ -103,23 +105,13 @@ export function AddFoodSheet({ visible, mealType, date, onClose, onAdded }: AddF
           createdNewFood = true;
         }
       }
-      if (
-        createdNewFood &&
-        foodId !== null &&
-        args.offServingQuantity != null &&
-        args.offServingQuantity > 0
-      ) {
-        try {
-          await foodServingsDB.createServing({
-            foodId,
-            label: args.offServingLabel?.trim() || 'porzione',
-            grams: args.offServingQuantity,
-            isDefault: true,
-            position: 0,
-          });
-        } catch {
-          // Duplicato o errore minore: niente da fare.
-        }
+      if (createdNewFood && foodId !== null) {
+        await inheritServingsForRemoteFood({
+          newFoodId: foodId,
+          remoteName: args.foodName,
+          offServingQuantity: args.offServingQuantity ?? null,
+          offServingLabel: args.offServingLabel ?? undefined,
+        });
       }
       await mealsStore.createMeal({
         date,
@@ -214,23 +206,44 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
 
   // Quando l'utente seleziona un food locale carichiamo le sue porzioni
   // alternative ("fetta", "cucchiaino"...) per popolare il GramsInputModal.
-  // I food remoti partono senza porzioni: se OFF fornisce serving_quantity
-  // la usiamo come singola porzione tipica.
+  // Per i food remoti OFF proviamo prima un match semantico col seed locale
+  // (es. "Banana Chiquita" -> "Banana" del seed con tutte le sue porzioni);
+  // se non c'è match e OFF fornisce serving_quantity, la usiamo come singola
+  // porzione tipica; altrimenti restiamo sui grammi puri.
   useEffect(() => {
     if (!selected) {
       setSelectedServings([]);
       return;
     }
-    if (selected.source === 'remote') {
-      const qty = selected.product.servingQuantity;
-      if (qty != null && qty > 0) {
-        setSelectedServings([{ label: 'porzione', grams: qty, isDefault: true }]);
-      } else {
-        setSelectedServings([]);
-      }
-      return;
-    }
     let active = true;
+    if (selected.source === 'remote') {
+      (async () => {
+        try {
+          const all = await foodsDB.listFoods(1000);
+          const match = findMatchingLocalFood(selected.product.name, all);
+          if (!active) return;
+          if (match) {
+            const rows = await foodServingsDB.listServingsByFood(match.id);
+            if (!active) return;
+            setSelectedServings(
+              rows.map((r) => ({ label: r.label, grams: r.grams, isDefault: r.isDefault })),
+            );
+            return;
+          }
+          const qty = selected.product.servingQuantity;
+          if (qty != null && qty > 0) {
+            setSelectedServings([{ label: 'porzione', grams: qty, isDefault: true }]);
+          } else {
+            setSelectedServings([]);
+          }
+        } catch {
+          if (active) setSelectedServings([]);
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }
     foodServingsDB
       .listServingsByFood(selected.food.id)
       .then((rows) => {
@@ -313,6 +326,38 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
     [onCommit, selected],
   );
 
+  // Apre l'editor delle porzioni per il food selezionato. Per i food remoti
+  // (OFF) non ancora persistiti, prima li salviamo in foodsDB (ereditando
+  // eventuali porzioni del seed via match semantico) così l'editor ha un
+  // foodId valido. Mantiene aperto il GramsInputModal aggiornando `selected`
+  // al food locale appena creato.
+  const handleRequestEditServings = useCallback(async () => {
+    if (!selected) return;
+    if (selected.source === 'local') {
+      setEditingServings(selected.food);
+      return;
+    }
+    const product = selected.product;
+    let food = await foodsDB.findByName(product.name);
+    if (!food) {
+      food = await foodsDB.createFood({
+        name: product.name,
+        caloriesPer100g: product.caloriesPer100g,
+        proteinPer100g: product.proteinPer100g,
+        carbsPer100g: product.carbsPer100g,
+        fatPer100g: product.fatPer100g,
+        source: 'api',
+      });
+      await inheritServingsForRemoteFood({
+        newFoodId: food.id,
+        remoteName: product.name,
+        offServingQuantity: product.servingQuantity,
+      });
+    }
+    setSelected({ source: 'local', food });
+    setEditingServings(food);
+  }, [selected]);
+
   return (
     <View style={styles.tabContainer}>
       <FoodSearchList
@@ -329,6 +374,7 @@ function SearchTab({ mealType, onCommit }: { mealType: MealType; onCommit: Commi
         mealType={mealType}
         onClose={() => setSelected(null)}
         onConfirm={handleConfirm}
+        onRequestAddServing={selected !== null ? handleRequestEditServings : undefined}
       />
 
       <FoodServingsEditorModal
@@ -370,6 +416,10 @@ function BarcodeTab({
   const [product, setProduct] = useState<OffProduct | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [looking, setLooking] = useState(false);
+  const [matchedServings, setMatchedServings] = useState<ServingOption[]>([]);
+  const [persistedFood, setPersistedFood] = useState<Food | null>(null);
+  const [editingServings, setEditingServings] = useState<Food | null>(null);
+  const [servingsTick, setServingsTick] = useState(0);
   const handledRef = useRef<string | null>(null);
 
   // Reset dello stato quando il tab cambia visibilità: evita di mostrare
@@ -380,9 +430,51 @@ function BarcodeTab({
       setProduct(null);
       setLookupError(null);
       setLooking(false);
+      setMatchedServings([]);
+      setPersistedFood(null);
+      setEditingServings(null);
       handledRef.current = null;
     }
   }, [visible]);
+
+  // Match semantico OFF -> seed locale, oppure ricarica delle porzioni del
+  // food persistito (dopo edit). Idem alla logica di SearchTab.
+  useEffect(() => {
+    if (!product) {
+      setMatchedServings([]);
+      return;
+    }
+    let active = true;
+    (async () => {
+      try {
+        if (persistedFood) {
+          const rows = await foodServingsDB.listServingsByFood(persistedFood.id);
+          if (!active) return;
+          setMatchedServings(
+            rows.map((r) => ({ label: r.label, grams: r.grams, isDefault: r.isDefault })),
+          );
+          return;
+        }
+        const all = await foodsDB.listFoods(1000);
+        const match = findMatchingLocalFood(product.name, all);
+        if (!active) return;
+        if (match) {
+          const rows = await foodServingsDB.listServingsByFood(match.id);
+          if (!active) return;
+          setMatchedServings(
+            rows.map((r) => ({ label: r.label, grams: r.grams, isDefault: r.isDefault })),
+          );
+        } else {
+          setMatchedServings([]);
+        }
+      } catch {
+        if (active) setMatchedServings([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [product, persistedFood, servingsTick]);
 
   const handleScan = useCallback(async (code: string) => {
     if (handledRef.current === code) return;
@@ -391,6 +483,8 @@ function BarcodeTab({
     setProduct(null);
     setLookupError(null);
     setLooking(true);
+    setMatchedServings([]);
+    setPersistedFood(null);
     try {
       const found = await offByBarcode(code);
       if (!found) {
@@ -411,15 +505,20 @@ function BarcodeTab({
     setProduct(null);
     setLookupError(null);
     setLooking(false);
+    setMatchedServings([]);
+    setPersistedFood(null);
   }, []);
 
+  // Priorità alle porzioni del seed/locale (più ricche). Se non ce ne sono,
+  // fallback su quella di OFF (singola "porzione" da serving_quantity).
   const modalServings = useMemo<ServingOption[]>(() => {
     if (!product) return [];
+    if (matchedServings.length > 0) return matchedServings;
     if (product.servingQuantity != null && product.servingQuantity > 0) {
       return [{ label: 'porzione', grams: product.servingQuantity, isDefault: true }];
     }
     return [];
-  }, [product]);
+  }, [product, matchedServings]);
 
   const modalTarget: GramsInputTarget | null = product
     ? {
@@ -461,6 +560,28 @@ function BarcodeTab({
     },
     [onCommit, product, resetScanner],
   );
+
+  const handleRequestEditServings = useCallback(async () => {
+    if (!product) return;
+    let food = persistedFood ?? (await foodsDB.findByName(product.name));
+    if (!food) {
+      food = await foodsDB.createFood({
+        name: product.name,
+        caloriesPer100g: product.caloriesPer100g,
+        proteinPer100g: product.proteinPer100g,
+        carbsPer100g: product.carbsPer100g,
+        fatPer100g: product.fatPer100g,
+        source: 'barcode',
+      });
+      await inheritServingsForRemoteFood({
+        newFoodId: food.id,
+        remoteName: product.name,
+        offServingQuantity: product.servingQuantity,
+      });
+    }
+    setPersistedFood(food);
+    setEditingServings(food);
+  }, [product, persistedFood]);
 
   return (
     <View style={styles.tabContainer}>
@@ -506,6 +627,15 @@ function BarcodeTab({
         mealType={mealType}
         onClose={resetScanner}
         onConfirm={handleConfirm}
+        onRequestAddServing={product !== null ? handleRequestEditServings : undefined}
+      />
+
+      <FoodServingsEditorModal
+        visible={editingServings !== null}
+        foodId={editingServings?.id ?? null}
+        foodName={editingServings?.name ?? ''}
+        onClose={() => setEditingServings(null)}
+        onChanged={() => setServingsTick((n) => n + 1)}
       />
     </View>
   );

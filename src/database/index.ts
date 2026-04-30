@@ -1,5 +1,5 @@
 export { getDatabase, resetDatabase } from './db';
-export { DEFAULT_ITALIAN_FOODS, seedFoodsIfEmpty, seedServingsIfEmpty } from './seedFoods';
+export { DEFAULT_ITALIAN_FOODS, applySeedServings, seedFoodsIfEmpty } from './seedFoods';
 
 export * as foodsDB from './foodsDB';
 export * as foodServingsDB from './foodServingsDB';

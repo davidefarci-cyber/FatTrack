@@ -54,6 +54,10 @@ type GramsInputModalProps = {
   onConfirm: (result: GramsInputResult) => Promise<void> | void;
   initialGrams?: string;
   confirmLabel?: string;
+  // Quando settata, mostra un link "Aggiungi porzione personalizzata" sotto il
+  // selettore unità. Il caller è responsabile di aprire l'editor (e, per food
+  // OFF, di persistere il food prima così l'editor ha un foodId valido).
+  onRequestAddServing?: () => void;
 };
 
 type UnitKey = 'g' | `s${number}`;
@@ -68,6 +72,7 @@ export function GramsInputModal({
   onConfirm,
   initialGrams = '100',
   confirmLabel = 'Aggiungi al diario',
+  onRequestAddServing,
 }: GramsInputModalProps) {
   const insets = useSafeAreaInsets();
   const servings = target?.servings ?? [];
@@ -209,6 +214,22 @@ export function GramsInputModal({
                   value={unit}
                   onChange={setUnit}
                 />
+              ) : null}
+
+              {onRequestAddServing ? (
+                <Pressable
+                  onPress={onRequestAddServing}
+                  style={styles.addServingBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Aggiungi porzione personalizzata"
+                >
+                  <Icon name="plus" size={12} color={colors.blue} />
+                  <Text style={[typography.bodyBold, styles.addServingText]}>
+                    {hasServings
+                      ? 'Aggiungi porzione personalizzata'
+                      : 'Aggiungi una porzione (es. 1 fetta = 30 g)'}
+                  </Text>
+                </Pressable>
               ) : null}
 
               <View style={styles.row}>
@@ -385,5 +406,20 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'flex-end',
     gap: spacing.xs,
+  },
+  addServingBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    backgroundColor: colors.blueLight,
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    borderColor: colors.blue,
+  },
+  addServingText: {
+    color: colors.blue,
   },
 });
