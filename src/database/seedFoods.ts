@@ -458,6 +458,14 @@ export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
   },
 ];
 
+// Versione del seed delle porzioni. Bumpa quando cambiano valori/label
+// dei `servings` qui sopra: alla prima apertura dopo l'aggiornamento,
+// `applySeedServings` allinea ogni porzione del seed (grammi + default)
+// sui valori correnti, ANCHE sovrascrivendo eventuali modifiche manuali
+// dell'utente. Le porzioni con label non-seed (custom dell'utente)
+// rimangono intatte.
+const SEED_SERVINGS_VERSION = '2';
+
 export async function seedFoodsIfEmpty(db: SQLite.SQLiteDatabase): Promise<void> {
   const row = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) AS count FROM foods');
   if (row && row.count > 0) return;
@@ -474,64 +482,99 @@ export async function seedFoodsIfEmpty(db: SQLite.SQLiteDatabase): Promise<void>
   }
 }
 
-// Upsert idempotente delle porzioni standard.
-// - Inserisce eventuali food del seed mancanti (match case-insensitive sul nome).
-// - Per ogni food (esistente o appena creato) aggiunge SOLO le porzioni la
-//   cui label non è già presente: il vincolo UNIQUE su `(food_id, lower(label))`
-//   ci copre via INSERT OR IGNORE; in più non promuoviamo `is_default` se il
-//   food ha già almeno una porzione, così non sovrascriviamo eventuali scelte
-//   personali dell'utente fatte tramite l'editor.
-// - Le label nuove vengono accodate con position incrementale per non
-//   alterare l'ordine già presente.
-export async function seedServingsIfEmpty(db: SQLite.SQLiteDatabase): Promise<void> {
+// Allinea le porzioni del seed nel DB ai valori correnti di
+// `DEFAULT_ITALIAN_FOODS`. Versionata: il lavoro vero parte solo se
+// `app_meta.seed_servings_version` non corrisponde a `SEED_SERVINGS_VERSION`.
+//
+// Comportamento:
+// - Inserisce i food del seed mancanti (match case-insensitive sul nome).
+// - Per ogni porzione del seed:
+//   - se la label esiste già: UPDATE dei grammi al valore del seed.
+//   - se non esiste: INSERT con position incrementale.
+// - Per ogni food, se il seed dichiara una porzione `isDefault`, quella
+//   diventa la default (azzerando le altre). Sovrascrive eventuali default
+//   scelte manualmente dall'utente: il caller ha approvato esplicitamente.
+// - NON tocca le porzioni con label non presenti nel seed (custom dell'utente).
+export async function applySeedServings(db: SQLite.SQLiteDatabase): Promise<void> {
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS app_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+  const versionRow = await db.getFirstAsync<{ value: string }>(
+    `SELECT value FROM app_meta WHERE key = 'seed_servings_version'`,
+  );
+  if (versionRow?.value === SEED_SERVINGS_VERSION) return;
+
   const existingFoods = await db.getAllAsync<{ id: number; name: string }>(
     `SELECT id, LOWER(name) AS name FROM foods`,
   );
   const foodIdByName = new Map<string, number>();
   for (const f of existingFoods) foodIdByName.set(f.name, f.id);
 
-  const insertFood = await db.prepareAsync(
-    `INSERT INTO foods (name, calories_per_100g, source) VALUES (?, ?, 'manual')`,
-  );
-  const insertServing = await db.prepareAsync(
-    `INSERT OR IGNORE INTO food_servings (food_id, label, grams, is_default, position)
-     VALUES (?, ?, ?, ?, ?)`,
-  );
-  try {
-    for (const food of DEFAULT_ITALIAN_FOODS) {
-      if (!food.servings || food.servings.length === 0) continue;
-      const key = food.name.toLowerCase();
-      let foodId = foodIdByName.get(key);
-      if (foodId === undefined) {
-        const result = await insertFood.executeAsync([food.name, food.caloriesPer100g]);
-        foodId = result.lastInsertRowId as number;
-        foodIdByName.set(key, foodId);
-      }
-
-      const existing = await db.getAllAsync<{ label: string; position: number }>(
-        `SELECT lower(label) AS label, position FROM food_servings WHERE food_id = ?`,
-        foodId,
+  for (const food of DEFAULT_ITALIAN_FOODS) {
+    const key = food.name.toLowerCase();
+    let foodId = foodIdByName.get(key);
+    if (foodId === undefined) {
+      const result = await db.runAsync(
+        `INSERT INTO foods (name, calories_per_100g, source) VALUES (?, ?, 'manual')`,
+        food.name,
+        food.caloriesPer100g,
       );
-      const existingLabels = new Set(existing.map((r) => r.label));
-      const hasAny = existing.length > 0;
-      let nextPos = existing.reduce((m, r) => Math.max(m, r.position), -1) + 1;
+      foodId = result.lastInsertRowId as number;
+      foodIdByName.set(key, foodId);
+    }
+    if (!food.servings || food.servings.length === 0) continue;
 
-      for (const serving of food.servings) {
-        const labelKey = serving.label.trim().toLowerCase();
-        if (existingLabels.has(labelKey)) continue;
-        const isDefault = !hasAny && serving.isDefault ? 1 : 0;
-        await insertServing.executeAsync([
+    const existing = await db.getAllAsync<{ id: number; label: string; position: number }>(
+      `SELECT id, lower(label) AS label, position FROM food_servings WHERE food_id = ?`,
+      foodId,
+    );
+    const existingByLabel = new Map<string, { id: number; position: number }>();
+    for (const r of existing) existingByLabel.set(r.label, { id: r.id, position: r.position });
+    let nextPos = existing.reduce((m, r) => Math.max(m, r.position), -1) + 1;
+
+    let defaultServingId: number | null = null;
+    for (const serving of food.servings) {
+      const labelKey = serving.label.trim().toLowerCase();
+      const found = existingByLabel.get(labelKey);
+      if (found) {
+        await db.runAsync(
+          `UPDATE food_servings SET grams = ? WHERE id = ?`,
+          serving.grams,
+          found.id,
+        );
+        if (serving.isDefault) defaultServingId = found.id;
+      } else {
+        const result = await db.runAsync(
+          `INSERT INTO food_servings (food_id, label, grams, is_default, position)
+           VALUES (?, ?, ?, 0, ?)`,
           foodId,
           serving.label,
           serving.grams,
-          isDefault,
           nextPos,
-        ]);
+        );
         nextPos += 1;
+        if (serving.isDefault) defaultServingId = result.lastInsertRowId as number;
       }
     }
-  } finally {
-    await insertFood.finalizeAsync();
-    await insertServing.finalizeAsync();
+
+    if (defaultServingId !== null) {
+      await db.runAsync(
+        `UPDATE food_servings SET is_default = 0 WHERE food_id = ?`,
+        foodId,
+      );
+      await db.runAsync(
+        `UPDATE food_servings SET is_default = 1 WHERE id = ?`,
+        defaultServingId,
+      );
+    }
   }
+
+  await db.runAsync(
+    `INSERT INTO app_meta (key, value) VALUES ('seed_servings_version', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    SEED_SERVINGS_VERSION,
+  );
 }
