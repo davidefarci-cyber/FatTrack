@@ -15,6 +15,26 @@
 //       -> scrive new-version in app.json + version.json,
 //          incrementa versionCode di +1, e mette le note (se passate).
 //          Stampa la nuova versione su stdout.
+//          Usato dalla voce 4 (release nativa).
+//
+//   node scripts/bump-version.js apply-ota <new-version>
+//       -> scrive new-version SOLO in app.json (expo.version).
+//          NON tocca versionCode (e' nativo, irrilevante per OTA).
+//          NON tocca version.json (resta legato all'ultimo APK pubblicato
+//          su GitHub Releases, cosi' updateChecker non promette APK
+//          inesistenti).
+//          Usato dalla voce 5 (OTA only).
+//
+//   node scripts/bump-version.js runtime-current
+//       -> stampa il runtimeVersion corrente di app.json. Errore se non
+//          e' una stringa intera (es. e' un oggetto policy o ha caratteri
+//          non numerici).
+//
+//   node scripts/bump-version.js runtime-bump
+//       -> incrementa di +1 l'intero in expo.runtimeVersion. Stampa il
+//          nuovo valore. Da usare quando una release nativa rompe la
+//          compatibilita' ABI col vecchio bundle JS (nuova lib nativa,
+//          plugin Expo, permesso, SDK bumpato).
 //
 // Exit codes:
 //   0 ok, 1 errore (versione invalida, downgrade, file mancante...)
@@ -149,17 +169,87 @@ function cmdApply(newVersion, notesFile) {
   process.stdout.write(fmt(next));
 }
 
+function cmdApplyOta(newVersion) {
+  const next = parseVersion(newVersion);
+  if (!next) {
+    console.error(`Versione non valida: ${newVersion}. Formato atteso MAJOR.MINOR.PATCH.`);
+    process.exit(1);
+  }
+  const cur = getCurrentVersion();
+  const cmp = compareVersions(next, cur.parsed);
+  if (cmp < 0) {
+    console.error(
+      `Downgrade non permesso: ${fmt(next)} < ${fmt(cur.parsed)}. Aborto.`,
+    );
+    process.exit(1);
+  }
+  if (cmp === 0) {
+    console.error(
+      `La versione richiesta (${fmt(next)}) coincide con quella attuale. Niente da fare.`,
+    );
+    process.exit(1);
+  }
+
+  // Solo expo.version. versionCode rimane invariato (nessun APK nativo
+  // verra' costruito qui). version.json non viene toccato perche'
+  // continua a rappresentare "ultimo APK disponibile su GitHub Releases":
+  // se lo bumpassimo qui, updateChecker direbbe agli utenti "scarica X"
+  // ma `releases/latest` punterebbe ancora alla versione precedente.
+  const appData = cur.appData;
+  appData.expo.version = fmt(next);
+  writeJson(APP_JSON, appData);
+
+  process.stdout.write(fmt(next));
+}
+
+function getRuntimeVersionInt() {
+  const { data } = readJson(APP_JSON);
+  const rv = data?.expo?.runtimeVersion;
+  if (typeof rv !== 'string') {
+    console.error(
+      `expo.runtimeVersion in app.json non e' una stringa intera: ${JSON.stringify(rv)}.\n` +
+        `Atteso un valore tipo "1" / "2" / ... Sistemalo a mano e riprova.`,
+    );
+    process.exit(1);
+  }
+  const n = parseInt(rv, 10);
+  if (!Number.isFinite(n) || n < 0 || String(n) !== rv) {
+    console.error(`expo.runtimeVersion non e' un intero non negativo: "${rv}".`);
+    process.exit(1);
+  }
+  return { n, data };
+}
+
+function cmdRuntimeCurrent() {
+  const { n } = getRuntimeVersionInt();
+  process.stdout.write(String(n));
+}
+
+function cmdRuntimeBump() {
+  const { n, data } = getRuntimeVersionInt();
+  const next = n + 1;
+  data.expo.runtimeVersion = String(next);
+  writeJson(APP_JSON, data);
+  process.stdout.write(String(next));
+}
+
 const [, , cmd, ...rest] = process.argv;
 try {
   if (cmd === 'current') cmdCurrent();
   else if (cmd === 'next') cmdNext(rest[0]);
   else if (cmd === 'apply') cmdApply(rest[0], rest[1]);
+  else if (cmd === 'apply-ota') cmdApplyOta(rest[0]);
+  else if (cmd === 'runtime-current') cmdRuntimeCurrent();
+  else if (cmd === 'runtime-bump') cmdRuntimeBump();
   else {
     console.error(
       'Uso:\n' +
         '  node scripts/bump-version.js current\n' +
         '  node scripts/bump-version.js next <patch|minor|major>\n' +
-        '  node scripts/bump-version.js apply <new-version> [notes-file]\n',
+        '  node scripts/bump-version.js apply <new-version> [notes-file]\n' +
+        '  node scripts/bump-version.js apply-ota <new-version>\n' +
+        '  node scripts/bump-version.js runtime-current\n' +
+        '  node scripts/bump-version.js runtime-bump\n',
     );
     process.exit(1);
   }
