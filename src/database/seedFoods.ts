@@ -155,7 +155,7 @@ export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
   {
     name: 'Fette biscottate',
     caloriesPer100g: 408,
-    servings: [{ label: 'fetta', grams: 9, isDefault: true }],
+    servings: [{ label: 'fetta', grams: 10, isDefault: true }],
   },
   {
     name: 'Biscotti secchi',
@@ -188,9 +188,8 @@ export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
     name: 'Patate',
     caloriesPer100g: 77,
     servings: [
-      { label: 'patata media', grams: 120, isDefault: true },
+      { label: 'patata media', grams: 150, isDefault: true },
       { label: 'patata piccola', grams: 100 },
-      { label: 'patata grande', grams: 150 },
     ],
   },
   { name: 'Fagioli cannellini (cotti)', caloriesPer100g: 139 },
@@ -238,24 +237,25 @@ export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
     name: 'Mela',
     caloriesPer100g: 52,
     servings: [
-      { label: 'mela media', grams: 170, isDefault: true },
+      { label: 'mela media', grams: 180, isDefault: true },
       { label: 'mela grande', grams: 240 },
     ],
   },
   {
     name: 'Banana',
     caloriesPer100g: 89,
-    servings: [{ label: 'banana media', grams: 200, isDefault: true }],
+    // Peso indicato della parte edibile: 200 g è banana intera con buccia.
+    servings: [{ label: 'banana media', grams: 120, isDefault: true }],
   },
   {
     name: 'Arancia',
     caloriesPer100g: 47,
-    servings: [{ label: 'arancia media', grams: 170, isDefault: true }],
+    servings: [{ label: 'arancia media', grams: 200, isDefault: true }],
   },
   {
     name: 'Pera',
     caloriesPer100g: 57,
-    servings: [{ label: 'pera media', grams: 150, isDefault: true }],
+    servings: [{ label: 'pera media', grams: 170, isDefault: true }],
   },
   {
     name: 'Albicocca',
@@ -366,11 +366,9 @@ export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
     name: 'Zucchero',
     caloriesPer100g: 387,
     servings: [
-      { label: 'cucchiaino raso', grams: 5, isDefault: true },
-      { label: 'cucchiaino colmo', grams: 8 },
-      { label: 'cucchiaio raso', grams: 15 },
-      { label: 'cucchiaio colmo', grams: 25 },
-      { label: 'zolletta', grams: 4 },
+      { label: 'cucchiaino', grams: 5, isDefault: true },
+      { label: 'cucchiaio', grams: 15 },
+      { label: 'zolletta', grams: 5 },
       { label: 'bustina', grams: 7 },
     ],
   },
@@ -414,7 +412,7 @@ export const DEFAULT_ITALIAN_FOODS: SeedFood[] = [
     caloriesPer100g: 579,
     servings: [
       { label: 'manciata', grams: 30, isDefault: true },
-      { label: 'mandorla', grams: 3 },
+      { label: 'mandorla', grams: 1 },
     ],
   },
   {
