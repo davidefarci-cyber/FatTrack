@@ -1,5 +1,4 @@
 import Constants from 'expo-constants';
-import * as Updates from 'expo-updates';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -325,59 +324,17 @@ export default function SettingsScreen() {
 }
 
 function VersionCard() {
-  // Versione "native": e' quella dichiarata dall'APK, letta dall'app.json
-  // bundlato. Se sta girando un OTA piu' nuovo, expoConfig.version puo'
-  // riflettere la versione del bundle remoto invece del native: e' un
-  // segnale utile in se' (vedi anche updateId/aggiornato qui sotto).
   const nativeVersion = Constants.expoConfig?.version ?? '—';
-  const updateId = Updates.updateId;
-  const createdAt = Updates.createdAt;
-  const runtimeVersion = Updates.runtimeVersion;
-
-  // Mostra solo le ultime 8 cifre dell'updateId: la UUID completa non serve
-  // a niente in UI ma il "fingerprint" basta per capire se due device
-  // stanno girando lo stesso bundle.
-  const bundleLabel = updateId ? updateId.slice(-8) : 'embedded';
-  const updatedAtLabel = createdAt ? formatDateTime(createdAt) : '—';
 
   return (
     <Card style={styles.card}>
       <Text style={typography.label}>Versione app</Text>
-      <View style={styles.versionGrid}>
-        <VersionRow label="App" value={nativeVersion} />
-        <VersionRow label="Bundle" value={bundleLabel} />
-        <VersionRow label="Aggiornato" value={updatedAtLabel} />
-        {runtimeVersion ? (
-          <VersionRow label="Runtime" value={runtimeVersion} />
-        ) : null}
+      <View style={styles.versionRow}>
+        <Text style={typography.caption}>App</Text>
+        <Text style={styles.versionValue}>{nativeVersion}</Text>
       </View>
     </Card>
   );
-}
-
-function VersionRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.versionRow}>
-      <Text style={typography.caption}>{label}</Text>
-      <Text style={styles.versionValue}>{value}</Text>
-    </View>
-  );
-}
-
-function formatDateTime(date: Date): string {
-  // Formato compatto it-IT: "29/04/2026 14:32". Fallback su toString se
-  // il runtime non supporta Intl per qualche motivo.
-  try {
-    return new Intl.DateTimeFormat('it-IT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
-  } catch {
-    return date.toISOString();
-  }
 }
 
 function ResultsCard({ computed }: { computed: ReturnType<typeof computeProfile> | null }) {
@@ -572,9 +529,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-  },
-  versionGrid: {
-    gap: spacing.md,
   },
   versionRow: {
     flexDirection: 'row',

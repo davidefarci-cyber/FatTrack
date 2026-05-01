@@ -6,7 +6,7 @@ cd /d "%~dp0"
 rem ============================================================
 rem  fattrack.bat - Menu unico per FatTrack
 rem  Sostituisce: avvia-dev, avvia-dev-tunnel, crea-apk,
-rem               crea-apk-locale, pubblica-update, release.
+rem               crea-apk-locale, release.
 rem  Bootstrap pre-clone resta in setup.bat.
 rem ============================================================
 
@@ -20,20 +20,18 @@ echo  [1] Aggiorna repo (git pull)
 echo  [2] Avvia dev server (Expo Go)
 echo  [3] Build APK senza release (firmato, niente push/upload)
 echo  [4] Release completa (pull + bump + APK + GitHub Release)
-echo  [5] Pubblica update OTA (JS/TS only)
-echo  [6] Verifica/installa dipendenze
+echo  [5] Verifica/installa dipendenze
 echo  [0] Esci
 echo.
 set "_OPT="
-set /p "_OPT=Scelta [0-6]: "
+set /p "_OPT=Scelta [0-5]: "
 
 if "!_OPT!"=="0" goto :end
 if "!_OPT!"=="1" call :menu_pull & goto :main_menu
 if "!_OPT!"=="2" call :menu_dev & goto :main_menu
 if "!_OPT!"=="3" call :menu_build_quick & goto :main_menu
 if "!_OPT!"=="4" call :menu_release & goto :main_menu
-if "!_OPT!"=="5" call :menu_ota & goto :main_menu
-if "!_OPT!"=="6" call :menu_deps & goto :main_menu
+if "!_OPT!"=="5" call :menu_deps & goto :main_menu
 echo [!] Scelta non valida.
 timeout /t 1 >nul
 goto :main_menu
@@ -190,7 +188,6 @@ echo.
 rem --- 1. PRE-CHECK tool ---
 where node >nul 2>nul || (echo [!] Node.js non trovato. Lancia setup.bat. & pause & exit /b 1)
 where git  >nul 2>nul || (echo [!] git non trovato. Lancia setup.bat. & pause & exit /b 1)
-where eas  >nul 2>nul || (echo [!] EAS CLI non trovato. Lancia setup.bat. & pause & exit /b 1)
 where gh   >nul 2>nul || (
     echo [!] GitHub CLI ^(gh^) non trovata.
     echo     Installala con:  winget install --id GitHub.cli -e
@@ -214,19 +211,6 @@ if errorlevel 1 (
     call gh auth login
     if errorlevel 1 (
         echo [!] gh auth login fallito.
-        pause
-        exit /b 1
-    )
-)
-
-rem EAS serve a fine release per pubblicare l'OTA allineato al nuovo APK.
-rem Senza login qui fallirebbe lo step finale dopo aver gia' tag/pushato.
-call eas whoami >nul 2>nul
-if errorlevel 1 (
-    echo [ ] EAS non autenticato. Avvio "eas login"...
-    call eas login
-    if errorlevel 1 (
-        echo [!] eas login fallito. Serve per pubblicare l'OTA a fine release.
         pause
         exit /b 1
     )
@@ -419,7 +403,6 @@ if "!BUILD_CHOICE!"=="1" echo  Build:       LOCALE ^(arm64-v8a^)
 if "!BUILD_CHOICE!"=="2" echo  Build:       CLOUD EAS
 echo  Branch:      main ^(commit + tag + push^)
 echo  GitHub:      gh release create !TAG! ./fattrack.apk
-echo  OTA:         eas update --branch production ^(allinea JS al nuovo APK^)
 echo ============================================================
 set "CONFIRM="
 set /p "CONFIRM=Procedo? [s/N]: "
@@ -461,6 +444,10 @@ if not exist "!APK_PATH!" (
 goto :rel_after_build
 
 :rel_build_cloud
+where eas >nul 2>nul || (
+    echo [!] EAS CLI non trovato. Serve per la build cloud. Lancia setup.bat.
+    goto :rel_rollback
+)
 call eas whoami >nul 2>nul
 if errorlevel 1 (
     call eas login || goto :rel_rollback
@@ -532,34 +519,13 @@ if errorlevel 1 (
     exit /b 1
 )
 
-rem --- 13. OTA SYNC (allinea il bundle JS al nuovo APK) ---
-rem  app.json fissa runtimeVersion="1.0.0" e channel="production": ogni
-rem  APK fatto da qui in poi cerca OTA su quel canale al primo lancio.
-rem  Se il canale ha un bundle vecchio (l'ultimo "eas update" prima della
-rem  release), l'APK lo scarica e mostra JS vecchio sopra il native nuovo.
-rem  Pubblicando OTA dallo stesso commit della release il canale resta
-rem  allineato: il bundle remoto e' funzionalmente identico all'embedded.
-echo.
-echo [ ] eas update --branch production ^(allineo OTA al nuovo APK^)...
-call eas update --branch production --message "release !TAG!" --non-interactive
-if errorlevel 1 (
-    echo.
-    echo [!] eas update fallito. RELEASE NATIVA OK ma OTA NON allineato:
-    echo     gli utenti col nuovo APK potrebbero caricare il JS della
-    echo     versione precedente. Risolvi a mano con "fattrack.bat" voce 5
-    echo     prima che qualcuno aggiorni.
-    pause
-    exit /b 1
-)
-echo [OK] OTA pubblicato su "production" ^(allineato a !TAG!^).
-
 del "!NOTES_FILE!" >nul 2>nul
 del "!NOTES_CLEAN!" >nul 2>nul
 
 echo.
 echo ============================================================
 echo  RELEASE COMPLETATA
-echo  Versione !NEW_VER! pubblicata ^(APK GitHub + OTA production^).
+echo  Versione !NEW_VER! pubblicata ^(APK su GitHub Release^).
 echo  Gli utenti riceveranno l'alert al prossimo lancio dell'app.
 echo ============================================================
 pause
@@ -576,67 +542,7 @@ exit /b 1
 
 
 rem ============================================================
-rem  VOCE 5: Pubblica update OTA
-rem ============================================================
-:menu_ota
-echo.
-echo === Pubblica update OTA (JS/TS only) ===
-echo.
-echo  Usa per fix rapidi solo JS/TS/asset, senza ribuildare l'APK.
-echo  NON usare se hai modificato dipendenze native, app.json o SDK.
-echo.
-
-call :check_node_modules || exit /b 1
-call :require_tool eas "winget install --id Expo.EasCli -e oppure: npm i -g eas-cli" || exit /b 1
-call :ensure_eas_login || exit /b 1
-
-findstr /C:"\"projectId\": \"\"" app.json >nul
-if not errorlevel 1 (
-    echo [!] expo.extra.eas.projectId in app.json e' vuoto.
-    echo     Configura una volta sola con:  eas init
-    pause
-    exit /b 1
-)
-
-where git >nul 2>nul
-if not errorlevel 1 (
-    for /f "delims=" %%s in ('git status --porcelain') do (
-        echo [!] Modifiche non committate. L'OTA pubblichera' lo stato attuale.
-        set "GOON="
-        set /p "GOON=    Continuare? [s/N]: "
-        if /i not "!GOON!"=="s" exit /b 1
-        goto :ota_msg
-    )
-)
-
-:ota_msg
-set "MSG="
-set /p "MSG=Messaggio update (es. 'fix calcolo kcal'): "
-if "!MSG!"=="" (
-    echo [!] Messaggio vuoto, uscita.
-    pause
-    exit /b 1
-)
-
-echo.
-echo [ ] Pubblico OTA su branch "production"...
-call eas update --branch production --message "!MSG!"
-if errorlevel 1 (
-    echo [!] eas update fallito.
-    pause
-    exit /b 1
-)
-
-echo.
-echo ============================================================
-echo  OTA pubblicato. Update consegnato al prossimo lancio app.
-echo ============================================================
-pause
-exit /b 0
-
-
-rem ============================================================
-rem  VOCE 6: Verifica/installa dipendenze
+rem  VOCE 5: Verifica/installa dipendenze
 rem ============================================================
 :menu_deps
 echo.
@@ -771,19 +677,6 @@ for /f "delims=" %%v in ('%~1 --version 2^>nul') do (
     exit /b 0
 )
 echo [OK] %~2 presente
-exit /b 0
-
-:ensure_eas_login
-call eas whoami >nul 2>nul
-if errorlevel 1 (
-    echo [ ] Non sei loggato su EAS. Avvio "eas login"...
-    call eas login
-    if errorlevel 1 (
-        echo [!] Login EAS fallito.
-        exit /b 1
-    )
-)
-for /f "delims=" %%u in ('eas whoami 2^>nul') do echo [OK] EAS: %%u
 exit /b 0
 
 :ensure_android_toolchain

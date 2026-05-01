@@ -57,7 +57,7 @@ iwr -Uri https://raw.githubusercontent.com/davidefarci-cyber/fattrack/main/setup
 
 A fine setup `setup.bat` ti propone di lanciare direttamente
 **`fattrack.bat`**, il menu unico da cui parte tutto il workflow
-quotidiano (dev server, build APK, release, OTA, gestione dipendenze).
+quotidiano (dev server, build APK, release, gestione dipendenze).
 
 > Se `winget` non è installato, lo script ti manda al link di "App Installer"
 > sul Microsoft Store; installa e rilancia. Dopo che Git o Node.js vengono
@@ -226,7 +226,7 @@ scripts\build-android-local.bat arm64-v8a fattrack-test.apk
 
 1. `npx expo prebuild --platform android --no-install` — genera la
    cartella `android/` dal tuo `app.json` (i config plugin di
-   `expo-camera`, `expo-updates`, ecc. vengono applicati qui).
+   `expo-camera`, ecc. vengono applicati qui).
 2. **Keystore management** — la prima volta backuppa
    `android/app/debug.keystore` in `keystore/debug.keystore` (root del
    repo, gitignored). Le volte successive ripristina sempre quella
@@ -279,64 +279,35 @@ adb install -r ./fattrack-preview.apk
 
 ## 5. Gestione degli aggiornamenti
 
-FatTrack ha **due canali di aggiornamento**, scegli in base a cosa hai cambiato:
-
-| Tipo di modifica | Canale | Voce menu in `fattrack.bat` |
-| --- | --- | --- |
-| Solo `src/**` (TS/TSX/asset) | **OTA via EAS Update** (~30-90 s) | `[5] Pubblica update OTA` |
-| Tutto il resto (deps native, `app.json`, SDK, permessi) | **Nuovo APK + GitHub Release** (~3-15 min) | `[4] Release completa` |
-
-> Regola pratica: ti basta chiederti _"ho aggiunto/modificato qualcosa in
-> `package.json` o `app.json`?"_. Sì → release APK. No → OTA.
+FatTrack distribuisce gli aggiornamenti **solo via APK nativo**: ogni
+release produce un nuovo `fattrack.apk` pubblicato su GitHub Release, e
+l'app installata mostra un prompt all'utente quando vede una versione
+più recente. Niente OTA / EAS Update: bundle JS e codice nativo viaggiano
+sempre insieme, fine dei runtime mismatch.
 
 ### 5.1 Setup una tantum
 
-Prima del primo OTA / della prima release, configura il progetto su EAS:
-
-```bash
-eas login
-eas init                    # crea expo.extra.eas.projectId in app.json
-eas update:configure        # aggiunge updates.url in app.json + runtime config
-```
-
-Per le GitHub Release serve anche la **GitHub CLI**:
+Per le GitHub Release serve la **GitHub CLI**:
 
 ```powershell
 winget install --id GitHub.cli -e
 gh auth login
 ```
 
-### 5.2 OTA — fix veloci JS-only (menu `[5]`)
-
-Per modifiche al solo codice JS/TS o agli asset, **non serve un APK nuovo**.
-Da `fattrack.bat` scegli **`[5] Pubblica update OTA`**. Lo script:
-
-1. Verifica login EAS + project ID configurato.
-2. Avvisa se hai modifiche non committate.
-3. Chiede un messaggio per l'update.
-4. Lancia `eas update --branch production --message "..."`.
-
-L'utente riceve l'aggiornamento al prossimo lancio (o al ritorno in foreground)
-in modo silenzioso, scaricando solo poche centinaia di KB di bundle.
-
-In alternativa via npm:
+Per la build cloud EAS serve anche `eas` autenticato (la build locale non
+ne ha bisogno):
 
 ```bash
-npm run update:ota -- --message "fix calcolo kcal"
+eas login
+eas init   # solo se manca expo.extra.eas.projectId in app.json
 ```
 
-> ⚠️ L'OTA può aggiornare solo codice JS compatibile con la `runtimeVersion`
-> dell'APK installato. Configurato come `policy: "appVersion"`: ogni nuovo
-> `expo.version` taglia un nuovo runtime → gli utenti su versione vecchia
-> _non_ riceveranno l'OTA, devono aggiornare l'APK.
+### 5.2 Release completa con APK (menu `[4]`)
 
-### 5.3 Release completa con APK (menu `[4]`)
+Da `fattrack.bat` scegli **`[4] Release completa`**. Lo script gestisce
+**tutto in automatico** con controlli di sicurezza:
 
-Quando hai cambiato qualcosa che richiede un APK nuovo, da `fattrack.bat`
-scegli **`[4] Release completa`**. Lo script gestisce **tutto in automatico**
-con controlli di sicurezza:
-
-1. **Pre-check**: presenza di `node`, `git`, `eas`, `gh`, `node_modules`,
+1. **Pre-check**: presenza di `node`, `git`, `gh`, `node_modules`,
    identità git configurata, login `gh` attivo.
 2. **Branch check**: deve essere `main`, working tree pulito, fa `git pull
    --ff-only`.
@@ -368,7 +339,7 @@ https://github.com/davidefarci-cyber/fattrack/releases/latest/download/fattrack.
 
 Niente edit manuale di `version.json` ad ogni release: lo script lo fa per te.
 
-### 5.4 Cosa succede lato utente
+### 5.3 Cosa succede lato utente
 
 `src/utils/updateChecker.ts`:
 
@@ -381,9 +352,6 @@ Niente edit manuale di `version.json` ad ogni release: lo script lo fa per te.
   `FLAG_GRANT_READ_URI_PERMISSION`). Un solo tap, niente browser.
 - Se imposti `min_supported_version` ≥ versione utente, l'alert diventa
   **bloccante** (niente bottone "Dopo").
-- Tutto questo si aggiunge a EAS Update, che gira in parallelo per i fix
-  JS-only (l'utente non vede alert: l'app riavvia con il nuovo bundle alla
-  prossima apertura).
 
 > **Permesso `REQUEST_INSTALL_PACKAGES`** è già dichiarato in `app.json`. La
 > prima volta che l'utente preme "Aggiorna", Android chiederà di abilitare
@@ -406,14 +374,13 @@ Niente edit manuale di `version.json` ad ogni release: lo script lo fa per te.
 | `npm run typecheck` | Controllo TypeScript senza emettere output |
 | `npm run build:android:preview` | Build EAS cloud profilo preview |
 | `npm run build:android:production` | Build EAS cloud profilo production |
-| `npm run update:ota -- --message "..."` | Pubblica OTA (EAS Update) |
 
 ### .bat (Windows)
 
 | Script | Descrizione |
 | --- | --- |
 | `setup.bat` | Bootstrap pre-clone: Git, Node, EAS, clone repo, `npm install`. Lanciabile dalla cartella in cui vuoi clonare il repo. |
-| `fattrack.bat` | **Menu unico** per tutto il workflow quotidiano: aggiorna repo, dev server (Expo Go), build APK rapido, release completa, OTA, gestione dipendenze. |
+| `fattrack.bat` | **Menu unico** per tutto il workflow quotidiano: aggiorna repo, dev server (Expo Go), build APK rapido, release completa, gestione dipendenze. |
 | `scripts\build-android-local.bat` | Helper interno: `expo prebuild` + Gradle assemble release. Invocato dalle voci di build di `fattrack.bat`. |
 | `scripts\ensure-git-push-auth.bat` | Helper interno: ripulisce token in URL remote + configura `gh` come credential helper. Invocato da `fattrack.bat → release` e da `setup.bat`. |
 | `scripts\install-android-build-tools.ps1` | Installer toolchain Android (JDK 17 + cmdline-tools + sdk packages). Invocato in automatico quando serve. |

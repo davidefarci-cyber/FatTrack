@@ -11,8 +11,7 @@
     "lint": "eslint . --ext .ts,.tsx",
     "prebuild": "expo prebuild",
     "build:android:preview": "eas build --platform android --profile preview",
-    "build:android:production": "eas build --platform android --profile production",
-    "update:ota": "eas update --branch production"
+    "build:android:production": "eas build --platform android --profile production"
   },
   "dependencies": {
     "@expo-google-fonts/plus-jakarta-sans": "^0.2.3",
@@ -29,7 +28,6 @@
     "expo-splash-screen": "~0.27.7",
     "expo-sqlite": "~14.0.6",
     "expo-status-bar": "~1.12.1",
-    "expo-updates": "~0.25.27",
     "react": "18.2.0",
     "react-hook-form": "^7.72.1",
     "react-native": "0.74.5",
