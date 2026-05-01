@@ -62,6 +62,11 @@ type ContextValue = {
   loading: boolean;
   pendingOpen: boolean;
   acknowledgePendingOpen: () => void;
+  // Riapertura on-demand della ActiveSessionScreen quando una sessione
+  // è già attiva: utile per il pulsante "Riprendi" della SportHomeScreen
+  // (Fase 4) che NON può chiamare `start()` perché throwerebbe. Il
+  // SportTabNavigator osserva già `pendingOpen` e mostra il modal.
+  requestOpen: () => void;
   start: (workoutId: number) => Promise<void>;
   completeSet: (data: CompleteSetData) => Promise<void>;
   skipSet: () => Promise<void>;
@@ -194,6 +199,10 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
 
   const acknowledgePendingOpen = useCallback(() => {
     setPendingOpen(false);
+  }, []);
+
+  const requestOpen = useCallback(() => {
+    if (stateRef.current) setPendingOpen(true);
   }, []);
 
   const computeNextStep = useCallback(
@@ -385,6 +394,7 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
       loading,
       pendingOpen,
       acknowledgePendingOpen,
+      requestOpen,
       start,
       completeSet,
       skipSet,
@@ -399,6 +409,7 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
       loading,
       pendingOpen,
       acknowledgePendingOpen,
+      requestOpen,
       start,
       completeSet,
       skipSet,
