@@ -1,9 +1,10 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { BackHandler, ToastAndroid, Platform } from 'react-native';
 
 import { BottomTabBar } from '@/components/BottomTabBar';
 import { useToast } from '@/components/Toast';
+import { useAppSettings } from '@/hooks/useAppSettings';
 import ExercisesScreen from '@/screens/sport/ExercisesScreen';
 import SportHistoryScreen from '@/screens/sport/SportHistoryScreen';
 import SportHomeScreen from '@/screens/sport/SportHomeScreen';
@@ -31,6 +32,16 @@ const EXIT_DOUBLE_TAP_MS = 2000;
 export function SportTabNavigator() {
   const toast = useToast();
   const lastBackRef = useRef(0);
+  const { setAppMode, markSportModeSeen } = useAppSettings();
+
+  // Long-press sul tab Home → toggle inverso (sport → diet). Stessa logica
+  // di MainTabNavigator. `markSportModeSeen()` resta vero anche al ritorno
+  // in diet: una volta visto il primo passaggio, la scoperta è chiusa per
+  // sempre (vedi Fase 5).
+  const handleHomeLongPress = useCallback(async () => {
+    await setAppMode('diet');
+    await markSportModeSeen();
+  }, [setAppMode, markSportModeSeen]);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -61,7 +72,9 @@ export function SportTabNavigator() {
     <Tab.Navigator
       initialRouteName="Home"
       backBehavior="none"
-      tabBar={(props) => <BottomTabBar {...props} />}
+      tabBar={(props) => (
+        <BottomTabBar {...props} onHomeLongPress={handleHomeLongPress} />
+      )}
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Timer" component={TimerScreen} />
