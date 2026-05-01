@@ -14,6 +14,7 @@ export * as profileDB from './profileDB';
 export * as appSettingsDB from './appSettingsDB';
 export * as exercisesDB from './exercisesDB';
 export * as workoutsDB from './workoutsDB';
+export * as sessionsDB from './sessionsDB';
 
 export type { Food, FoodSource, NewFood } from './foodsDB';
 export type { FoodServing, NewFoodServing } from './foodServingsDB';
@@ -30,3 +31,9 @@ export type {
   WorkoutExercise,
   NewWorkout,
 } from './workoutsDB';
+export type {
+  Session,
+  SessionSet,
+  ActiveSessionRow,
+  NewSessionSet,
+} from './sessionsDB';

@@ -8,16 +8,17 @@ import type { Exercise, Workout } from '@/database';
 import { colors, radii, spacing, sportPalette, typography } from '@/theme';
 
 // Dettaglio scheda: vista read-only con header (nome + badge categoria)
-// e lista esercizi numerata. Il bottone "Inizia allenamento" è
-// volutamente disabilitato in Fase 2: il flusso reale arriva in Fase 3.
-// Per i preset il bottone secondario è "Duplica"; per le schede utente è
-// "Modifica".
+// e lista esercizi numerata. Il bottone "Inizia allenamento" parte la
+// sessione live (Fase 3) quando il caller passa `onStart`; senza onStart
+// resta disabled. Per i preset il bottone secondario è "Duplica"; per
+// le schede utente è "Modifica".
 
 type Props = {
   visible: boolean;
   workout: Workout | null;
   onClose: () => void;
   onAction: () => void; // Modifica per user, Duplica per preset.
+  onStart?: () => void; // Avvia sessione live (Fase 3); assente ⇒ disabled.
 };
 
 function formatPrescription(
@@ -40,6 +41,7 @@ export function WorkoutDetailModal({
   workout,
   onClose,
   onAction,
+  onStart,
 }: Props) {
   const [exerciseMap, setExerciseMap] = useState<Map<number, Exercise>>(
     new Map(),
@@ -142,10 +144,11 @@ export function WorkoutDetailModal({
         </View>
 
         <View style={styles.footer}>
-          <Button label="Inizia allenamento" disabled />
-          <Text style={[typography.caption, styles.footerHint]}>
-            Disponibile a breve.
-          </Text>
+          <Button
+            label="Inizia allenamento"
+            onPress={onStart}
+            disabled={!onStart}
+          />
           <Button label={actionLabel} variant="secondary" onPress={onAction} />
         </View>
       </ScrollView>
@@ -205,8 +208,5 @@ const styles = StyleSheet.create({
   },
   footer: {
     gap: spacing.md,
-  },
-  footerHint: {
-    textAlign: 'center',
   },
 });

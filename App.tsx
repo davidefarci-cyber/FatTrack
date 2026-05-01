@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ToastProvider } from '@/components/Toast';
+import { ActiveSessionProvider } from '@/contexts/ActiveSessionContext';
 import { getDatabase } from '@/database';
 import { useFonts } from '@/hooks/useFonts';
 import { RootNavigator } from '@/navigation';
@@ -30,8 +31,10 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ToastProvider>
-          <StatusBar style="dark" />
-          <RootNavigator />
+          <ActiveSessionProvider>
+            <StatusBar style="dark" />
+            <RootNavigator />
+          </ActiveSessionProvider>
         </ToastProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,6 +18,7 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
 import { WorkoutDetailModal } from '@/components/sport/WorkoutDetailModal';
 import { WorkoutEditorModal } from '@/components/sport/WorkoutEditorModal';
+import { useActiveSession } from '@/contexts/ActiveSessionContext';
 import { workoutsDB } from '@/database';
 import type { NewWorkout, Workout } from '@/database';
 import { colors, radii, shadows, spacing, sportPalette, typography } from '@/theme';
@@ -24,6 +26,7 @@ import { colors, radii, shadows, spacing, sportPalette, typography } from '@/the
 export default function WorkoutsScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
+  const { state: activeSessionState, start } = useActiveSession();
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDetail, setOpenDetail] = useState<Workout | null>(null);
@@ -107,6 +110,29 @@ export default function WorkoutsScreen() {
     [handleDuplicate],
   );
 
+  const handleStart = useCallback(
+    async (workout: Workout) => {
+      if (activeSessionState) {
+        Alert.alert(
+          'Sessione già attiva',
+          'Termina la sessione corrente prima di iniziarne una nuova.',
+        );
+        return;
+      }
+      try {
+        await start(workout.id);
+        // L'apertura della ActiveSessionScreen avviene automaticamente
+        // via SportTabNavigator (consuma `pendingOpen` dal provider).
+        setOpenDetail(null);
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : 'Avvio sessione non riuscito';
+        toast.show(msg);
+      }
+    },
+    [activeSessionState, start, toast],
+  );
+
   return (
     <View style={styles.container}>
       <ScreenHeader
@@ -163,6 +189,14 @@ export default function WorkoutsScreen() {
         onAction={() => {
           if (openDetail) handleAction(openDetail);
         }}
+        onStart={
+          openDetail
+            ? () => {
+                const w = openDetail;
+                handleStart(w);
+              }
+            : undefined
+        }
       />
 
       <WorkoutEditorModal
