@@ -2,13 +2,19 @@ import { NavigationContainer, createNavigationContainerRef } from '@react-naviga
 
 import { useProfile } from '@/hooks/useProfile';
 import OnboardingScreen from '@/screens/OnboardingScreen';
-import type { TabParamList } from '@/types';
+import type { SportTabParamList, TabParamList } from '@/types';
 
 import { MainTabNavigator } from './MainTabNavigator';
 
 // Esposto come singleton per agganciare il back handler hardware (Android)
-// dentro MainTabNavigator senza passare ref via props.
-export const navigationRef = createNavigationContainerRef<TabParamList>();
+// dentro MainTabNavigator / SportTabNavigator senza passare ref via props.
+// Il container è uno solo: monta `MainTabNavigator` (diet) o
+// `SportTabNavigator` (sport) in base ad `appMode`. La firma tipizzata
+// copre entrambi i set di rotte (la chiave comune `Home` è quella usata
+// effettivamente dal back-handler).
+export const navigationRef = createNavigationContainerRef<
+  TabParamList | SportTabParamList
+>();
 
 // Navigatore radice: al primo avvio controlla il profilo salvato in SQLite.
 // Se manca mostra l'OnboardingScreen (fuori dal tab navigator), altrimenti
