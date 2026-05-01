@@ -22,7 +22,14 @@ export type IconName =
   | 'check'
   | 'close'
   | 'info'
-  | 'user';
+  | 'user'
+  | 'timer'
+  | 'dumbbell'
+  | 'list-checks'
+  | 'play'
+  | 'pause'
+  | 'bolt'
+  | 'flame';
 
 export type IconProps = {
   name: IconName;
@@ -245,6 +252,115 @@ export function Icon({ name, size = 22, color = colors.textSec, filled = false }
             stroke={color}
             strokeWidth={1.6}
             strokeLinecap="round"
+          />
+        </Svg>
+      );
+    case 'timer':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M9 2h6"
+            stroke={color}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+          />
+          <Circle cx={12} cy={14} r={8} stroke={color} strokeWidth={1.8} />
+          <Path
+            d="M12 10v4l2.5 2"
+            stroke={color}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </Svg>
+      );
+    case 'dumbbell':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Rect x={2} y={9} width={3} height={6} rx={1} stroke={color} strokeWidth={1.6} />
+          <Rect x={5} y={7} width={3} height={10} rx={1} stroke={color} strokeWidth={1.6} />
+          <Rect x={8} y={11} width={8} height={2} rx={0.5} fill={color} />
+          <Rect x={16} y={7} width={3} height={10} rx={1} stroke={color} strokeWidth={1.6} />
+          <Rect x={19} y={9} width={3} height={6} rx={1} stroke={color} strokeWidth={1.6} />
+        </Svg>
+      );
+    case 'list-checks':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M3 5l1.5 1.5L7 4"
+            stroke={color}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M3 12l1.5 1.5L7 11"
+            stroke={color}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M3 19l1.5 1.5L7 18"
+            stroke={color}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path d="M11 5h10" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+          <Path d="M11 12h10" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+          <Path d="M11 19h10" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+        </Svg>
+      );
+    case 'play':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M7 4.5v15l13-7.5L7 4.5z"
+            fill={color}
+            stroke={color}
+            strokeWidth={1.4}
+            strokeLinejoin="round"
+          />
+        </Svg>
+      );
+    case 'pause':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Rect x={6} y={4} width={4} height={16} rx={1} fill={color} />
+          <Rect x={14} y={4} width={4} height={16} rx={1} fill={color} />
+        </Svg>
+      );
+    case 'bolt':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"
+            fill={color}
+            fillOpacity={0.2}
+            stroke={color}
+            strokeWidth={1.6}
+            strokeLinejoin="round"
+          />
+        </Svg>
+      );
+    case 'flame':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M12 3c1 3 4 4.5 4 8a4 4 0 11-8 0c0-1.5.5-2.5 1.5-3.5C10.5 6 11 4.5 12 3z"
+            fill={color}
+            fillOpacity={0.2}
+            stroke={color}
+            strokeWidth={1.6}
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M12 12c.5 1.5 2 2.2 2 4a2 2 0 11-4 0c0-1 .5-1.6 1-2.2.5-.6.8-1.1 1-1.8z"
+            stroke={color}
+            strokeWidth={1.4}
+            strokeLinejoin="round"
           />
         </Svg>
       );

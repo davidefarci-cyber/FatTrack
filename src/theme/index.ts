@@ -3,12 +3,24 @@
 // Questa è la fonte di verità stilistica per l'intera app:
 // ogni schermata/componente nuovi devono usare questi token.
 
-export { colors, mealPalette } from './colors';
+export { mealPalette } from './colors';
 export type { MealKey } from './colors';
 export { fontFamily, typography } from './typography';
+export { sportColors, sportPalette, APP_NAME_SPORT } from './sportMode';
+export type { SportCategory } from './sportMode';
 
-import { colors, mealPalette } from './colors';
+import { colors as baseColors, mealPalette } from './colors';
+import { sportColors, sportPalette } from './sportMode';
 import { fontFamily, typography } from './typography';
+
+// `colors` rimane la palette diet "neutra" + alias `sport.*` per i token
+// arancio. NON rinominiamo i token esistenti: i componenti theme-aware
+// leggono l'accent corrente da `useAppTheme()`, mentre chi non ha bisogno
+// di reagire al tema continua a usare `colors.green`/`colors.red`/ecc.
+export const colors = {
+  ...baseColors,
+  sport: sportColors,
+} as const;
 
 // Ombre: il design ha due livelli. In RN le traduciamo in elevation (Android)
 // + shadowColor/Offset/Opacity/Radius (iOS). Applicare via `style={shadows.sm}`.
@@ -53,6 +65,7 @@ export const spacing = {
 export const theme = {
   colors,
   mealPalette,
+  sportPalette,
   shadows,
   radii,
   spacing,
