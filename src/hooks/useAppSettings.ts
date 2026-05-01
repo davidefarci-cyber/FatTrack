@@ -18,6 +18,7 @@ type Snapshot = {
 const DEFAULT_SETTINGS: AppSettings = {
   appMode: 'diet',
   sportModeSeen: false,
+  weeklyTargetDays: 4,
   updatedAt: '',
 };
 
@@ -69,13 +70,21 @@ async function markSportModeSeen(): Promise<AppSettings> {
   return updated;
 }
 
+async function setWeeklyTarget(days: number): Promise<AppSettings> {
+  const updated = await appSettingsDB.setWeeklyTarget(days);
+  setSnapshot({ settings: updated, loading: false, error: null });
+  return updated;
+}
+
 export type UseAppSettingsResult = {
   appMode: AppMode;
   sportModeSeen: boolean;
+  weeklyTargetDays: number;
   loading: boolean;
   error: Error | null;
   setAppMode: (mode: AppMode) => Promise<AppSettings>;
   markSportModeSeen: () => Promise<AppSettings>;
+  setWeeklyTarget: (days: number) => Promise<AppSettings>;
   reload: () => Promise<void>;
 };
 
@@ -86,16 +95,19 @@ export function useAppSettings(): UseAppSettingsResult {
   const reloadFn = useCallback(() => reload(), []);
   const setModeFn = useCallback((m: AppMode) => setAppMode(m), []);
   const markSeenFn = useCallback(() => markSportModeSeen(), []);
+  const setWeeklyTargetFn = useCallback((d: number) => setWeeklyTarget(d), []);
 
   const settings = state.settings ?? DEFAULT_SETTINGS;
 
   return {
     appMode: settings.appMode,
     sportModeSeen: settings.sportModeSeen,
+    weeklyTargetDays: settings.weeklyTargetDays,
     loading: state.loading,
     error: state.error,
     setAppMode: setModeFn,
     markSportModeSeen: markSeenFn,
+    setWeeklyTarget: setWeeklyTargetFn,
     reload: reloadFn,
   };
 }

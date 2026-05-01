@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Button } from '@/components/Button';
 import { CalorieRing } from '@/components/CalorieRing';
 import { Card } from '@/components/Card';
 import { Icon } from '@/components/Icon';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { WorkoutPickerSheet } from '@/components/sport/WorkoutPickerSheet';
 import { useActiveSession } from '@/contexts/ActiveSessionContext';
-import { workoutsDB } from '@/database';
+import { sessionsDB, workoutsDB } from '@/database';
 import type { Workout } from '@/database';
 import { useSportStats } from '@/hooks/useSportStats';
 import {
@@ -66,6 +67,11 @@ export default function SportHomeScreen() {
   );
   const [pickerOpen, setPickerOpen] = useState(false);
   const [starting, setStarting] = useState(false);
+  // Card di benvenuto (Fase 5C): visibile solo per utenti nuovi che non
+  // hanno mai completato una sessione e non hanno schede personali. Viene
+  // ricontrollata al focus della tab — basta una sessione completata o
+  // una scheda non-preset perché sparisca al prossimo render.
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const loadWorkouts = useCallback(async () => {
     try {
@@ -78,9 +84,23 @@ export default function SportHomeScreen() {
     }
   }, []);
 
+  const refreshOnboarding = useCallback(async () => {
+    try {
+      const [sessions, allWorkouts] = await Promise.all([
+        sessionsDB.getAllSessions(),
+        workoutsDB.getAllWorkouts(),
+      ]);
+      const userWorkouts = allWorkouts.filter((w) => !w.isPreset);
+      setShowOnboarding(sessions.length === 0 && userWorkouts.length === 0);
+    } catch {
+      setShowOnboarding(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadWorkouts();
-  }, [loadWorkouts]);
+    void refreshOnboarding();
+  }, [loadWorkouts, refreshOnboarding]);
 
   // Refresh quando l'utente torna in tab Home: la lista workouts può
   // essere cambiata in WorkoutsScreen, e useSportStats già si
@@ -89,7 +109,8 @@ export default function SportHomeScreen() {
     useCallback(() => {
       void loadWorkouts();
       void stats.reload();
-    }, [loadWorkouts, stats]),
+      void refreshOnboarding();
+    }, [loadWorkouts, stats, refreshOnboarding]),
   );
 
   const lastSessionWorkoutId = stats.last?.session.workoutId ?? null;
@@ -159,6 +180,14 @@ export default function SportHomeScreen() {
           { paddingBottom: insets.bottom + spacing.screen * 2 },
         ]}
       >
+        {showOnboarding ? (
+          <OnboardingCard
+            accent={theme.accent}
+            onExplorePresets={() => navigation.navigate('Workouts')}
+            onOpenExercises={() => navigation.navigate('Exercises')}
+          />
+        ) : null}
+
         <TodayCard
           workout={todaysWorkout}
           loading={workoutsLoading}
@@ -212,6 +241,44 @@ export default function SportHomeScreen() {
         onClose={() => setPickerOpen(false)}
       />
     </View>
+  );
+}
+
+type OnboardingCardProps = {
+  accent: string;
+  onExplorePresets: () => void;
+  onOpenExercises: () => void;
+};
+
+function OnboardingCard({
+  accent,
+  onExplorePresets,
+  onOpenExercises,
+}: OnboardingCardProps) {
+  return (
+    <Card style={styles.card}>
+      <View style={styles.row}>
+        <Icon name="dumbbell" size={22} color={accent} />
+        <Text style={typography.bodyBold}>Benvenuto in modalità Sport</Text>
+      </View>
+      <Text style={typography.caption}>
+        Inizia da una scheda preset (Full Body, PPL, Mobilità) o crea la
+        tua dal tab Schede.
+      </Text>
+      <View style={styles.onboardingActions}>
+        <Button
+          label="Esplora preset"
+          onPress={onExplorePresets}
+          style={styles.onboardingBtn}
+        />
+        <Button
+          label="Esercizi"
+          variant="secondary"
+          onPress={onOpenExercises}
+          style={styles.onboardingBtn}
+        />
+      </View>
+    </Card>
   );
 }
 
@@ -497,5 +564,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.lg,
     borderRadius: radii.round,
+  },
+  onboardingActions: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+  },
+  onboardingBtn: {
+    flex: 1,
   },
 });
