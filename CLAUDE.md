@@ -60,8 +60,10 @@ src/
 ```
 
 - **Alias TS**: `@/` → `src/`. Usa sempre gli alias, non i path relativi.
-- **Navigazione**: singolo `createBottomTabNavigator` in `App.tsx`. Ordine dei tab (dal design): `Barcode` · `Favorites` · `Home` (FAB centrale) · `History` · `Settings`. `initialRouteName="Home"`.
-- **DB**: `getDatabase()` è singleton e idempotente. Usa `foodsDB` / `mealsDB` / `favoritesDB` / `settingsDB` / `profileDB` (namespace) da `@/database`.
+- **Navigazione**: `createBottomTabNavigator` in `src/navigation/MainTabNavigator.tsx`, montato da `RootNavigator` (gating onboarding via `useProfile`). `initialRouteName="Home"`. Ordine delle Tab.Screen registrate: `Barcode · Favorites · Home · History · FoodSearch · Settings`.
+
+  **Tab bar visibile** (cosa vede l'utente): `Barcode` · `Favorites` · `Home` (FAB centrale) · `History` · `FoodSearch`. **`Settings` è registrato come Tab.Screen ma NASCOSTO dalla bar** — il `TAB_CONFIG` in `src/components/BottomTabBar.tsx` non lo include e il renderer skippa le rotte non configurate. **Settings è raggiungibile SOLO dall'icona ingranaggio (`cog`) in alto a destra di `HomeScreen`** (vedi `HomeScreen.tsx`, `<ScreenHeader right={<Pressable onPress={() => navigation.navigate('Settings')}>…} />`). NON è quindi una voce della tab bar — sessioni precedenti hanno sbagliato a documentarlo qui, non ripetere l'errore.
+- **DB**: `getDatabase()` è singleton e idempotente. Usa `foodsDB` / `foodServingsDB` / `mealsDB` / `mealsStore` / `favoritesDB` / `quickAddonsDB` / `settingsDB` / `profileDB` (namespace) da `@/database`. Nota: `settingsDB` ora contiene **solo** `side_dish_calories` — i dati personali (peso/altezza/età/sesso/livello attività/obiettivo) e i valori derivati (BMR/TDEE/target) vivono nel singleton `user_profile` via `profileDB`.
 
 ---
 
