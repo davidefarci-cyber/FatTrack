@@ -54,6 +54,8 @@ where git >nul 2>nul || (echo [!] git non trovato. Lancia setup.bat. & pause & e
 set "_HEAD_BEFORE="
 for /f "delims=" %%c in ('git rev-parse HEAD 2^>nul') do set "_HEAD_BEFORE=%%c"
 
+call :reset_npm_lock
+
 echo [ ] git pull --ff-only...
 call git pull --ff-only
 if errorlevel 1 (
@@ -233,6 +235,8 @@ if not "!CURRENT_BRANCH!"=="main" (
     pause
     exit /b 1
 )
+
+call :reset_npm_lock
 
 set "_DIRTY=0"
 for /f "delims=" %%s in ('git status --porcelain') do set "_DIRTY=1"
@@ -683,6 +687,23 @@ if errorlevel 1 (
     echo [!] npm install fallito.
     exit /b 1
 )
+exit /b 0
+
+rem  Ripristina package-lock.json se risulta modificato localmente. Dopo
+rem  un `npm install` automatico (es. al termine della voce 1) il file
+rem  viene riscritto da npm anche quando le dipendenze logiche non sono
+rem  cambiate (lockfile version, ordering, metadati os/cpu cross-platform).
+rem  Il pull successivo fallirebbe con "Your local changes would be
+rem  overwritten by merge". Il file e' interamente derivato da
+rem  package.json: il repo e' la fonte di verita' e ripristinarlo dal
+rem  HEAD e' sicuro. NON tocchiamo package.json (esprime intent dell'utente)
+rem  ne' altri file: eventuali modifiche a `src/...` continueranno a far
+rem  fallire il pull, come desiderato.
+:reset_npm_lock
+call git diff --quiet -- package-lock.json
+if not errorlevel 1 exit /b 0
+echo [ ] package-lock.json modificato localmente: ripristino dal repo.
+call git checkout -- package-lock.json >nul 2>nul
 exit /b 0
 
 :require_tool
