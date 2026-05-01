@@ -23,10 +23,11 @@ import { MEAL_ORDER } from '@/components/mealMeta';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { mealsStore, quickAddonsDB } from '@/database';
 import type { Favorite, Meal, MealType, QuickAddon } from '@/database';
+import { useAppSettings } from '@/hooks/useAppSettings';
 import { useDailyLog } from '@/hooks/useDailyLog';
 import type { NewMealInput } from '@/hooks/useDailyLog';
 import { useProfile } from '@/hooks/useProfile';
-import { colors, radii, spacing, typography } from '@/theme';
+import { colors, radii, spacing, sportColors, typography } from '@/theme';
 import type { TabParamList } from '@/types';
 import { DEFAULT_TARGET_KCAL } from '@/utils/calorieCalculator';
 import { computeMacroTargets } from '@/utils/macroTargets';
@@ -43,6 +44,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<BottomTabNavigationProp<TabParamList>>();
   const { targetCalories } = useProfile();
+  const { appMode, sportModeSeen, setAppMode, markSportModeSeen } = useAppSettings();
   const {
     date,
     dateLabel,
@@ -188,6 +190,18 @@ export default function HomeScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {appMode === 'diet' && !sportModeSeen ? (
+          <SportModeHintBanner
+            onTry={async () => {
+              await setAppMode('sport');
+              await markSportModeSeen();
+            }}
+            onDismiss={() => {
+              void markSportModeSeen();
+            }}
+          />
+        ) : null}
+
         <DayNavigator
           dateLabel={dateLabel}
           isToday={isToday}
@@ -292,6 +306,55 @@ function DayNavigator({
   );
 }
 
+// Banner di onboarding alla modalità Sport: visibile solo finché
+// `sportModeSeen` è false. CTA "Provala" attiva la modalità sport e
+// marca il flag; la X marca soltanto il flag (l'utente "ha visto"
+// la novità). Si ferma in entrambi i casi al primo `markSportModeSeen()`.
+function SportModeHintBanner({
+  onTry,
+  onDismiss,
+}: {
+  onTry: () => void | Promise<void>;
+  onDismiss: () => void;
+}) {
+  return (
+    <View style={styles.hintBanner}>
+      <View style={styles.hintIcon}>
+        <Icon name="dumbbell" size={18} color="#FFFFFF" />
+      </View>
+      <View style={styles.hintTextWrap}>
+        <Text style={[typography.bodyBold, styles.hintTitle]}>
+          Nuova: modalità Sport
+        </Text>
+        <Text style={[typography.caption, styles.hintSubtitle]}>
+          Tieni premuto Home per provarla.
+        </Text>
+        <Pressable
+          onPress={() => {
+            void onTry();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Prova la modalità Sport"
+          style={styles.hintCta}
+        >
+          <Text style={[typography.bodyBold, styles.hintCtaLabel]}>
+            Provala
+          </Text>
+        </Pressable>
+      </View>
+      <Pressable
+        onPress={onDismiss}
+        hitSlop={12}
+        accessibilityRole="button"
+        accessibilityLabel="Chiudi suggerimento modalità Sport"
+        style={styles.hintClose}
+      >
+        <Icon name="close" size={18} color="#FFFFFF" />
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -329,5 +392,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xl,
+  },
+  hintBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xl,
+    backgroundColor: sportColors.accent,
+    borderRadius: radii.xxl,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.xl,
+  },
+  hintIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.round,
+    backgroundColor: sportColors.accentDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hintTextWrap: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  hintTitle: {
+    color: '#FFFFFF',
+  },
+  hintSubtitle: {
+    color: '#FFFFFF',
+    opacity: 0.92,
+  },
+  hintCta: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    backgroundColor: '#FFFFFF',
+    borderRadius: radii.round,
+  },
+  hintCtaLabel: {
+    color: sportColors.accentDark,
+  },
+  hintClose: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

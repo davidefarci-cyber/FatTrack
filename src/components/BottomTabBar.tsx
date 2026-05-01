@@ -1,9 +1,11 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { AppMode } from '@/database';
-import { colors, radii, shadows, spacing, typography } from '@/theme';
+import { useAppSettings } from '@/hooks/useAppSettings';
+import { colors, radii, shadows, spacing, sportColors, typography } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
 
 import { Icon } from './Icon';
@@ -45,6 +47,11 @@ export function getTabConfig(mode: AppMode): Record<string, TabConfig> {
 // Q5 del piano: il default 600ms è da convalidare a mano sul device.
 const LONG_PRESS_MS = 600;
 
+// Periodo del bounce hint sull'icona Home in modalità diet quando l'utente
+// non ha ancora scoperto la modalità sport. ~800ms totali, ampiezza 5px.
+const BOUNCE_PERIOD_MS = 800;
+const BOUNCE_AMPLITUDE = 5;
+
 type BottomTabBarExtraProps = {
   // Callback per il long-press sull'icona Home. Iniettata da MainTabNavigator
   // / SportTabNavigator: tocca la modalità app via appSettingsDB. Non viene
@@ -60,7 +67,42 @@ export function BottomTabBar({
 }: BottomTabBarProps & BottomTabBarExtraProps) {
   const insets = useSafeAreaInsets();
   const { mode, accent } = useAppTheme();
+  const { appMode, sportModeSeen } = useAppSettings();
   const tabConfig = getTabConfig(mode);
+
+  // Discoverability hint (Fase 5): finché l'utente è in diet e non ha mai
+  // visto la sport mode, l'icona Home pulsa con un piccolo bounce e mostra
+  // un callout "Tieni premuto" per richiamare il gesto. Si ferma alla prima
+  // entrata in sport mode (markSportModeSeen).
+  const showHint = appMode === 'diet' && !sportModeSeen;
+  const bounceAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!showHint) {
+      bounceAnim.stopAnimation();
+      bounceAnim.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounceAnim, {
+          toValue: -BOUNCE_AMPLITUDE,
+          duration: BOUNCE_PERIOD_MS / 2,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bounceAnim, {
+          toValue: 0,
+          duration: BOUNCE_PERIOD_MS / 2,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+      bounceAnim.setValue(0);
+    };
+  }, [showHint, bounceAnim]);
 
   return (
     <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
@@ -92,15 +134,22 @@ export function BottomTabBar({
               delayLongPress={LONG_PRESS_MS}
               style={styles.tab}
             >
-              <View
+              {showHint ? (
+                <View style={styles.callout} pointerEvents="none">
+                  <Text style={styles.calloutText}>Tieni premuto</Text>
+                  <View style={styles.calloutArrow} />
+                </View>
+              ) : null}
+              <Animated.View
                 style={[
                   styles.homeFab,
                   shadows.sm,
                   { backgroundColor: isFocused ? accent : colors.text },
+                  { transform: [{ translateY: bounceAnim }] },
                 ]}
               >
                 <Icon name="home" size={22} color="#FFFFFF" />
-              </View>
+              </Animated.View>
               <Text
                 style={[
                   styles.tabLabel,
@@ -167,5 +216,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: -14,
+  },
+  callout: {
+    position: 'absolute',
+    top: -38,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    backgroundColor: sportColors.accent,
+    borderRadius: radii.sm,
+    zIndex: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calloutText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: typography.bodyBold.fontFamily,
+  },
+  calloutArrow: {
+    position: 'absolute',
+    bottom: -4,
+    left: '50%',
+    marginLeft: -4,
+    width: 8,
+    height: 8,
+    backgroundColor: sportColors.accent,
+    transform: [{ rotate: '45deg' }],
   },
 });
