@@ -161,6 +161,46 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS idx_workout_exercises_workout
       ON workout_exercises(workout_id);
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      workout_id INTEGER REFERENCES workouts(id) ON DELETE SET NULL,
+      workout_name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      duration_sec INTEGER,
+      calories_estimated INTEGER,
+      notes TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_sessions_started
+      ON sessions(started_at DESC);
+
+    CREATE TABLE IF NOT EXISTS session_sets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+      exercise_id INTEGER NOT NULL REFERENCES exercises(id),
+      position INTEGER NOT NULL,
+      set_number INTEGER NOT NULL,
+      reps_done INTEGER,
+      weight_kg REAL,
+      duration_sec INTEGER,
+      rpe INTEGER,
+      completed_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_session_sets_session
+      ON session_sets(session_id);
+
+    CREATE TABLE IF NOT EXISTS active_session (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+      current_exercise_index INTEGER NOT NULL DEFAULT 0,
+      current_set_number INTEGER NOT NULL DEFAULT 1,
+      rest_ends_at TEXT,
+      paused_at TEXT,
+      paused_total_sec INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Migrazione: la colonna `target_calories` su `daily_settings` è stata
@@ -276,6 +316,9 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
 export async function resetDatabase(): Promise<void> {
   const db = await getDatabase();
   await db.execAsync(`
+    DROP TABLE IF EXISTS active_session;
+    DROP TABLE IF EXISTS session_sets;
+    DROP TABLE IF EXISTS sessions;
     DROP TABLE IF EXISTS workout_exercises;
     DROP TABLE IF EXISTS workouts;
     DROP TABLE IF EXISTS exercises;
