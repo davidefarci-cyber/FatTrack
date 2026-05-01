@@ -110,6 +110,13 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       target_weight_kg REAL,
       start_weight_kg REAL
     );
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      app_mode TEXT NOT NULL DEFAULT 'diet' CHECK (app_mode IN ('diet','sport')),
+      sport_mode_seen INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Migrazione: la colonna `target_calories` su `daily_settings` è stata
@@ -160,6 +167,10 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   await db.runAsync(
     `INSERT OR IGNORE INTO daily_settings (id, side_dish_calories) VALUES (1, 50)`,
   );
+
+  // Singleton di `app_settings`: una sola riga con id=1, default mode='diet'.
+  // Idempotente come `daily_settings` e `user_profile`.
+  await db.runAsync(`INSERT OR IGNORE INTO app_settings (id) VALUES (1)`);
 
   // Marker idempotente: indica se i `quick_addons` di default sono già
   // stati seedati almeno una volta. Su DB nuovi viene aggiunta dall'ALTER
@@ -228,6 +239,7 @@ export async function resetDatabase(): Promise<void> {
     DROP TABLE IF EXISTS quick_addons;
     DROP TABLE IF EXISTS daily_settings;
     DROP TABLE IF EXISTS user_profile;
+    DROP TABLE IF EXISTS app_settings;
   `);
   dbInstance = null;
   initPromise = null;

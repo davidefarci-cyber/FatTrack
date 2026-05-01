@@ -2,23 +2,31 @@ import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 import { colors, typography } from '@/theme';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 type CalorieRingProps = {
   consumed: number;
   target: number;
   size?: number;
+  // Override del colore "in target": quando assente usa l'accent della
+  // modalità corrente (verde in diet, arancio in sport). Pensato per il
+  // futuro WorkoutRing che riutilizzerà questa primitive con un colore
+  // diverso senza forkare il componente.
+  accent?: string;
 };
 
 const GAP = 0.28;
 
-export function CalorieRing({ consumed, target, size = 148 }: CalorieRingProps) {
+export function CalorieRing({ consumed, target, size = 148, accent }: CalorieRingProps) {
+  const theme = useAppTheme();
   const r = 56;
   const cx = size / 2;
   const cy = size / 2;
   const circ = 2 * Math.PI * r;
   const arcLen = circ * (1 - GAP);
   const isOver = consumed > target;
-  const color = isOver ? colors.red : colors.green;
+  const okColor = accent ?? theme.accent;
+  const color = isOver ? colors.red : okColor;
   const progress = target > 0 ? Math.min(consumed / target, 1) : 0;
   const filled = arcLen * progress;
 

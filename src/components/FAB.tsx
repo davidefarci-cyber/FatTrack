@@ -4,6 +4,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 import { Icon } from '@/components/Icon';
 import type { IconName } from '@/components/Icon';
 import { colors, radii, shadows } from '@/theme';
+import { useAppTheme } from '@/theme/ThemeContext';
 
 type FABProps = {
   icon: IconName;
@@ -21,7 +22,7 @@ type FABProps = {
 export function FAB({
   icon,
   onPress,
-  color = colors.purple,
+  color,
   iconColor = colors.card,
   size = 52,
   iconSize = 22,
@@ -30,6 +31,11 @@ export function FAB({
   disabled = false,
   style,
 }: FABProps) {
+  const { accent } = useAppTheme();
+  // Default theme-aware: in diet → verde, in sport → arancio. I caller che
+  // passano `color` esplicito (es. FavoritesScreen con colors.purple)
+  // continuano a vincere su quel default.
+  const resolvedColor = color ?? accent;
   return (
     <Pressable
       onPress={onPress}
@@ -41,7 +47,7 @@ export function FAB({
           width: size,
           height: size,
           borderRadius: radii.round,
-          backgroundColor: color,
+          backgroundColor: resolvedColor,
           bottom,
           opacity: disabled ? 0.5 : 1,
         },

@@ -1,9 +1,10 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { BackHandler, ToastAndroid, Platform } from 'react-native';
 
 import { BottomTabBar } from '@/components/BottomTabBar';
 import { useToast } from '@/components/Toast';
+import { useAppSettings } from '@/hooks/useAppSettings';
 import BarcodeScreen from '@/screens/BarcodeScreen';
 import FavoritesScreen from '@/screens/FavoritesScreen';
 import FoodSearchScreen from '@/screens/FoodSearchScreen';
@@ -28,6 +29,16 @@ const EXIT_DOUBLE_TAP_MS = 2000;
 export function MainTabNavigator() {
   const toast = useToast();
   const lastBackRef = useRef(0);
+  const { setAppMode, markSportModeSeen } = useAppSettings();
+
+  // Long-press sul tab Home → toggle in modalità sport. Funziona anche al
+  // contrario in SportTabNavigator (stessa logica, callback opposta). Il
+  // delay è in `BottomTabBar.tsx` (`LONG_PRESS_MS`). Niente haptic in
+  // Fase 1: `expo-haptics` non è in package.json; si valuta in Fase 5.
+  const handleHomeLongPress = useCallback(async () => {
+    await setAppMode('sport');
+    await markSportModeSeen();
+  }, [setAppMode, markSportModeSeen]);
 
   // Back hardware Android: il default del bottom-tab navigator e' "torna al
   // tab visitato in precedenza", che genera comportamenti confusi (Home ->
@@ -74,7 +85,9 @@ export function MainTabNavigator() {
       // anche dopo che il nostro handler ha gia' navigato a Home).
       // L'unico gestore del back hardware e' l'useEffect qui sopra.
       backBehavior="none"
-      tabBar={(props) => <BottomTabBar {...props} />}
+      tabBar={(props) => (
+        <BottomTabBar {...props} onHomeLongPress={handleHomeLongPress} />
+      )}
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Barcode" component={BarcodeScreen} />

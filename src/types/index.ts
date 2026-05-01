@@ -12,3 +12,15 @@ export type TabParamList = {
   Settings: undefined;
   Profile: undefined;
 };
+
+// Bottom tab della modalità Sport: Timer · Schede · Home · Storico · Esercizi.
+// `SportSettings` è registrato ma nascosto dalla bar (raggiungibile dal cog
+// icon di SportHomeScreen, analogo a Settings in modalità diet).
+export type SportTabParamList = {
+  Timer: undefined;
+  Workouts: undefined;
+  Home: undefined;
+  History: undefined;
+  Exercises: undefined;
+  SportSettings: undefined;
+};

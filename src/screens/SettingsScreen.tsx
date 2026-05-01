@@ -10,8 +10,11 @@ import { Card } from '@/components/Card';
 import { Icon } from '@/components/Icon';
 import { QuickAddonsCard } from '@/components/QuickAddonsCard';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { useToast } from '@/components/Toast';
 import { mealsStore, resetDatabase } from '@/database';
+import type { AppMode } from '@/database';
+import { useAppSettings } from '@/hooks/useAppSettings';
 import { useProfile } from '@/hooks/useProfile';
 import { colors, radii, spacing, typography } from '@/theme';
 import { exportBackup, importBackup } from '@/utils/dbBackup';
@@ -100,6 +103,8 @@ export default function SettingsScreen() {
               onPress={() => navigation.navigate('Profile')}
             />
 
+            <AppModeCard />
+
             <QuickAddonsCard />
 
             <VersionCard />
@@ -162,6 +167,53 @@ function ProfileShortcut({
       </View>
       <Icon name="chevron-right" size={18} color={colors.textSec} />
     </Pressable>
+  );
+}
+
+// Toggle bidirezionale per la modalità app. In diet mostra il segmented
+// con [Dieta · Sport]; il tap su "Sport" chiede conferma con Alert
+// (cambia faccia all'app, vogliamo che sia un'azione esplicita) e poi
+// `markSportModeSeen()` per spegnere bounce/callout di scoperta che
+// arriveranno in Fase 5.
+const APP_MODE_OPTIONS: ReadonlyArray<{ value: AppMode; label: string }> = [
+  { value: 'diet', label: 'Dieta' },
+  { value: 'sport', label: 'Sport' },
+];
+
+function AppModeCard() {
+  const { appMode, setAppMode, markSportModeSeen } = useAppSettings();
+
+  const handleChange = (next: AppMode) => {
+    if (next === appMode) return;
+    if (next === 'sport') {
+      Alert.alert(
+        'Passare alla modalità Sport?',
+        'L\'app cambia faccia: vedrai schede, timer e libreria esercizi al posto delle calorie. Potrai sempre tornare a Dieta dalle impostazioni.',
+        [
+          { text: 'Annulla', style: 'cancel' },
+          {
+            text: 'Passa a Sport',
+            onPress: async () => {
+              await setAppMode('sport');
+              await markSportModeSeen();
+            },
+          },
+        ],
+      );
+      return;
+    }
+    void setAppMode(next);
+  };
+
+  return (
+    <Card style={styles.card}>
+      <Text style={typography.label}>Modalità app</Text>
+      <Text style={typography.caption}>
+        Cambia faccia all'app: Dieta per il tracking calorico, Sport per
+        schede di allenamento e timer.
+      </Text>
+      <SegmentedControl options={APP_MODE_OPTIONS} value={appMode} onChange={handleChange} />
+    </Card>
   );
 }
 
