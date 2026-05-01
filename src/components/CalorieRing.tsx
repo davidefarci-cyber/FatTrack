@@ -13,11 +13,15 @@ type CalorieRingProps = {
   // futuro WorkoutRing che riutilizzerà questa primitive con un colore
   // diverso senza forkare il componente.
   accent?: string;
+  // Etichetta in fondo al ring. Default "kcal" per compat con la
+  // dashboard diet; la dashboard sport passa "giorni" per il
+  // weekly target.
+  unit?: string;
 };
 
 const GAP = 0.28;
 
-export function CalorieRing({ consumed, target, size = 148, accent }: CalorieRingProps) {
+export function CalorieRing({ consumed, target, size = 148, accent, unit = 'kcal' }: CalorieRingProps) {
   const theme = useAppTheme();
   const r = 56;
   const cx = size / 2;
@@ -59,7 +63,7 @@ export function CalorieRing({ consumed, target, size = 148, accent }: CalorieRin
       <View style={styles.center} pointerEvents="none">
         <Text style={styles.consumed}>{consumed.toLocaleString('it-IT')}</Text>
         <Text style={styles.target}>/ {target.toLocaleString('it-IT')}</Text>
-        <Text style={styles.unit}>kcal</Text>
+        <Text style={styles.unit}>{unit}</Text>
       </View>
     </View>
   );
