@@ -21,10 +21,11 @@ echo  [2] Avvia dev server (Expo Go)
 echo  [3] Build APK senza release (firmato, niente push/upload)
 echo  [4] Release completa (pull + bump + APK + GitHub Release)
 echo  [5] Verifica/installa dipendenze
+echo  [6] Mostra TODO / backlog (read-only)
 echo  [0] Esci
 echo.
 set "_OPT="
-set /p "_OPT=Scelta [0-5]: "
+set /p "_OPT=Scelta [0-6]: "
 
 if "!_OPT!"=="0" goto :end
 if "!_OPT!"=="1" call :menu_pull & goto :main_menu
@@ -32,6 +33,7 @@ if "!_OPT!"=="2" call :menu_dev & goto :main_menu
 if "!_OPT!"=="3" call :menu_build_quick & goto :main_menu
 if "!_OPT!"=="4" call :menu_release & goto :main_menu
 if "!_OPT!"=="5" call :menu_deps & goto :main_menu
+if "!_OPT!"=="6" call :menu_todo & goto :main_menu
 echo [!] Scelta non valida.
 timeout /t 1 >nul
 goto :main_menu
@@ -633,6 +635,34 @@ if /i "!_RM!"=="s" (
 echo.
 pause
 goto :menu_deps
+
+
+rem ============================================================
+rem  VOCE 6: Mostra TODO / backlog (read-only)
+rem  Stampa docs\TODO.md raggruppato per priorita'. Niente edit:
+rem  per modificare il backlog si chiede a Claude in sessione.
+rem ============================================================
+:menu_todo
+echo.
+where node >nul 2>nul || (
+    echo [!] Node.js non trovato. Lancia setup.bat.
+    pause
+    exit /b 1
+)
+if not exist "scripts\show-todo.js" (
+    echo [!] scripts\show-todo.js non trovato. Repo incompleto?
+    pause
+    exit /b 1
+)
+if not exist "docs\TODO.md" (
+    echo [!] docs\TODO.md non trovato. Niente da mostrare.
+    pause
+    exit /b 1
+)
+call node scripts\show-todo.js
+echo.
+pause
+exit /b 0
 
 
 rem ============================================================
