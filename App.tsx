@@ -3,12 +3,30 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ModeTransitionOverlay } from '@/components/sport/ModeTransitionOverlay';
 import { ToastProvider } from '@/components/Toast';
 import { ActiveSessionProvider } from '@/contexts/ActiveSessionContext';
 import { getDatabase } from '@/database';
+import { useAppSettings } from '@/hooks/useAppSettings';
 import { useFonts } from '@/hooks/useFonts';
 import { RootNavigator } from '@/navigation';
 import { checkForUpdates } from '@/utils/updateChecker';
+
+// Wrapper interno: legge `appMode` dallo store condiviso e monta
+// l'overlay di transizione SOPRA RootNavigator. È un componente
+// separato perché l'overlay deve poter sovrastare l'intero
+// NavigationContainer (status area inclusa, copre via
+// StyleSheet.absoluteFillObject) ma vuole leggere lo store di
+// appSettings, e qui siamo già sotto SafeAreaProvider/ToastProvider.
+function AppContent() {
+  const { appMode } = useAppSettings();
+  return (
+    <>
+      <RootNavigator />
+      <ModeTransitionOverlay mode={appMode} />
+    </>
+  );
+}
 
 export default function App() {
   const { fontsLoaded, fontError } = useFonts();
@@ -33,7 +51,7 @@ export default function App() {
         <ToastProvider>
           <ActiveSessionProvider>
             <StatusBar style="dark" />
-            <RootNavigator />
+            <AppContent />
           </ActiveSessionProvider>
         </ToastProvider>
       </SafeAreaProvider>

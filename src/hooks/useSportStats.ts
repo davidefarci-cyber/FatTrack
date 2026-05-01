@@ -3,19 +3,18 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useActiveSession } from '@/contexts/ActiveSessionContext';
 import { sessionsDB } from '@/database';
 import type { Session } from '@/database';
+import { useAppSettings } from '@/hooks/useAppSettings';
 
 // Aggregazioni per la dashboard sport (Fase 4):
 // - Settimana: lunedì 00:00 locale → ora; conta giorni distinti, minuti
-//   totali, calorie totali. Target settimanale hardcoded a 4 (configurabile
-//   in fase 5 dalle SportSettings).
+//   totali, calorie totali. Target settimanale configurabile dalle
+//   SportSettings (Fase 5C), letto da appSettings.weeklyTargetDays.
 // - Last: la sessione più recente conclusa, con count di esercizi distinti
 //   e set totali (utile per la card "Ultimo allenamento").
 //
 // Re-fetch automatico quando la sessione attiva si chiude (transizione
 // state ≠ null → null nel context). In più espone `reload()` per chi
 // volesse forzare un refresh.
-
-const WEEKLY_TARGET_DAYS = 4;
 
 export type WeekStats = {
   daysTrained: number;
@@ -37,12 +36,14 @@ export type SportStats = {
   reload: () => Promise<void>;
 };
 
-const EMPTY_WEEK: WeekStats = {
-  daysTrained: 0,
-  totalMinutes: 0,
-  totalCalories: 0,
-  weeklyTarget: WEEKLY_TARGET_DAYS,
-};
+function makeEmptyWeek(target: number): WeekStats {
+  return {
+    daysTrained: 0,
+    totalMinutes: 0,
+    totalCalories: 0,
+    weeklyTarget: target,
+  };
+}
 
 function startOfCurrentWeekMs(now = new Date()): number {
   // Lunedì come inizio settimana (Europe/Rome convenzione). `getDay()`
@@ -75,8 +76,9 @@ function localDayKey(ms: number): string {
 
 export function useSportStats(): SportStats {
   const { state: activeSessionState } = useActiveSession();
+  const { weeklyTargetDays } = useAppSettings();
   const [loading, setLoading] = useState(true);
-  const [week, setWeek] = useState<WeekStats>(EMPTY_WEEK);
+  const [week, setWeek] = useState<WeekStats>(() => makeEmptyWeek(weeklyTargetDays));
   const [last, setLast] = useState<LastSession>(null);
 
   const reload = useCallback(async () => {
@@ -98,7 +100,7 @@ export function useSportStats(): SportStats {
         daysTrained: distinctDays.size,
         totalMinutes,
         totalCalories,
-        weeklyTarget: WEEKLY_TARGET_DAYS,
+        weeklyTarget: weeklyTargetDays,
       });
 
       const lastSession = sessions[0] ?? null;
@@ -115,12 +117,12 @@ export function useSportStats(): SportStats {
         setLast(null);
       }
     } catch {
-      setWeek(EMPTY_WEEK);
+      setWeek(makeEmptyWeek(weeklyTargetDays));
       setLast(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [weeklyTargetDays]);
 
   useEffect(() => {
     void reload();
