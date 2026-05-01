@@ -141,7 +141,7 @@ rem  abiFilters in build.gradle filtra le ABI a livello di packaging,
 rem  quindi non serve "gradlew clean" preventivo per produrre arm64-only.
 rem  Se la build sembra rotta (output stranamente grande, .so vecchie
 rem  che si ostinano a entrare, ...), pulisci la cache da:
-rem    fattrack.bat -> [6] Verifica/installa dipendenze -> Pulisci cache build
+rem    fattrack.bat -> [5] Verifica/installa dipendenze -> Pulisci cache build
 rem ============================================================
 echo.
 echo [ ] Avvio Gradle assembleRelease...

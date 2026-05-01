@@ -1,5 +1,12 @@
 # Piano modifiche FatTrack
 
+> ⚠️ **Documento storico.** Il sistema OTA / EAS Update menzionato in
+> Fase 1 è stato **rimosso** dal progetto: ogni riferimento qui sotto a
+> `eas update`, `runtimeVersion`, `expo-channel-name`, voce 5 di
+> `fattrack.bat`, `expo-updates`, ecc. è obsoleto. Gli aggiornamenti
+> vivono solo via APK nativo + prompt in-app (`src/utils/updateChecker.ts`).
+> Vedi `README.md` §5 per il workflow attuale.
+>
 > Branch: `claude/fix-back-button-navigation-5GmCa`
 > Stato: in corso (fase 1 scritta, 2 e 3 da scrivere)
 

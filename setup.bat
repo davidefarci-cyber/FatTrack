@@ -226,7 +226,7 @@ echo ============================================================
 echo  Setup completato!
 echo.
 echo  Tutto il workflow quotidiano passa da un menu unico:
-echo    %REPO_DIR%\fattrack.bat   ^(dev server, build APK, release, OTA, deps^)
+echo    %REPO_DIR%\fattrack.bat   ^(dev server, build APK, release, deps^)
 echo.
 echo  Rilancia setup.bat in qualunque momento per aggiornare
 echo  l'ambiente (Git/Node/EAS) e fare git pull del repo.

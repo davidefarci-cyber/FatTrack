@@ -91,7 +91,8 @@ src/
 ## 5. Git & deploy
 
 - **Branch di sviluppo**: `main` (default). Push diretto autorizzato.
-- **Workflow Windows**: tutto passa da `fattrack.bat` (menu unico) — aggiorna repo, dev server Expo Go, build APK rapido, release completa (bump + APK + GitHub Release per update auto), OTA, gestione dipendenze.
+- **Workflow Windows**: tutto passa da `fattrack.bat` (menu unico) — aggiorna repo, dev server Expo Go, build APK rapido, release completa (bump + APK + GitHub Release per update auto), gestione dipendenze.
+- **Aggiornamenti utente**: solo via APK nativo (prompt in-app gestito da `src/utils/updateChecker.ts`). Niente OTA / EAS Update.
 - **Bootstrap pre-clone**: `setup.bat` (winget → Git + Node LTS + EAS + clone/pull). A fine setup propone di lanciare `fattrack.bat`.
 - **Build APK** alternative dirette: `npm run build:android:preview` (cloud EAS) oppure `scripts\build-android-local.bat <abi> <output.apk>` (locale Gradle).
 - Mai `git push --force` o hook-skip senza chiederlo.
@@ -106,3 +107,23 @@ src/
 4. Se servono interazioni nuove, preferire componenti in `src/components/` riusabili.
 5. Collegare al layer dati esistente (`@/database`, `@/hooks`) invece di crearne altri.
 6. Testare a mente: import, tipi, alias, coerenza con il design.
+
+---
+
+## 7. Backlog operativo — `docs/TODO.md`
+
+`docs/TODO.md` è il **file ufficiale** delle cose da fare (debiti tecnici,
+idee future, bug minori non bloccanti). **Leggerlo all'inizio di ogni
+sessione** insieme a questo CLAUDE.md.
+
+Quando l'utente:
+- chiede _"cosa c'è da fare?"_, _"propostami qualcosa da implementare"_,
+  _"cosa hai in backlog?"_ → rispondere usando le voci di `docs/TODO.md`,
+  in ordine: 🔴 → 🟡 → 🟢, e a parità di priorità le più vecchie prima.
+- dice _"aggiungi al TODO che ..."_ / _"segna debito su X"_ / _"ricordati
+  di Y"_ → editare `docs/TODO.md` aggiungendo una voce nella sezione
+  giusta col formato standard documentato in cima al file. Sempre
+  committare in modo separato dal resto del lavoro (commit di tipo
+  `chore(todo): ...`).
+- chiude un task → spostare la voce nella sezione "✅ Fatto" col campo
+  `Chiusa: YYYY-MM-DD`, NON cancellarla.

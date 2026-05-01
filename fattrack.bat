@@ -6,7 +6,7 @@ cd /d "%~dp0"
 rem ============================================================
 rem  fattrack.bat - Menu unico per FatTrack
 rem  Sostituisce: avvia-dev, avvia-dev-tunnel, crea-apk,
-rem               crea-apk-locale, pubblica-update, release.
+rem               crea-apk-locale, release.
 rem  Bootstrap pre-clone resta in setup.bat.
 rem ============================================================
 
@@ -20,8 +20,8 @@ echo  [1] Aggiorna repo (git pull)
 echo  [2] Avvia dev server (Expo Go)
 echo  [3] Build APK senza release (firmato, niente push/upload)
 echo  [4] Release completa (pull + bump + APK + GitHub Release)
-echo  [5] Pubblica update OTA (JS/TS only)
-echo  [6] Verifica/installa dipendenze
+echo  [5] Verifica/installa dipendenze
+echo  [6] Mostra TODO / backlog (read-only)
 echo  [0] Esci
 echo.
 set "_OPT="
@@ -32,8 +32,8 @@ if "!_OPT!"=="1" call :menu_pull & goto :main_menu
 if "!_OPT!"=="2" call :menu_dev & goto :main_menu
 if "!_OPT!"=="3" call :menu_build_quick & goto :main_menu
 if "!_OPT!"=="4" call :menu_release & goto :main_menu
-if "!_OPT!"=="5" call :menu_ota & goto :main_menu
-if "!_OPT!"=="6" call :menu_deps & goto :main_menu
+if "!_OPT!"=="5" call :menu_deps & goto :main_menu
+if "!_OPT!"=="6" call :menu_todo & goto :main_menu
 echo [!] Scelta non valida.
 timeout /t 1 >nul
 goto :main_menu
@@ -190,7 +190,6 @@ echo.
 rem --- 1. PRE-CHECK tool ---
 where node >nul 2>nul || (echo [!] Node.js non trovato. Lancia setup.bat. & pause & exit /b 1)
 where git  >nul 2>nul || (echo [!] git non trovato. Lancia setup.bat. & pause & exit /b 1)
-where eas  >nul 2>nul || (echo [!] EAS CLI non trovato. Lancia setup.bat. & pause & exit /b 1)
 where gh   >nul 2>nul || (
     echo [!] GitHub CLI ^(gh^) non trovata.
     echo     Installala con:  winget install --id GitHub.cli -e
@@ -214,19 +213,6 @@ if errorlevel 1 (
     call gh auth login
     if errorlevel 1 (
         echo [!] gh auth login fallito.
-        pause
-        exit /b 1
-    )
-)
-
-rem EAS serve a fine release per pubblicare l'OTA allineato al nuovo APK.
-rem Senza login qui fallirebbe lo step finale dopo aver gia' tag/pushato.
-call eas whoami >nul 2>nul
-if errorlevel 1 (
-    echo [ ] EAS non autenticato. Avvio "eas login"...
-    call eas login
-    if errorlevel 1 (
-        echo [!] eas login fallito. Serve per pubblicare l'OTA a fine release.
         pause
         exit /b 1
     )
@@ -346,40 +332,6 @@ if "!NEW_VER!"=="" (
     exit /b 1
 )
 
-rem --- 5b. NATIVE CHANGES? Determina se bumpare runtimeVersion ---
-rem  runtimeVersion e' la "generazione di compatibilita' nativa": cambia
-rem  raramente, solo quando il bundle JS non e' piu' compatibile con il
-rem  codice nativo dell'APK precedente (nuove dipendenze native, plugin
-rem  Expo aggiunti/modificati, permessi, SDK Expo bumpato, codice in
-rem  android/ ios/). Se NON cambi runtimeVersion, l'OTA della voce 5
-rem  raggiunge tutti gli APK compilati con lo stesso runtime.
-set "_RT_CUR="
-for /f "delims=" %%r in ('node scripts\bump-version.js runtime-current 2^>nul') do set "_RT_CUR=%%r"
-if "!_RT_CUR!"=="" (
-    echo [!] Impossibile leggere runtimeVersion da app.json. Atteso intero in stringa ^("1", "2", ...^).
-    pause
-    exit /b 1
-)
-echo.
-echo  runtimeVersion attuale: !_RT_CUR!
-echo  Questa release introduce modifiche native?
-echo    - nuove dipendenze native ^(npm install di pacchetti con codice nativo^)
-echo    - plugin Expo aggiunti/modificati in app.json
-echo    - permessi nuovi in app.json
-echo    - SDK Expo bumpato
-echo    - modifiche dirette in android/ o ios/
-echo.
-echo  SI -^> bumpo runtimeVersion ^(!_RT_CUR! -^> !_RT_CUR!+1^). I vecchi APK
-echo        smettono di ricevere OTA: aggiornano solo scaricando il nuovo
-echo        APK ^(updateChecker li avvisa via version.json^).
-echo  NO -^> runtimeVersion invariato. I vecchi APK ricevono il bundle del
-echo        nuovo APK come OTA, vedono la nuova version.
-echo.
-set "_NATIVE_CHANGE="
-set /p "_NATIVE_CHANGE=Modifiche native? [s/N]: "
-set "_RT_NEW="
-if /i "!_NATIVE_CHANGE!"=="s" set /a "_RT_NEW=!_RT_CUR!+1"
-
 set "TAG=v!NEW_VER!"
 git rev-parse "!TAG!" >nul 2>nul
 if not errorlevel 1 (
@@ -448,17 +400,11 @@ echo ============================================================
 echo  Riepilogo release
 echo ============================================================
 echo  Versione:    !CUR_VER!  -^>  !NEW_VER!
-if defined _RT_NEW (
-    echo  Runtime:     !_RT_CUR!  -^>  !_RT_NEW!  ^(release nativa: vecchi APK fuori silo^)
-) else (
-    echo  Runtime:     !_RT_CUR!  ^(invariato: OTA cross-compatibile^)
-)
 echo  Tag:         !TAG!
 if "!BUILD_CHOICE!"=="1" echo  Build:       LOCALE ^(arm64-v8a^)
 if "!BUILD_CHOICE!"=="2" echo  Build:       CLOUD EAS
 echo  Branch:      main ^(commit + tag + push^)
 echo  GitHub:      gh release create !TAG! ./fattrack.apk
-echo  OTA:         eas update --branch production ^(allinea JS al nuovo APK^)
 echo ============================================================
 set "CONFIRM="
 set /p "CONFIRM=Procedo? [s/N]: "
@@ -477,14 +423,6 @@ if errorlevel 1 (
     echo [!] bump-version.js apply fallito.
     pause
     exit /b 1
-)
-if defined _RT_NEW (
-    echo [ ] Bumpo runtimeVersion in app.json...
-    call node scripts\bump-version.js runtime-bump
-    if errorlevel 1 (
-        echo [!] runtime-bump fallito.
-        goto :rel_rollback
-    )
 )
 
 rem --- 10. BUILD ---
@@ -508,6 +446,10 @@ if not exist "!APK_PATH!" (
 goto :rel_after_build
 
 :rel_build_cloud
+where eas >nul 2>nul || (
+    echo [!] EAS CLI non trovato. Serve per la build cloud. Lancia setup.bat.
+    goto :rel_rollback
+)
 call eas whoami >nul 2>nul
 if errorlevel 1 (
     call eas login || goto :rel_rollback
@@ -579,37 +521,13 @@ if errorlevel 1 (
     exit /b 1
 )
 
-rem --- 13. OTA SYNC (allinea il bundle JS al nuovo APK) ---
-rem  app.json fissa runtimeVersion (intero in stringa, "1"/"2"/...) e channel
-rem  "production": ogni APK costruito qui cerca OTA su quel canale al primo
-rem  lancio. Se sul canale c'e' gia' un bundle piu' vecchio del nuovo APK
-rem  (es. l'ultimo "eas update" della release precedente per lo stesso
-rem  runtime), l'APK lo scarica e mostra JS vecchio sopra il native nuovo.
-rem  Pubblicando OTA dallo stesso commit della release il canale resta
-rem  allineato: bundle remoto identico all'embedded. Quando _RT_NEW e'
-rem  definito stiamo entrando in una runtime generation nuova e il canale
-rem  sul vecchio runtime smette di essere servito a questi APK.
-echo.
-echo [ ] eas update --branch production ^(allineo OTA al nuovo APK^)...
-call eas update --branch production --message "release !TAG!" --non-interactive
-if errorlevel 1 (
-    echo.
-    echo [!] eas update fallito. RELEASE NATIVA OK ma OTA NON allineato:
-    echo     gli utenti col nuovo APK potrebbero caricare il JS della
-    echo     versione precedente. Risolvi a mano con "fattrack.bat" voce 5
-    echo     prima che qualcuno aggiorni.
-    pause
-    exit /b 1
-)
-echo [OK] OTA pubblicato su "production" ^(allineato a !TAG!^).
-
 del "!NOTES_FILE!" >nul 2>nul
 del "!NOTES_CLEAN!" >nul 2>nul
 
 echo.
 echo ============================================================
 echo  RELEASE COMPLETATA
-echo  Versione !NEW_VER! pubblicata ^(APK GitHub + OTA production^).
+echo  Versione !NEW_VER! pubblicata ^(APK su GitHub Release^).
 echo  Gli utenti riceveranno l'alert al prossimo lancio dell'app.
 echo ============================================================
 pause
@@ -626,229 +544,7 @@ exit /b 1
 
 
 rem ============================================================
-rem  VOCE 5: Pubblica update OTA (patch bump + commit + push + publish)
-rem  - Bumpa la patch in app.json (expo.version), NON tocca version.json
-rem    ne' versionCode (sono per le release native).
-rem  - Committa e pusha il bump su main.
-rem  - Pubblica il bundle OTA su branch "production".
-rem  L'OTA arriva a tutti gli APK con lo stesso runtimeVersion. Se hai
-rem  toccato codice/config native, NON usare voce 5: usa voce 4 e dichiara
-rem  "modifiche native = SI".
-rem ============================================================
-:menu_ota
-echo.
-echo === Pubblica update OTA (JS/TS only) ===
-echo.
-echo  Usa per fix rapidi solo JS/TS/asset, senza ribuildare l'APK.
-echo  La voce bumpa la patch ^(X.Y.Z -^> X.Y.[Z+1]^), commit + push, poi OTA.
-echo  NON usare se hai modificato dipendenze native, plugins/permessi
-echo  in app.json, o SDK Expo: per quelle modifiche serve voce 4.
-echo.
-
-rem --- 1. PRE-CHECK tool ---
-where node >nul 2>nul || (echo [!] Node.js non trovato. Lancia setup.bat. & pause & exit /b 1)
-where git  >nul 2>nul || (echo [!] git non trovato. Lancia setup.bat. & pause & exit /b 1)
-call :check_node_modules || exit /b 1
-call :require_tool eas "winget install --id Expo.EasCli -e oppure: npm i -g eas-cli" || exit /b 1
-where gh   >nul 2>nul || (
-    echo [!] GitHub CLI ^(gh^) non trovata.
-    echo     Serve per pushare il commit del bump su main.
-    echo     Installala con:  winget install --id GitHub.cli -e
-    pause
-    exit /b 1
-)
-
-rem --- 2. PRE-CHECK identita' git e auth gh + eas ---
-git config user.name >nul 2>nul || (
-    echo [!] git user.name non configurato.
-    echo     Esegui:  git config --global user.name "Tuo Nome"
-    echo              git config --global user.email "tu@example.com"
-    pause
-    exit /b 1
-)
-call gh auth status >nul 2>nul
-if errorlevel 1 (
-    echo [ ] GitHub CLI non autenticato. Avvio "gh auth login"...
-    call gh auth login
-    if errorlevel 1 (
-        echo [!] gh auth login fallito.
-        pause
-        exit /b 1
-    )
-)
-call :ensure_eas_login || exit /b 1
-call "%~dp0scripts\ensure-git-push-auth.bat"
-if errorlevel 1 (
-    echo [!] Configurazione auth git push fallita.
-    pause
-    exit /b 1
-)
-
-findstr /C:"\"projectId\": \"\"" app.json >nul
-if not errorlevel 1 (
-    echo [!] expo.extra.eas.projectId in app.json e' vuoto.
-    echo     Configura una volta sola con:  eas init
-    pause
-    exit /b 1
-)
-
-rem --- 3. PRE-CHECK branch + working tree pulito + sync ---
-for /f "delims=" %%b in ('git rev-parse --abbrev-ref HEAD') do set "CURRENT_BRANCH=%%b"
-if not "!CURRENT_BRANCH!"=="main" (
-    echo [!] Sei sul branch "!CURRENT_BRANCH!", non "main".
-    echo     Gli OTA partono da main. Fai checkout e riprova.
-    pause
-    exit /b 1
-)
-
-set "_DIRTY=0"
-for /f "delims=" %%s in ('git status --porcelain') do set "_DIRTY=1"
-if "!_DIRTY!"=="1" (
-    echo.
-    echo [!] Working tree non pulito:
-    git status --short
-    echo.
-    echo     Voce 5 non auto-committa. Sistema il working tree e rilancia.
-    pause
-    exit /b 1
-)
-
-set "_HEAD_BEFORE="
-for /f "delims=" %%c in ('git rev-parse HEAD 2^>nul') do set "_HEAD_BEFORE=%%c"
-
-echo [ ] git pull --ff-only...
-call git pull --ff-only
-if errorlevel 1 (
-    echo [!] git pull --ff-only fallito.
-    pause
-    exit /b 1
-)
-
-set "_HEAD_AFTER="
-for /f "delims=" %%c in ('git rev-parse HEAD 2^>nul') do set "_HEAD_AFTER=%%c"
-if not "!_HEAD_BEFORE!"=="!_HEAD_AFTER!" (
-    echo [ ] Nuovi commit ricevuti: eseguo npm install...
-    call npm install
-    if errorlevel 1 (
-        echo [!] npm install fallito.
-        pause
-        exit /b 1
-    )
-)
-
-rem --- 4. typecheck ---
-echo [ ] Eseguo typecheck...
-call npm run --silent typecheck
-if errorlevel 1 (
-    echo [!] Typecheck fallito. Sistema gli errori prima di pubblicare.
-    pause
-    exit /b 1
-)
-
-rem --- 5. CALCOLO PATCH ---
-for /f "delims=" %%v in ('node scripts\bump-version.js current') do set "CUR_VER=%%v"
-for /f "delims=" %%v in ('node scripts\bump-version.js next patch') do set "NEW_VER=%%v"
-if "!NEW_VER!"=="" (
-    echo [!] Calcolo nuova versione fallito.
-    pause
-    exit /b 1
-)
-
-set "_RT_CUR="
-for /f "delims=" %%r in ('node scripts\bump-version.js runtime-current 2^>nul') do set "_RT_CUR=%%r"
-if "!_RT_CUR!"=="" (
-    echo [!] Impossibile leggere runtimeVersion da app.json. Atteso intero in stringa ^("1", "2", ...^).
-    pause
-    exit /b 1
-)
-
-rem --- 6. MESSAGGIO OTA ---
-set "MSG="
-set /p "MSG=Messaggio update (es. 'fix calcolo kcal'): "
-if "!MSG!"=="" (
-    echo [!] Messaggio vuoto, uscita.
-    pause
-    exit /b 1
-)
-
-rem --- 7. RIEPILOGO + CONFERMA ---
-echo.
-echo ============================================================
-echo  Riepilogo OTA
-echo ============================================================
-echo  Versione:    !CUR_VER!  -^>  !NEW_VER!  ^(solo app.json, niente version.json^)
-echo  Runtime:     !_RT_CUR!  ^(invariato^)
-echo  Branch:      main ^(commit + push, niente tag/release^)
-echo  OTA:         eas update --branch production
-echo  Messaggio:   !MSG!
-echo ============================================================
-set "CONFIRM="
-set /p "CONFIRM=Procedo? [s/N]: "
-if /i not "!CONFIRM!"=="s" (
-    echo Annullato.
-    exit /b 0
-)
-
-rem --- 8. APPLICA BUMP (solo app.json) ---
-echo.
-echo [ ] Aggiorno app.json ^(solo expo.version^)...
-call node scripts\bump-version.js apply-ota "!NEW_VER!"
-if errorlevel 1 (
-    echo [!] bump-version.js apply-ota fallito.
-    call git checkout -- app.json
-    pause
-    exit /b 1
-)
-
-rem --- 9. COMMIT + PUSH ---
-echo [ ] git add + commit + push...
-call git add app.json
-call git commit -m "ota: v!NEW_VER! - !MSG!"
-if errorlevel 1 (
-    echo [!] git commit fallito. Rollback app.json...
-    call git checkout -- app.json
-    pause
-    exit /b 1
-)
-
-call git push origin main
-if errorlevel 1 (
-    echo [!] git push origin main fallito.
-    echo     Bump locale committato ma non pubblicato. Risolvi e riprova:
-    echo         git push origin main
-    echo     Poi rilancia voce 5 per pubblicare l'OTA ^(rilevera' che app.json
-    echo     e' gia' a !NEW_VER! e ti chiedera' la patch successiva^).
-    pause
-    exit /b 1
-)
-
-rem --- 10. PUBBLICA OTA ---
-echo.
-echo [ ] eas update --branch production...
-call eas update --branch production --message "v!NEW_VER!: !MSG!" --non-interactive
-if errorlevel 1 (
-    echo [!] eas update fallito. Bump pushato su main ma OTA NON pubblicato.
-    echo     Stato:
-    echo         - app.json   : v!NEW_VER!  ^(committato + pushato^)
-    echo         - version.json: invariato  ^(corretto: nessun nuovo APK pubblicato^)
-    echo         - bundle OTA : NON pubblicato
-    echo     Recupero a mano:
-    echo         eas update --branch production --message "v!NEW_VER!: !MSG!"
-    pause
-    exit /b 1
-)
-
-echo.
-echo ============================================================
-echo  OTA pubblicato. Versione !NEW_VER! sul canale "production".
-echo  Update consegnato al prossimo lancio app per chi e' su runtime !_RT_CUR!.
-echo ============================================================
-pause
-exit /b 0
-
-
-rem ============================================================
-rem  VOCE 6: Verifica/installa dipendenze
+rem  VOCE 5: Verifica/installa dipendenze
 rem ============================================================
 :menu_deps
 echo.
@@ -942,6 +638,34 @@ goto :menu_deps
 
 
 rem ============================================================
+rem  VOCE 6: Mostra TODO / backlog (read-only)
+rem  Stampa docs\TODO.md raggruppato per priorita'. Niente edit:
+rem  per modificare il backlog si chiede a Claude in sessione.
+rem ============================================================
+:menu_todo
+echo.
+where node >nul 2>nul || (
+    echo [!] Node.js non trovato. Lancia setup.bat.
+    pause
+    exit /b 1
+)
+if not exist "scripts\show-todo.js" (
+    echo [!] scripts\show-todo.js non trovato. Repo incompleto?
+    pause
+    exit /b 1
+)
+if not exist "docs\TODO.md" (
+    echo [!] docs\TODO.md non trovato. Niente da mostrare.
+    pause
+    exit /b 1
+)
+call node scripts\show-todo.js
+echo.
+pause
+exit /b 0
+
+
+rem ============================================================
 rem  HELPER: subroutine condivise
 rem ============================================================
 
@@ -983,19 +707,6 @@ for /f "delims=" %%v in ('%~1 --version 2^>nul') do (
     exit /b 0
 )
 echo [OK] %~2 presente
-exit /b 0
-
-:ensure_eas_login
-call eas whoami >nul 2>nul
-if errorlevel 1 (
-    echo [ ] Non sei loggato su EAS. Avvio "eas login"...
-    call eas login
-    if errorlevel 1 (
-        echo [!] Login EAS fallito.
-        exit /b 1
-    )
-)
-for /f "delims=" %%u in ('eas whoami 2^>nul') do echo [OK] EAS: %%u
 exit /b 0
 
 :ensure_android_toolchain
