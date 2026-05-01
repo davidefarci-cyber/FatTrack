@@ -12,6 +12,14 @@ export type UserProfile = {
   weeklyGoalKg: number;
   tdee: number;
   targetCalories: number;
+  // Campi opzionali aggiunti dopo l'onboarding base. Sono nullable per non
+  // forzare migrazioni dei profili esistenti: l'utente li imposta da
+  // ProfileScreen quando vuole.
+  name: string | null;
+  targetWeightKg: number | null;
+  // Peso al momento dell'impostazione del target. Serve a calcolare il
+  // progresso percentuale del WeightRing (start → current → target).
+  startWeightKg: number | null;
 };
 
 const COLUMNS = `
@@ -22,7 +30,10 @@ const COLUMNS = `
   activity_level AS activityLevel,
   weekly_goal_kg AS weeklyGoalKg,
   tdee,
-  target_calories AS targetCalories
+  target_calories AS targetCalories,
+  name,
+  target_weight_kg AS targetWeightKg,
+  start_weight_kg AS startWeightKg
 `;
 
 export async function getProfile(): Promise<UserProfile | null> {
@@ -37,8 +48,8 @@ export async function upsertProfile(profile: UserProfile): Promise<UserProfile> 
   const db = await getDatabase();
   await db.runAsync(
     `INSERT INTO user_profile
-       (id, weight_kg, height_cm, age, gender, activity_level, weekly_goal_kg, tdee, target_calories)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
+       (id, weight_kg, height_cm, age, gender, activity_level, weekly_goal_kg, tdee, target_calories, name, target_weight_kg, start_weight_kg)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        weight_kg = excluded.weight_kg,
        height_cm = excluded.height_cm,
@@ -47,7 +58,10 @@ export async function upsertProfile(profile: UserProfile): Promise<UserProfile> 
        activity_level = excluded.activity_level,
        weekly_goal_kg = excluded.weekly_goal_kg,
        tdee = excluded.tdee,
-       target_calories = excluded.target_calories`,
+       target_calories = excluded.target_calories,
+       name = excluded.name,
+       target_weight_kg = excluded.target_weight_kg,
+       start_weight_kg = excluded.start_weight_kg`,
     profile.weightKg,
     profile.heightCm,
     profile.age,
@@ -56,6 +70,9 @@ export async function upsertProfile(profile: UserProfile): Promise<UserProfile> 
     profile.weeklyGoalKg,
     profile.tdee,
     profile.targetCalories,
+    profile.name,
+    profile.targetWeightKg,
+    profile.startWeightKg,
   );
   const saved = await getProfile();
   if (!saved) throw new Error('Profile upsert failed');

@@ -15,6 +15,9 @@ export type ProfileInput = {
   gender: Gender;
   activityLevel: ActivityLevel;
   weeklyGoalKg: number;
+  name?: string | null;
+  targetWeightKg?: number | null;
+  startWeightKg?: number | null;
 };
 
 type UseProfileResult = {
@@ -25,6 +28,7 @@ type UseProfileResult = {
   tdee: number | null;
   targetCalories: number | null;
   saveProfile: (input: ProfileInput) => Promise<UserProfile>;
+  patchProfile: (patch: Partial<UserProfile>) => Promise<UserProfile | null>;
   deleteProfile: () => Promise<void>;
   reload: () => Promise<void>;
 };
@@ -82,10 +86,43 @@ async function saveProfile(input: ProfileInput): Promise<UserProfile> {
   const tdee = calculateTDEE(bmr, input.activityLevel);
   const targetCalories = calculateTarget(tdee, input.weeklyGoalKg);
   const saved = await profileDB.upsertProfile({
-    ...input,
+    weightKg: input.weightKg,
+    heightCm: input.heightCm,
+    age: input.age,
+    gender: input.gender,
+    activityLevel: input.activityLevel,
+    weeklyGoalKg: input.weeklyGoalKg,
     tdee,
     targetCalories,
+    name: input.name ?? snapshot.profile?.name ?? null,
+    targetWeightKg: input.targetWeightKg ?? snapshot.profile?.targetWeightKg ?? null,
+    startWeightKg: input.startWeightKg ?? snapshot.profile?.startWeightKg ?? null,
   });
+  setSnapshot({ profile: saved, loading: false, error: null });
+  return saved;
+}
+
+async function patchProfile(patch: Partial<UserProfile>): Promise<UserProfile | null> {
+  const current = snapshot.profile;
+  if (!current) return null;
+  const merged: UserProfile = { ...current, ...patch };
+  // Se cambia uno dei valori che incidono su BMR/TDEE/target, ricalcolo gli
+  // snapshot calorici. Cambi puramente cosmetici (nome) o di obiettivo peso
+  // (target_weight_kg, start_weight_kg) non li toccano.
+  const recalcKeys: Array<keyof UserProfile> = [
+    'weightKg',
+    'heightCm',
+    'age',
+    'gender',
+    'activityLevel',
+    'weeklyGoalKg',
+  ];
+  if (recalcKeys.some((k) => k in patch)) {
+    const bmr = calculateBMR(merged.weightKg, merged.heightCm, merged.age, merged.gender);
+    merged.tdee = calculateTDEE(bmr, merged.activityLevel);
+    merged.targetCalories = calculateTarget(merged.tdee, merged.weeklyGoalKg);
+  }
+  const saved = await profileDB.upsertProfile(merged);
   setSnapshot({ profile: saved, loading: false, error: null });
   return saved;
 }
@@ -114,6 +151,7 @@ export function useProfile(): UseProfileResult {
 
   const reloadFn = useCallback(() => reload(), []);
   const saveFn = useCallback((input: ProfileInput) => saveProfile(input), []);
+  const patchFn = useCallback((p: Partial<UserProfile>) => patchProfile(p), []);
   const deleteFn = useCallback(() => deleteProfile(), []);
 
   return {
@@ -124,6 +162,7 @@ export function useProfile(): UseProfileResult {
     tdee: state.profile?.tdee ?? null,
     targetCalories: state.profile?.targetCalories ?? null,
     saveProfile: saveFn,
+    patchProfile: patchFn,
     deleteProfile: deleteFn,
     reload: reloadFn,
   };

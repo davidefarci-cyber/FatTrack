@@ -8,6 +8,7 @@ export type IconName =
   | 'chart'
   | 'cog'
   | 'plus'
+  | 'minus'
   | 'trash'
   | 'chevron-down'
   | 'chevron-up'
@@ -20,7 +21,8 @@ export type IconName =
   | 'target'
   | 'check'
   | 'close'
-  | 'info';
+  | 'info'
+  | 'user';
 
 export type IconProps = {
   name: IconName;
@@ -87,6 +89,24 @@ export function Icon({ name, size = 22, color = colors.textSec, filled = false }
         <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
           <Line x1={8} y1={2} x2={8} y2={14} stroke={color} strokeWidth={2.2} strokeLinecap="round" />
           <Line x1={2} y1={8} x2={14} y2={8} stroke={color} strokeWidth={2.2} strokeLinecap="round" />
+        </Svg>
+      );
+    case 'minus':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+          <Line x1={2} y1={8} x2={14} y2={8} stroke={color} strokeWidth={2.2} strokeLinecap="round" />
+        </Svg>
+      );
+    case 'user':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Circle cx={12} cy={8} r={4} stroke={color} strokeWidth={1.8} />
+          <Path
+            d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"
+            stroke={color}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+          />
         </Svg>
       );
     case 'trash':
