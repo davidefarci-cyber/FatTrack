@@ -191,14 +191,23 @@ SQLite vive solo nello storage interno dell'app.
 Implementazione: export di tutte le tabelle come JSON unico
 (`{ schemaVersion, exportedAt, appVersion, tables: { ... } }`), share
 via `expo-sharing`. Import via `expo-document-picker` con `Alert` di
-conferma (sostituisce tutti i dati attuali). Validazione su
-`schemaVersion` per evitare di importare backup di versioni
-incompatibili.
+conferma (sostituisce tutti i dati attuali).
+
+L'import deve essere **best-effort cross-version**: un backup fatto con
+una versione vecchia dell'app deve poter essere ripristinato in una
+versione più nuova caricando tutto quello che è ancora compatibile.
+Niente rifiuto rigido su mismatch di `schemaVersion`. Strategia:
+introspection schema corrente con `PRAGMA table_info`, intersection
+colonna-per-colonna, skip righe che violano constraint, report finale
+all'utente con i warning (tabelle/colonne ignorate, righe scartate).
 
 **Done quando**: in `SettingsScreen` esistono i bottoni "Esporta backup"
 e "Importa backup"; il file esportato è un JSON leggibile; l'import
-sostituisce il DB e svuota la cache `mealsStore`; backup di versione
-diversa viene rifiutato con messaggio chiaro.
+sostituisce il DB, svuota la cache `mealsStore` e mostra warning se
+parte dei dati non è stata ripristinata; backup di versione "futura"
+(`schemaVersion` più alto del corrente) viene rifiutato con messaggio
+chiaro; backup vuoti o incompatibili rollbackano la transazione invece
+di azzerare il DB.
 
 ---
 

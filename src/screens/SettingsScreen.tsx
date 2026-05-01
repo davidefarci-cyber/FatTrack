@@ -402,11 +402,18 @@ function BackupCard({ onAfterImport }: { onAfterImport: () => Promise<void> }) {
               const result = await importBackup();
               if (result.kind === 'imported') {
                 await onAfterImport();
-                const total = Object.values(result.counts).reduce(
+                const total = Object.values(result.report.imported).reduce(
                   (a, b) => a + b,
                   0,
                 );
-                toast.show(`Backup importato (${total} righe)`);
+                if (result.report.warnings.length > 0) {
+                  Alert.alert(
+                    `Backup importato (${total} righe)`,
+                    `Alcuni dati non sono stati ripristinati:\n\n• ${result.report.warnings.join('\n• ')}`,
+                  );
+                } else {
+                  toast.show(`Backup importato (${total} righe)`);
+                }
               } else if (result.kind === 'invalid') {
                 toast.show(`Backup non valido: ${result.reason}`);
               }

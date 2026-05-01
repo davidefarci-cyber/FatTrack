@@ -5,15 +5,20 @@ import * as Sharing from 'expo-sharing';
 
 import { getDatabase, mealsStore } from '@/database';
 
-// Versione dello schema serializzato. Bumpare quando l'insieme di tabelle
-// o le loro colonne cambiano in modo non retro-compatibile. L'import
-// rifiuta backup con `schemaVersion` diversa da quella corrente per
-// evitare di reidratare un DB con dati incoerenti.
+// Versione del FORMATO di backup. Bumpare solo quando il formato del file
+// JSON cambia in modo incompatibile (es. struttura diversa di `tables`,
+// rinomina/eliminazione di tabelle critiche). NON serve bumparla quando si
+// aggiungono colonne nullable o tabelle nuove: l'import è best-effort e
+// gestisce automaticamente schemi divergenti.
+//
+// Regola di compatibilità all'import:
+//   backup.schemaVersion >  current → rifiutato (è "dal futuro", non lo capiamo)
+//   backup.schemaVersion <= current → accettato best-effort
 const BACKUP_SCHEMA_VERSION = 1;
 
-// Ordine d'importanza per il restore: prima le tabelle "padre" (foods),
-// poi quelle che hanno foreign key (food_servings → foods, meals → foods).
-// Le altre sono indipendenti.
+// Tabelle attese dall'app corrente, in ordine di import (padri prima dei
+// figli per le FK). Backup più vecchi possono averne meno; l'import gestirà
+// solo le tabelle che esistono sia nel backup sia nello schema corrente.
 const TABLES = [
   'foods',
   'food_servings',
@@ -27,16 +32,23 @@ const TABLES = [
 type TableName = (typeof TABLES)[number];
 
 type RawRow = Record<string, unknown>;
+type Db = Awaited<ReturnType<typeof getDatabase>>;
 
 export type BackupFile = {
   schemaVersion: number;
   exportedAt: string;
   appVersion: string;
-  tables: Record<TableName, RawRow[]>;
+  tables: Record<string, RawRow[]>;
+};
+
+export type ImportReport = {
+  imported: Record<string, number>;
+  skippedRows: Record<string, number>;
+  warnings: string[];
 };
 
 export type ImportResult =
-  | { kind: 'imported'; counts: Record<TableName, number> }
+  | { kind: 'imported'; report: ImportReport }
   | { kind: 'cancelled' }
   | { kind: 'invalid'; reason: string };
 
@@ -90,9 +102,9 @@ export async function importBackup(): Promise<ImportResult> {
   if (!parsed.ok) return { kind: 'invalid', reason: parsed.reason };
 
   try {
-    const counts = await restoreTables(parsed.value.tables);
+    const report = await restoreTables(parsed.value);
     mealsStore.clearCache();
-    return { kind: 'imported', counts };
+    return { kind: 'imported', report };
   } catch (err) {
     return { kind: 'invalid', reason: `Import fallito: ${errorMessage(err)}` };
   }
@@ -100,7 +112,7 @@ export async function importBackup(): Promise<ImportResult> {
 
 async function buildBackupJson(): Promise<string> {
   const db = await getDatabase();
-  const tables = {} as Record<TableName, RawRow[]>;
+  const tables: Record<string, RawRow[]> = {};
   for (const name of TABLES) {
     tables[name] = await db.getAllAsync<RawRow>(`SELECT * FROM ${name}`);
   }
@@ -113,30 +125,105 @@ async function buildBackupJson(): Promise<string> {
   return JSON.stringify(payload, null, 2);
 }
 
-async function restoreTables(
-  tables: Record<TableName, RawRow[]>,
-): Promise<Record<TableName, number>> {
+async function restoreTables(backup: BackupFile): Promise<ImportReport> {
   const db = await getDatabase();
-  const counts = {} as Record<TableName, number>;
+  const report: ImportReport = {
+    imported: {},
+    skippedRows: {},
+    warnings: [],
+  };
 
-  // Disabilita le FK durante il restore: importiamo in ordine ma le righe
-  // esistenti vanno cancellate prima delle nuove e con FK attive il DELETE
-  // sui foods cascaderebbe sulle food_servings appena re-inserite.
+  // Mappa una sola volta lo schema corrente per ogni tabella attesa.
+  const currentSchema = new Map<TableName, Set<string>>();
+  for (const name of TABLES) {
+    if (await tableExists(db, name)) {
+      currentSchema.set(name, new Set(await getTableColumns(db, name)));
+    }
+  }
+
+  // Tabelle nel backup non più presenti nel DB: warning, niente blocco.
+  for (const name of Object.keys(backup.tables)) {
+    if (!(TABLES as readonly string[]).includes(name)) {
+      const count = backup.tables[name]?.length ?? 0;
+      if (count > 0) {
+        report.warnings.push(
+          `Tabella "${name}" del backup non è più nello schema corrente: ${count} righe ignorate`,
+        );
+      }
+    }
+  }
+
+  // Tabelle nuove introdotte dopo il backup: warning informativo.
+  for (const name of TABLES) {
+    if (!(name in backup.tables) && currentSchema.has(name)) {
+      report.warnings.push(
+        `Tabella "${name}" non presente nel backup: rimarrà vuota`,
+      );
+    }
+  }
+
+  // Sanity: deve esserci almeno una tabella in comune con dati, altrimenti
+  // l'import azzererebbe il DB senza ripopolarlo.
+  const totalRowsInBackup = TABLES.reduce(
+    (acc, name) => acc + (backup.tables[name]?.length ?? 0),
+    0,
+  );
+  if (totalRowsInBackup === 0) {
+    throw new Error('Il backup non contiene righe importabili per lo schema corrente');
+  }
+
   await db.execAsync('PRAGMA foreign_keys = OFF');
   try {
     await db.execAsync('BEGIN TRANSACTION');
     try {
-      // Pulisci in ordine inverso (figli prima dei padri).
+      // Cancella in ordine inverso (figli prima dei padri).
       for (const name of [...TABLES].reverse()) {
-        await db.execAsync(`DELETE FROM ${name}`);
+        if (currentSchema.has(name)) {
+          await db.execAsync(`DELETE FROM ${name}`);
+        }
       }
 
       for (const name of TABLES) {
-        const rows = tables[name] ?? [];
+        const targetCols = currentSchema.get(name);
+        if (!targetCols) continue; // tabella attesa ma non esistente nel DB: edge case
+        const rows = backup.tables[name] ?? [];
+
+        let imported = 0;
+        let skipped = 0;
+        const droppedCols = new Set<string>();
+
         for (const row of rows) {
-          await insertRow(db, name, row);
+          const result = await tryInsertRow(db, name, row, targetCols);
+          if (result.ok) {
+            imported++;
+            for (const c of result.droppedCols) droppedCols.add(c);
+          } else {
+            skipped++;
+          }
         }
-        counts[name] = rows.length;
+
+        report.imported[name] = imported;
+        if (skipped > 0) report.skippedRows[name] = skipped;
+        if (droppedCols.size > 0) {
+          report.warnings.push(
+            `Tabella "${name}": colonne non più presenti, ignorate: ${[...droppedCols].join(', ')}`,
+          );
+        }
+        if (skipped > 0) {
+          report.warnings.push(
+            `Tabella "${name}": ${skipped} righe non importate (constraint violati)`,
+          );
+        }
+      }
+
+      // Se zero righe sono state importate ovunque, rollback: meglio
+      // mantenere lo stato precedente che lasciare il DB vuoto.
+      const totalImported = Object.values(report.imported).reduce(
+        (a, b) => a + b,
+        0,
+      );
+      if (totalImported === 0) {
+        throw new Error('Nessuna riga del backup è risultata importabile');
       }
 
       await db.execAsync('COMMIT');
@@ -148,29 +235,62 @@ async function restoreTables(
     await db.execAsync('PRAGMA foreign_keys = ON');
   }
 
-  return counts;
+  return report;
 }
 
-async function insertRow(
-  db: Awaited<ReturnType<typeof getDatabase>>,
+async function tryInsertRow(
+  db: Db,
   table: TableName,
   row: RawRow,
-): Promise<void> {
-  const columns = Object.keys(row);
-  if (columns.length === 0) return;
-  const placeholders = columns.map(() => '?').join(', ');
-  const values = columns.map((c) => normalizeValue(row[c]));
-  await db.runAsync(
-    `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`,
-    ...values,
+  targetCols: Set<string>,
+): Promise<{ ok: true; droppedCols: string[] } | { ok: false }> {
+  // Intersection tra colonne presenti nella riga del backup e colonne
+  // attuali della tabella. Le colonne del backup non più esistenti vengono
+  // segnalate come "dropped". Le colonne attuali non presenti nel backup
+  // vengono lasciate al default/NULL del DB (ok finché sono nullable o
+  // hanno DEFAULT, come da pattern delle migration esistenti).
+  const usable: string[] = [];
+  const dropped: string[] = [];
+  for (const col of Object.keys(row)) {
+    if (targetCols.has(col)) usable.push(col);
+    else dropped.push(col);
+  }
+  if (usable.length === 0) return { ok: false };
+
+  const placeholders = usable.map(() => '?').join(', ');
+  const values = usable.map((c) => normalizeValue(row[c]));
+  try {
+    await db.runAsync(
+      `INSERT INTO ${table} (${usable.join(', ')}) VALUES (${placeholders})`,
+      ...values,
+    );
+    return { ok: true, droppedCols: dropped };
+  } catch {
+    return { ok: false };
+  }
+}
+
+async function tableExists(db: Db, table: string): Promise<boolean> {
+  const row = await db.getFirstAsync<{ name: string }>(
+    `SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
+    table,
   );
+  return !!row;
+}
+
+async function getTableColumns(db: Db, table: string): Promise<string[]> {
+  // PRAGMA non supporta i bind parameters: il nome arriva dalla nostra
+  // costante TABLES, quindi è sicuro per costruzione.
+  const rows = await db.getAllAsync<{ name: string }>(
+    `PRAGMA table_info(${table})`,
+  );
+  return rows.map((r) => r.name);
 }
 
 function normalizeValue(v: unknown): string | number | null {
   if (v === null || v === undefined) return null;
   if (typeof v === 'number' || typeof v === 'string') return v;
   if (typeof v === 'boolean') return v ? 1 : 0;
-  // Fallback per tipi inattesi: serializzazione testuale.
   return String(v);
 }
 
@@ -189,22 +309,33 @@ function parseBackup(
     return { ok: false, reason: 'Formato non riconosciuto' };
   }
   const obj = json as Partial<BackupFile>;
-  if (obj.schemaVersion !== BACKUP_SCHEMA_VERSION) {
+  if (typeof obj.schemaVersion !== 'number') {
+    return { ok: false, reason: 'Manca schemaVersion' };
+  }
+  if (obj.schemaVersion > BACKUP_SCHEMA_VERSION) {
     return {
       ok: false,
-      reason: `Versione backup non supportata (trovata ${obj.schemaVersion}, attesa ${BACKUP_SCHEMA_VERSION})`,
+      reason: `Backup di versione futura (${obj.schemaVersion}); aggiorna l'app prima di importarlo`,
     };
   }
   if (!obj.tables || typeof obj.tables !== 'object') {
     return { ok: false, reason: 'Manca il campo tables' };
   }
-  for (const name of TABLES) {
-    const rows = (obj.tables as Record<string, unknown>)[name];
-    if (!Array.isArray(rows)) {
-      return { ok: false, reason: `Tabella mancante o invalida: ${name}` };
-    }
+  // Normalizza: ogni tabella attesa diventa array (anche vuoto se mancante).
+  // Tabelle extra (vecchie/sconosciute) restano in `tables` per il warning.
+  const normalized: Record<string, RawRow[]> = {};
+  for (const [name, value] of Object.entries(obj.tables)) {
+    if (Array.isArray(value)) normalized[name] = value as RawRow[];
   }
-  return { ok: true, value: obj as BackupFile };
+  return {
+    ok: true,
+    value: {
+      schemaVersion: obj.schemaVersion,
+      exportedAt: typeof obj.exportedAt === 'string' ? obj.exportedAt : '',
+      appVersion: typeof obj.appVersion === 'string' ? obj.appVersion : 'unknown',
+      tables: normalized,
+    },
+  };
 }
 
 function timestampForFilename(): string {
