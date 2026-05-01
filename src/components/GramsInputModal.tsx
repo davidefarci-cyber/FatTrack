@@ -237,15 +237,26 @@ export function GramsInputModal({
                   <Text style={typography.label}>Quantità</Text>
                   <View style={styles.gramsInputWrap}>
                     {showStepper ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Diminuisci"
-                        onPress={() => adjustQty(-STEPPER_STEP)}
-                        style={styles.stepperBtn}
-                        hitSlop={6}
-                      >
-                        <Text style={styles.stepperLabel}>−</Text>
-                      </Pressable>
+                      <>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Diminuisci"
+                          onPress={() => adjustQty(-STEPPER_STEP)}
+                          style={styles.stepperBtn}
+                          hitSlop={6}
+                        >
+                          <Text style={styles.stepperLabel}>−</Text>
+                        </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Aumenta"
+                          onPress={() => adjustQty(STEPPER_STEP)}
+                          style={styles.stepperBtn}
+                          hitSlop={6}
+                        >
+                          <Text style={styles.stepperLabel}>+</Text>
+                        </Pressable>
+                      </>
                     ) : null}
                     <TextInput
                       value={qty}
@@ -254,17 +265,6 @@ export function GramsInputModal({
                       style={[styles.gramsInput, showStepper && styles.gramsInputStepper]}
                       autoFocus
                     />
-                    {showStepper ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Aumenta"
-                        onPress={() => adjustQty(STEPPER_STEP)}
-                        style={styles.stepperBtn}
-                        hitSlop={6}
-                      >
-                        <Text style={styles.stepperLabel}>+</Text>
-                      </Pressable>
-                    ) : null}
                     <Text style={[typography.caption, styles.unitSuffix]}>
                       {unitSuffix}
                     </Text>
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   gramsField: {
-    flex: 1,
+    flex: 3,
     gap: spacing.xs,
   },
   gramsInputWrap: {
@@ -382,8 +382,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.body.fontFamily,
   },
   gramsInputStepper: {
-    textAlign: 'center',
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: spacing.md,
   },
   stepperBtn: {
     width: 36,
