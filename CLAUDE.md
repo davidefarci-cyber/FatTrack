@@ -107,3 +107,23 @@ src/
 4. Se servono interazioni nuove, preferire componenti in `src/components/` riusabili.
 5. Collegare al layer dati esistente (`@/database`, `@/hooks`) invece di crearne altri.
 6. Testare a mente: import, tipi, alias, coerenza con il design.
+
+---
+
+## 7. Backlog operativo — `docs/TODO.md`
+
+`docs/TODO.md` è il **file ufficiale** delle cose da fare (debiti tecnici,
+idee future, bug minori non bloccanti). **Leggerlo all'inizio di ogni
+sessione** insieme a questo CLAUDE.md.
+
+Quando l'utente:
+- chiede _"cosa c'è da fare?"_, _"propostami qualcosa da implementare"_,
+  _"cosa hai in backlog?"_ → rispondere usando le voci di `docs/TODO.md`,
+  in ordine: 🔴 → 🟡 → 🟢, e a parità di priorità le più vecchie prima.
+- dice _"aggiungi al TODO che ..."_ / _"segna debito su X"_ / _"ricordati
+  di Y"_ → editare `docs/TODO.md` aggiungendo una voce nella sezione
+  giusta col formato standard documentato in cima al file. Sempre
+  committare in modo separato dal resto del lavoro (commit di tipo
+  `chore(todo): ...`).
+- chiude un task → spostare la voce nella sezione "✅ Fatto" col campo
+  `Chiusa: YYYY-MM-DD`, NON cancellarla.
