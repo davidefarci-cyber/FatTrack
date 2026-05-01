@@ -1,5 +1,7 @@
 export { getDatabase, resetDatabase } from './db';
 export { DEFAULT_ITALIAN_FOODS, applySeedServings, seedFoodsIfEmpty } from './seedFoods';
+export { seedExercisesIfEmpty } from './seedExercises';
+export { seedPresetWorkoutsIfEmpty } from './seedWorkouts';
 
 export * as foodsDB from './foodsDB';
 export * as foodServingsDB from './foodServingsDB';
@@ -10,6 +12,8 @@ export * as quickAddonsDB from './quickAddonsDB';
 export * as settingsDB from './settingsDB';
 export * as profileDB from './profileDB';
 export * as appSettingsDB from './appSettingsDB';
+export * as exercisesDB from './exercisesDB';
+export * as workoutsDB from './workoutsDB';
 
 export type { Food, FoodSource, NewFood } from './foodsDB';
 export type { FoodServing, NewFoodServing } from './foodServingsDB';
@@ -19,3 +23,10 @@ export type { QuickAddon, NewQuickAddon } from './quickAddonsDB';
 export type { DailySettings, DailySettingsPatch } from './settingsDB';
 export type { UserProfile, Gender, ActivityLevel } from './profileDB';
 export type { AppMode, AppSettings } from './appSettingsDB';
+export type { Exercise, ExerciseLevel } from './exercisesDB';
+export type {
+  Workout,
+  WorkoutCategory,
+  WorkoutExercise,
+  NewWorkout,
+} from './workoutsDB';

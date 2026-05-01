@@ -1,6 +1,8 @@
 import * as SQLite from 'expo-sqlite';
 
+import { seedExercisesIfEmpty } from './seedExercises';
 import { applySeedServings, seedFoodsIfEmpty } from './seedFoods';
+import { seedPresetWorkoutsIfEmpty } from './seedWorkouts';
 
 const DB_NAME = 'fattrack.db';
 
@@ -16,6 +18,8 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
     await migrate(db);
     await seedFoodsIfEmpty(db);
     await applySeedServings(db);
+    await seedExercisesIfEmpty(db);
+    await seedPresetWorkoutsIfEmpty(db);
     dbInstance = db;
     return db;
   })();
@@ -117,6 +121,46 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       sport_mode_seen INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS exercises (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      muscle_group TEXT NOT NULL,
+      equipment TEXT NOT NULL,
+      level TEXT NOT NULL CHECK (level IN ('principiante','intermedio','avanzato')),
+      description TEXT,
+      guide_steps TEXT,
+      video_url TEXT,
+      met REAL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_exercises_muscle ON exercises(muscle_group);
+
+    CREATE TABLE IF NOT EXISTS workouts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL CHECK (category IN ('forza','cardio','mobilita','misto')),
+      is_preset INTEGER NOT NULL DEFAULT 0,
+      notes TEXT,
+      estimated_duration_min INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS workout_exercises (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      workout_id INTEGER NOT NULL REFERENCES workouts(id) ON DELETE CASCADE,
+      exercise_id INTEGER NOT NULL REFERENCES exercises(id),
+      position INTEGER NOT NULL,
+      sets INTEGER,
+      reps INTEGER,
+      duration_sec INTEGER,
+      rest_sec INTEGER,
+      weight_kg REAL,
+      notes TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_workout_exercises_workout
+      ON workout_exercises(workout_id);
   `);
 
   // Migrazione: la colonna `target_calories` su `daily_settings` è stata
@@ -232,6 +276,9 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
 export async function resetDatabase(): Promise<void> {
   const db = await getDatabase();
   await db.execAsync(`
+    DROP TABLE IF EXISTS workout_exercises;
+    DROP TABLE IF EXISTS workouts;
+    DROP TABLE IF EXISTS exercises;
     DROP TABLE IF EXISTS meals;
     DROP TABLE IF EXISTS favorites;
     DROP TABLE IF EXISTS food_servings;
