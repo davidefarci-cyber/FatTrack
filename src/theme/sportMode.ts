@@ -19,7 +19,12 @@ export const sportColors = {
 
 export const APP_NAME_SPORT = 'FitTrack';
 
-export type SportCategory = 'forza' | 'cardio' | 'mobilita' | 'recupero';
+export type SportCategory =
+  | 'forza'
+  | 'cardio'
+  | 'mobilita'
+  | 'misto'
+  | 'recupero';
 
 export const sportPalette: Record<
   SportCategory,
@@ -28,5 +33,8 @@ export const sportPalette: Record<
   forza: { color: '#FF7A1A', bg: '#FFE0C8', label: 'Forza' },
   cardio: { color: '#FF4757', bg: '#FFF1F2', label: 'Cardio' },
   mobilita: { color: '#4C6EF5', bg: '#EEF2FF', label: 'Mobilità' },
+  // Schede ibride forza+cardio (vedi `WorkoutCategory` in workoutsDB):
+  // colore neutro/ricco per distinguerle dalle tre categorie pure.
+  misto: { color: '#CC5DE8', bg: '#F8F0FF', label: 'Misto' },
   recupero: { color: '#06C167', bg: '#E6FBF0', label: 'Recupero' },
 };
