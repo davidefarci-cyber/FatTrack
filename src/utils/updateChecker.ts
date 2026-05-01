@@ -53,6 +53,14 @@ type RemoteVersion = {
   notes: string;
 };
 
+// Esito del check per il flusso "manuale" (bottone in Settings). Il check
+// automatico in App.tsx non lo usa: gli interessa solo l'effetto collaterale
+// del prompt, non l'esito.
+export type ManualCheckResult =
+  | 'prompted' // Alert di aggiornamento aperto
+  | 'up-to-date' // gia' all'ultima versione
+  | 'error'; // network / payload / runtime non determinabile
+
 // Entry point: fire-and-forget dall'App.tsx. Non lancia mai: qualunque
 // errore (offline, JSON malformato, ecc.) viene soffocato.
 // Si registra anche un listener AppState così se l'utente lascia l'app
@@ -65,25 +73,34 @@ export async function checkForUpdates(): Promise<void> {
   await runCheck();
 }
 
+// Variante invocata dal bottone "Cerca aggiornamenti" in Settings:
+// bypassa throttle e dismissedVersion (l'utente ha esplicitamente chiesto
+// un check) e ritorna l'esito così la UI può mostrare un toast.
+export function manualCheckForUpdate(): Promise<ManualCheckResult> {
+  return runCheck({ force: true });
+}
+
 function handleAppStateChange(state: AppStateStatus) {
   if (state !== 'active') return;
   void runCheck();
 }
 
-async function runCheck(): Promise<void> {
-  if (isPromptOpen) return;
+async function runCheck({ force = false }: { force?: boolean } = {}): Promise<ManualCheckResult> {
+  if (isPromptOpen) return 'prompted';
 
-  // Throttle persistito: rispettato anche al cold-start.
-  const lastCheckAt = await readLastCheckAt();
-  if (Date.now() - lastCheckAt < RECHECK_MS) return;
+  if (!force) {
+    // Throttle persistito: rispettato anche al cold-start.
+    const lastCheckAt = await readLastCheckAt();
+    if (Date.now() - lastCheckAt < RECHECK_MS) return 'up-to-date';
+  }
   void AsyncStorage.setItem(STORAGE_KEY_LAST_CHECK, String(Date.now()));
 
   try {
     const remote = await fetchRemoteVersion();
-    if (!remote) return;
+    if (!remote) return 'error';
 
     const current = getCurrentVersion();
-    if (!current) return;
+    if (!current) return 'error';
 
     if (compareVersions(remote.version, current) > 0) {
       const isMandatory =
@@ -92,15 +109,21 @@ async function runCheck(): Promise<void> {
 
       // Se l'utente ha già detto "Dopo" per questa versione e l'update non è
       // obbligatorio, non riprompare finché non esce una versione successiva.
-      if (!isMandatory) {
+      // Eccezione: con force=true (bottone manuale) vogliamo sempre il prompt,
+      // l'utente sta esplicitamente chiedendo di riprovare.
+      if (!isMandatory && !force) {
         const dismissed = await AsyncStorage.getItem(STORAGE_KEY_DISMISSED);
-        if (dismissed === remote.version) return;
+        if (dismissed === remote.version) return 'up-to-date';
       }
 
       promptUpdate(remote, isMandatory);
+      return 'prompted';
     }
+    return 'up-to-date';
   } catch {
-    // Silenziosi per design: update check è un "nice to have".
+    // Silenziosi per design: update check automatico è un "nice to have".
+    // Il chiamante manuale traduce 'error' in toast.
+    return 'error';
   }
 }
 

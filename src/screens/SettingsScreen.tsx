@@ -24,6 +24,7 @@ import {
 } from '@/utils/calorieCalculator';
 import { PROFILE_EXPLAINERS } from '@/utils/profileExplainers';
 import type { ProfileExplainerKey } from '@/utils/profileExplainers';
+import { manualCheckForUpdate } from '@/utils/updateChecker';
 import {
   ACTIVITY_OPTIONS,
   GENDER_OPTIONS,
@@ -325,6 +326,24 @@ export default function SettingsScreen() {
 
 function VersionCard() {
   const nativeVersion = Constants.expoConfig?.version ?? '—';
+  const toast = useToast();
+  const [checking, setChecking] = useState(false);
+
+  async function handleCheck() {
+    if (checking) return;
+    setChecking(true);
+    try {
+      const result = await manualCheckForUpdate();
+      if (result === 'up-to-date') {
+        toast.show("L'app è già aggiornata.");
+      } else if (result === 'error') {
+        toast.show('Impossibile verificare. Riprova più tardi.');
+      }
+      // 'prompted': l'Alert si apre da solo, niente toast.
+    } finally {
+      setChecking(false);
+    }
+  }
 
   return (
     <Card style={styles.card}>
@@ -333,6 +352,12 @@ function VersionCard() {
         <Text style={typography.caption}>App</Text>
         <Text style={styles.versionValue}>{nativeVersion}</Text>
       </View>
+      <Button
+        label="Cerca aggiornamenti"
+        variant="secondary"
+        onPress={handleCheck}
+        loading={checking}
+      />
     </Card>
   );
 }
