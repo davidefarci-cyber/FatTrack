@@ -179,6 +179,29 @@ per richiederlo prima del merge.
 
 ---
 
+### [11] Backup / restore del database utente
+
+**Aperta**: 2026-05-01
+**Area**: codice / UX
+
+Oggi se l'utente disinstalla l'app o se cambia la firma keystore (vedi
+[2]) perde tutto: profilo, pasti, preferiti, food custom, quick addons.
+SQLite vive solo nello storage interno dell'app.
+
+Implementazione: export di tutte le tabelle come JSON unico
+(`{ schemaVersion, exportedAt, appVersion, tables: { ... } }`), share
+via `expo-sharing`. Import via `expo-document-picker` con `Alert` di
+conferma (sostituisce tutti i dati attuali). Validazione su
+`schemaVersion` per evitare di importare backup di versioni
+incompatibili.
+
+**Done quando**: in `SettingsScreen` esistono i bottoni "Esporta backup"
+e "Importa backup"; il file esportato è un JSON leggibile; l'import
+sostituisce il DB e svuota la cache `mealsStore`; backup di versione
+diversa viene rifiutato con messaggio chiaro.
+
+---
+
 ## 🟢 Priorità bassa
 
 ### [8] Persistere il consenso `REQUEST_INSTALL_PACKAGES`
