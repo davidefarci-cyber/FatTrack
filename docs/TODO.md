@@ -232,6 +232,20 @@ offline finché non lo dismissa o aggiorna.
 
 ## ✅ Fatto
 
+### [chiusa] Auto-detect OTA leftover in AndroidManifest durante prebuild
+
+**Aperta**: 2026-05-01 — **Chiusa**: 2026-05-01
+
+Dopo il merge della rimozione OTA, chi pullava main con una `android/`
+generata in passato (quando expo-updates era attivo) vedeva prebuild
+abortire perché il manifest conteneva `expo.modules.updates.EXPO_RUNTIME_VERSION`
+mentre `app.json` non aveva più `runtimeVersion`. `scripts/build-android-local.bat`
+ora controlla la presenza di quel meta-data e, se trovato, forza
+`expo prebuild --clean` per rigenerare il manifest da zero. La keystore
+stabile in `keystore/debug.keystore` non viene toccata.
+
+---
+
 ### [chiusa] Bottone "Cerca aggiornamenti" in Settings
 
 **Aperta**: 2026-05-01 — **Chiusa**: 2026-05-01

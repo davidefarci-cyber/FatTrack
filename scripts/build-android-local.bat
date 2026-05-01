@@ -66,9 +66,32 @@ if /i "!ABI!"=="universal" (
 
 rem ============================================================
 rem  2. expo prebuild (genera o aggiorna la cartella android\)
+rem
+rem  Detect leftover OTA: se un prebuild PRECEDENTE aveva
+rem  expo-updates configurato, AndroidManifest.xml contiene meta-data
+rem  expo.modules.updates.* che ora sono incoerenti col nuovo app.json
+rem  (no runtimeVersion, no expo-updates in deps). Senza --clean,
+rem  prebuild aborta con:
+rem    "A runtime version is set in your AndroidManifest.xml, but is
+rem     missing from your app.json".
+rem  Soluzione: una tantum forziamo --clean, prebuild rigenera il
+rem  manifest da zero senza i meta-data OTA. La keystore stabile resta
+rem  in keystore\debug.keystore (root) e viene ripristinata nello step 3.
 rem ============================================================
-echo [ ] Eseguo expo prebuild ^(--no-install per riusare node_modules^)...
-call npx --yes expo prebuild --platform android --no-install
+set "PREBUILD_FLAGS=--platform android --no-install"
+set "_MANIFEST=android\app\src\main\AndroidManifest.xml"
+if exist "!_MANIFEST!" (
+    findstr /C:"expo.modules.updates.EXPO_RUNTIME_VERSION" "!_MANIFEST!" >nul 2>nul
+    if not errorlevel 1 (
+        echo [!] AndroidManifest.xml contiene meta-data OTA da prebuild precedente.
+        echo     Forzo --clean per rigenerare android\ pulito ^(la keystore
+        echo     stabile in keystore\ non viene toccata^).
+        set "PREBUILD_FLAGS=--platform android --no-install --clean"
+    )
+)
+
+echo [ ] Eseguo expo prebuild !PREBUILD_FLAGS!...
+call npx --yes expo prebuild !PREBUILD_FLAGS!
 if errorlevel 1 (
     echo [!] expo prebuild fallito.
     exit /b 1
