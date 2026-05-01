@@ -160,14 +160,24 @@ export default function HomeScreen() {
         subtitle="Pasti e calorie giornaliere"
         style={{ paddingTop: insets.top + spacing.xl }}
         right={
-          <Pressable
-            onPress={() => navigation.navigate('Settings')}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Apri impostazioni"
-          >
-            <Icon name="cog" size={24} color={colors.textSec} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => navigation.navigate('Profile')}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Apri profilo"
+            >
+              <Icon name="user" size={24} color={colors.textSec} />
+            </Pressable>
+            <Pressable
+              onPress={() => navigation.navigate('Settings')}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Apri impostazioni"
+            >
+              <Icon name="cog" size={24} color={colors.textSec} />
+            </Pressable>
+          </View>
         }
       />
 
@@ -314,5 +324,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     gap: spacing.xxs,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xl,
   },
 });

@@ -105,7 +105,10 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       activity_level INTEGER NOT NULL CHECK (activity_level BETWEEN 1 AND 5),
       weekly_goal_kg REAL NOT NULL DEFAULT 0,
       tdee REAL NOT NULL,
-      target_calories REAL NOT NULL
+      target_calories REAL NOT NULL,
+      name TEXT,
+      target_weight_kg REAL,
+      start_weight_kg REAL
     );
   `);
 
@@ -143,6 +146,9 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     `ALTER TABLE meals ADD COLUMN protein_total REAL`,
     `ALTER TABLE meals ADD COLUMN carbs_total REAL`,
     `ALTER TABLE meals ADD COLUMN fat_total REAL`,
+    `ALTER TABLE user_profile ADD COLUMN name TEXT`,
+    `ALTER TABLE user_profile ADD COLUMN target_weight_kg REAL`,
+    `ALTER TABLE user_profile ADD COLUMN start_weight_kg REAL`,
   ]) {
     try {
       await db.execAsync(sql);

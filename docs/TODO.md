@@ -211,46 +211,6 @@ di azzerare il DB.
 
 ---
 
-### [12] Refactor `SettingsScreen`: zone separate o tab "Utente"
-
-**Aperta**: 2026-05-01
-**Area**: UX / codice
-
-`SettingsScreen` oggi è uno scroll continuo che mescola dati personali
-(peso, altezza, età, sesso, livello di attività, obiettivo
-settimanale), valori calcolati (BMR/TDEE/target), aggiunte rapide,
-versione/aggiornamenti, backup DB, reset. Con la voce [11] è cresciuto
-ancora — la lista è ormai lunga e poco navigabile.
-
-Due strade alternative:
-
-1. **Sezioni collassabili o segmentate** dentro `SettingsScreen`:
-   raggruppare per area (Dati personali · Attività & obiettivo · Quick
-   addons · Backup · Avanzate) con accordion o tab pill in cima. Pro:
-   un solo punto d'accesso, mantiene la tab bar attuale. Contro:
-   accordion in RN non è bello di default, va costruito.
-
-2. **Split in due tab**: aggiungere una nuova tab "Utente" (o
-   "Profilo") con icona dedicata accanto a Settings nella `BottomTabBar`.
-   Profilo → dati personali + valori calcolati. Settings → quick
-   addons, backup, versione, reset. Pro: separazione semantica netta,
-   schermate corte. Contro: la tab bar passa da 5 a 6 voci (FAB Home
-   centrale impone simmetria → potrebbe diventare scomoda
-   visivamente); va rivisto il design system della tab bar.
-
-Decidere prima quale strategia adottare; entrambe sono coerenti col
-design system se si estendono i primitives correttamente (no stili
-inline arbitrari, vedi CLAUDE.md §1).
-
-**Done quando**: la schermata impostazioni non è più uno scroll
-monolitico — l'utente raggiunge una specifica sottosezione (es.
-"Backup") in al massimo 2 tap dalla home; la struttura scelta è
-documentata in `design/README.md` e i primitives nuovi (eventuale
-`Accordion`, eventuale icona tab "Utente") rispettano i token in
-`src/theme/index.ts`.
-
----
-
 ## 🟢 Priorità bassa
 
 ### [8] Persistere il consenso `REQUEST_INSTALL_PACKAGES`
@@ -302,7 +262,79 @@ offline finché non lo dismissa o aggiorna.
 
 ---
 
+### [13] Foto profilo (avatar reale invece dell'iniziale)
+
+**Aperta**: 2026-05-01
+**Area**: UX / codice
+
+`ProfileScreen` mostra come avatar un cerchio con l'iniziale del nome.
+Carino e a costo zero ma poco personale. Idea: aggiungere
+`expo-image-picker` per permettere all'utente di scegliere una foto
+dalla galleria. URI persistito su `user_profile.avatar_uri` (il file
+sopravvive al reinstall? in realtà no — i picker restituiscono URI
+content:// non stabili. Va copiato in `FileSystem.documentDirectory`
+con `expo-file-system` per garantire persistenza).
+
+Implica:
+- nuova dipendenza `expo-image-picker` (richiede aggiunta permessi
+  `READ_MEDIA_IMAGES` su Android in `app.json`)
+- copia file in storage app + cleanup del file precedente
+- migrazione DB con colonna `avatar_uri TEXT`
+- export/import del backup deve gestire anche il file binario o
+  almeno re-encodarlo in base64 nel JSON
+
+**Done quando**: l'utente può scegliere una foto dalla galleria che
+appare come avatar in `ProfileScreen` e nello shortcut "Il tuo
+profilo" in `SettingsScreen`; la foto sopravvive al riavvio
+dell'app; l'export di backup la include o la salta esplicitamente
+con warning.
+
+---
+
 ## ✅ Fatto
+
+### [chiusa] [12] Split `SettingsScreen` con tab Profile dedicata
+
+**Aperta**: 2026-05-01 — **Chiusa**: 2026-05-01
+
+Strategia adottata (proposta dell'utente, alternativa a tab bar / accordion):
+nuovo `ProfileScreen` come Tab.Screen "nascosta" — non visibile in
+`BottomTabBar` (esattamente come `Settings`), raggiungibile con un tap
+da una nuova icona `user` nello slot `right` di `ScreenHeader` su
+`HomeScreen`, accanto all'ingranaggio. Vantaggi: la tab bar resta a 5
+voci con FAB Home simmetrico, semantica pulita ("io" vs "app"), il
+peso (dato che cambia spesso) raggiungibile in 1 tap dalla Home.
+
+Contenuti `ProfileScreen`:
+- card identità: avatar cerchio con iniziale del nome + Input nome
+  + età/sesso (autosave debounced)
+- card Peso: nuovo `WeightRing` (analogo a `CalorieRing` ma per il
+  peso) con peso corrente al centro, obiettivo nella label, progresso
+  arco da `start_weight_kg` a `target_weight_kg` ; +/- 200g per
+  l'editing rapido del peso ; delta "ti mancano X kg" sotto il ring ;
+  sezione inline per impostare/modificare/rimuovere il target
+- card "Dati personali": altezza, età, sesso (riusa `Input` /
+  `SegmentedControl`)
+- card "Livello di attività" e "Obiettivo settimanale" (riusa
+  `OptionSelect`)
+- card "Valori calcolati": BMR/TDEE/target calorie con `InfoTooltip`
+
+Schema DB esteso (nullable, migrazione idempotente in `db.ts`):
+`name TEXT`, `target_weight_kg REAL`, `start_weight_kg REAL`. Il campo
+`startWeightKg` viene resettato al peso corrente ogni volta che
+l'utente imposta o cambia il target, così il ring riparte da 0%.
+
+`SettingsScreen` ora contiene solo: shortcut "Il tuo profilo" (link
+rapido a `ProfileScreen`), QuickAddons, VersionCard, BackupCard, Test
+(reset app / reset DB). Niente più scroll monolitico.
+
+Nuovi primitives: `WeightRing`, icona `user`, icona `minus`. Il design
+system non è stato modificato — solo esteso.
+
+Foto profilo (avatar reale via gallery) rimandata alla voce [13]
+perché richiede nuova dipendenza `expo-image-picker` e gestione file.
+
+---
 
 ### [chiusa] Auto-detect OTA leftover in AndroidManifest durante prebuild
 

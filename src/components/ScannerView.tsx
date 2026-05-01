@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 import Svg, { Line, Path } from 'react-native-svg';
 
+import { Button } from '@/components/Button';
 import { colors, radii, spacing, typography } from '@/theme';
 
 import { Icon } from './Icon';
@@ -42,11 +44,27 @@ export function ScannerView({
   const lastCodeRef = useRef<string | null>(null);
   const scanLine = useRef(new Animated.Value(0)).current;
 
+  // Prompt automatico SOLO al primo accesso (status === 'undetermined'):
+  // Android non rimostra il dialog di permesso al solo `requestPermission()`
+  // dopo un primo rifiuto, quindi nei casi successivi serve il bottone esplicito
+  // sotto.
   useEffect(() => {
-    if (permission && !permission.granted && permission.canAskAgain) {
+    if (permission?.status === 'undetermined') {
       requestPermission();
     }
-  }, [permission, requestPermission]);
+  }, [permission?.status, requestPermission]);
+
+  const handleRequestPermission = async () => {
+    if (!permission) return;
+    if (permission.canAskAgain) {
+      await requestPermission();
+    } else {
+      // Rifiuto permanente: l'unico modo per riabilitare passa dalle
+      // impostazioni di sistema. Linking.openSettings() su Android apre
+      // direttamente la pagina dell'app.
+      await Linking.openSettings();
+    }
+  };
 
   // Scan-line animata in loop quando la scansione è attiva.
   useEffect(() => {
@@ -94,12 +112,20 @@ export function ScannerView({
   }
 
   if (!permission.granted) {
+    const canAsk = permission.canAskAgain;
     return (
       <View style={[styles.viewport, styles.statusBox, variant === 'full' && styles.viewportFull]}>
-        <Text style={[typography.body, { color: colors.card }]}>Fotocamera non disponibile</Text>
+        <Text style={[typography.body, { color: colors.card }]}>Serve il permesso fotocamera</Text>
         <Text style={[typography.caption, { color: colors.card, textAlign: 'center' }]}>
-          Abilita la fotocamera nelle impostazioni del sistema per scansionare i codici a barre.
+          {canAsk
+            ? 'FatTrack usa la fotocamera per leggere i codici a barre.'
+            : 'Hai negato il permesso. Riabilitalo dalle impostazioni di sistema per scansionare i codici a barre.'}
         </Text>
+        <Button
+          label={canAsk ? 'Consenti accesso' : 'Apri impostazioni'}
+          onPress={handleRequestPermission}
+          style={styles.permissionBtn}
+        />
       </View>
     );
   }
@@ -275,5 +301,9 @@ const styles = StyleSheet.create({
   },
   flashBtnActive: {
     backgroundColor: colors.card,
+  },
+  permissionBtn: {
+    marginTop: spacing.md,
+    minWidth: 180,
   },
 });

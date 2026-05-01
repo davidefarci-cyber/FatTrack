@@ -1,8 +1,8 @@
 // Bottom tab a 5 voci: Barcode · Preferiti · Home · Storico · Cerca.
-// Settings resta registrato come Tab.Screen ma non è più visibile nella
-// bar — si raggiunge dall'icona ingranaggio in alto a destra di Home.
-// La Home è centrale nell'UI con FAB rialzato; `initialRouteName` sul
-// Tab.Navigator garantisce comunque l'avvio sulla Home.
+// Settings e Profile restano registrati come Tab.Screen ma non sono visibili
+// nella bar — si raggiungono dalle icone in alto a destra di Home (utente +
+// ingranaggio). La Home è centrale nell'UI con FAB rialzato; `initialRouteName`
+// sul Tab.Navigator garantisce comunque l'avvio sulla Home.
 export type TabParamList = {
   Barcode: undefined;
   Favorites: undefined;
@@ -10,4 +10,5 @@ export type TabParamList = {
   History: undefined;
   FoodSearch: undefined;
   Settings: undefined;
+  Profile: undefined;
 };
