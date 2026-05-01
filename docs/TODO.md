@@ -179,6 +179,78 @@ per richiederlo prima del merge.
 
 ---
 
+### [11] Backup / restore del database utente
+
+**Aperta**: 2026-05-01
+**Area**: codice / UX
+
+Oggi se l'utente disinstalla l'app o se cambia la firma keystore (vedi
+[2]) perde tutto: profilo, pasti, preferiti, food custom, quick addons.
+SQLite vive solo nello storage interno dell'app.
+
+Implementazione: export di tutte le tabelle come JSON unico
+(`{ schemaVersion, exportedAt, appVersion, tables: { ... } }`), share
+via `expo-sharing`. Import via `expo-document-picker` con `Alert` di
+conferma (sostituisce tutti i dati attuali).
+
+L'import deve essere **best-effort cross-version**: un backup fatto con
+una versione vecchia dell'app deve poter essere ripristinato in una
+versione più nuova caricando tutto quello che è ancora compatibile.
+Niente rifiuto rigido su mismatch di `schemaVersion`. Strategia:
+introspection schema corrente con `PRAGMA table_info`, intersection
+colonna-per-colonna, skip righe che violano constraint, report finale
+all'utente con i warning (tabelle/colonne ignorate, righe scartate).
+
+**Done quando**: in `SettingsScreen` esistono i bottoni "Esporta backup"
+e "Importa backup"; il file esportato è un JSON leggibile; l'import
+sostituisce il DB, svuota la cache `mealsStore` e mostra warning se
+parte dei dati non è stata ripristinata; backup di versione "futura"
+(`schemaVersion` più alto del corrente) viene rifiutato con messaggio
+chiaro; backup vuoti o incompatibili rollbackano la transazione invece
+di azzerare il DB.
+
+---
+
+### [12] Refactor `SettingsScreen`: zone separate o tab "Utente"
+
+**Aperta**: 2026-05-01
+**Area**: UX / codice
+
+`SettingsScreen` oggi è uno scroll continuo che mescola dati personali
+(peso, altezza, età, sesso, livello di attività, obiettivo
+settimanale), valori calcolati (BMR/TDEE/target), aggiunte rapide,
+versione/aggiornamenti, backup DB, reset. Con la voce [11] è cresciuto
+ancora — la lista è ormai lunga e poco navigabile.
+
+Due strade alternative:
+
+1. **Sezioni collassabili o segmentate** dentro `SettingsScreen`:
+   raggruppare per area (Dati personali · Attività & obiettivo · Quick
+   addons · Backup · Avanzate) con accordion o tab pill in cima. Pro:
+   un solo punto d'accesso, mantiene la tab bar attuale. Contro:
+   accordion in RN non è bello di default, va costruito.
+
+2. **Split in due tab**: aggiungere una nuova tab "Utente" (o
+   "Profilo") con icona dedicata accanto a Settings nella `BottomTabBar`.
+   Profilo → dati personali + valori calcolati. Settings → quick
+   addons, backup, versione, reset. Pro: separazione semantica netta,
+   schermate corte. Contro: la tab bar passa da 5 a 6 voci (FAB Home
+   centrale impone simmetria → potrebbe diventare scomoda
+   visivamente); va rivisto il design system della tab bar.
+
+Decidere prima quale strategia adottare; entrambe sono coerenti col
+design system se si estendono i primitives correttamente (no stili
+inline arbitrari, vedi CLAUDE.md §1).
+
+**Done quando**: la schermata impostazioni non è più uno scroll
+monolitico — l'utente raggiunge una specifica sottosezione (es.
+"Backup") in al massimo 2 tap dalla home; la struttura scelta è
+documentata in `design/README.md` e i primitives nuovi (eventuale
+`Accordion`, eventuale icona tab "Utente") rispettano i token in
+`src/theme/index.ts`.
+
+---
+
 ## 🟢 Priorità bassa
 
 ### [8] Persistere il consenso `REQUEST_INSTALL_PACKAGES`

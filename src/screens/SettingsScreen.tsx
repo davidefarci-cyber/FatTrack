@@ -24,6 +24,7 @@ import {
 } from '@/utils/calorieCalculator';
 import { PROFILE_EXPLAINERS } from '@/utils/profileExplainers';
 import type { ProfileExplainerKey } from '@/utils/profileExplainers';
+import { exportBackup, importBackup } from '@/utils/dbBackup';
 import { manualCheckForUpdate } from '@/utils/updateChecker';
 import {
   ACTIVITY_OPTIONS,
@@ -293,6 +294,8 @@ export default function SettingsScreen() {
 
             <VersionCard />
 
+            <BackupCard onAfterImport={reloadProfile} />
+
             <Card style={styles.card}>
               <Text style={typography.label}>Test</Text>
               <Text style={typography.caption}>
@@ -357,6 +360,92 @@ function VersionCard() {
         variant="secondary"
         onPress={handleCheck}
         loading={checking}
+      />
+    </Card>
+  );
+}
+
+function BackupCard({ onAfterImport }: { onAfterImport: () => Promise<void> }) {
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  async function handleExport() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const result = await exportBackup();
+      if (result.kind === 'unavailable') {
+        toast.show('Condivisione non disponibile su questo dispositivo');
+      } else if (result.kind === 'error') {
+        toast.show(`Errore export: ${result.message}`);
+      }
+      // 'shared': lo share-sheet di sistema gestisce il feedback.
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function handleImport() {
+    if (importing) return;
+    Alert.alert(
+      'Importa backup',
+      'Sostituirà TUTTI i dati attuali (profilo, pasti, preferiti, food, aggiunte rapide). Vuoi procedere?',
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Importa',
+          style: 'destructive',
+          onPress: async () => {
+            setImporting(true);
+            try {
+              const result = await importBackup();
+              if (result.kind === 'imported') {
+                await onAfterImport();
+                const total = Object.values(result.report.imported).reduce(
+                  (a, b) => a + b,
+                  0,
+                );
+                if (result.report.warnings.length > 0) {
+                  Alert.alert(
+                    `Backup importato (${total} righe)`,
+                    `Alcuni dati non sono stati ripristinati:\n\n• ${result.report.warnings.join('\n• ')}`,
+                  );
+                } else {
+                  toast.show(`Backup importato (${total} righe)`);
+                }
+              } else if (result.kind === 'invalid') {
+                toast.show(`Backup non valido: ${result.reason}`);
+              }
+              // 'cancelled': nessun feedback necessario.
+            } finally {
+              setImporting(false);
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  return (
+    <Card style={styles.card}>
+      <Text style={typography.label}>Backup database</Text>
+      <Text style={typography.caption}>
+        Esporta tutti i tuoi dati (profilo, pasti, preferiti, food, aggiunte
+        rapide) in un file JSON da salvare su cloud o trasferire su un altro
+        telefono. L'import sostituisce i dati attuali.
+      </Text>
+      <Button
+        label="Esporta backup"
+        variant="secondary"
+        onPress={handleExport}
+        loading={exporting}
+      />
+      <Button
+        label="Importa backup"
+        variant="secondary"
+        onPress={handleImport}
+        loading={importing}
       />
     </Card>
   );
