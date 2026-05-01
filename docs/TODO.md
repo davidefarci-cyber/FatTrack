@@ -211,6 +211,68 @@ di azzerare il DB.
 
 ---
 
+### [14] Backup/restore include tabelle sport mode
+
+**Aperta**: 2026-05-02
+**Area**: codice / UX
+**Dipende da**: [11] (almeno la versione base esiste)
+
+`src/utils/dbBackup.ts` ha la lista `TABLES` (linee 22-30) hardcodata
+con solo le tabelle diet: `foods`, `food_servings`, `meals`,
+`favorites`, `quick_addons`, `daily_settings`, `user_profile`. Le
+tabelle introdotte dal progetto sport mode (Fasi 1-5, PR #51-#56) NON
+sono incluse: `app_settings`, `exercises`, `workouts`,
+`workout_exercises`, `sessions`, `session_sets`, `active_session`.
+
+Effetto attuale: chi fa export e poi reimporta perde tutto il sport
+(modalità app, schede personali, sessioni, libreria esercizi
+custom in futuro). I preset si riseminerebbero automaticamente
+(`seedPresetWorkoutsIfEmpty`), ma le sessioni/storico no.
+
+Da fare: aggiungere le 7 tabelle sport alla lista `TABLES`, in ordine
+di dipendenza FK per il restore (parents prima dei children: `exercises`
+→ `workouts` → `workout_exercises` → `sessions` → `session_sets`;
+`active_session` per ultimo o saltato dal backup — è uno stato
+runtime, ha senso esportarlo solo se vogliamo ripristinare anche la
+sessione in corso, valutare). Bumpare `SCHEMA_VERSION`. Aggiornare il
+test plan dell'import.
+
+**Done quando**: l'export di backup contiene le tabelle sport;
+l'import le ripristina; un round-trip export → reset DB → import
+preserva schede personali, sessioni storiche, modalità corrente,
+weeklyTarget; le tabelle nuove vivono nel JSON con lo stesso pattern
+di quelle esistenti (warning su tabelle sconosciute al restore di
+backup vecchi).
+
+---
+
+### [15] Asset wordmark "FitTrack" definitivi
+
+**Aperta**: 2026-05-02
+**Area**: design / codice
+
+`src/components/sport/ModeTransitionOverlay.tsx` mostra il wordmark
+"FitTrack" (sport) / "FatTrack" (diet) come **testo** + icona `bolt`
+inline durante la transizione di modalità. Era un placeholder esplicito
+in attesa degli asset definitivi che il proprietario produrrà
+(SVG/PNG ad alta risoluzione, eventualmente varianti chiaro/scuro).
+
+Quando arriva l'asset:
+- droppare in `assets/sport-splash/` (es. `logo-fittrack.svg`,
+  `logo-fattrack.svg`)
+- sostituire il blocco `<Text>` + `<Icon>` di `ModeTransitionOverlay`
+  con un `<Image>` o `<SvgUri>` di react-native-svg (quest'ultima
+  evita di aggiungere una nuova lib)
+- ricontrollare timing della transizione (~700ms ora, magari più
+  lungo se l'asset ha più dettaglio)
+
+**Done quando**: lo splash di transizione mostra il logo grafico al
+posto del wordmark testuale; gli asset sono nel repo o referenziati
+con import statici; il rerender della transizione non flickera (test
+manuale su device).
+
+---
+
 ## 🟢 Priorità bassa
 
 ### [8] Persistere il consenso `REQUEST_INSTALL_PACKAGES`
@@ -288,6 +350,166 @@ appare come avatar in `ProfileScreen` e nello shortcut "Il tuo
 profilo" in `SettingsScreen`; la foto sopravvive al riavvio
 dell'app; l'export di backup la include o la salta esplicitamente
 con warning.
+
+---
+
+### [16] Notifiche locali per fine recupero (sessione attiva)
+
+**Aperta**: 2026-05-02
+**Area**: UX / codice
+
+Durante una sessione attiva (`ActiveSessionScreen`), il `RestTimer`
+parte automaticamente alla fine di un set. Se l'utente sblocca il
+telefono, mette il telefono in tasca, o l'app va in background, oggi
+non c'è alcun alert al termine del recupero — l'utente o tiene
+l'app in foreground o si perde il segnale.
+
+`expo-notifications` permette notifiche local schedulate
+(`scheduleNotificationAsync` con `trigger: { seconds: restSec }`).
+Quando l'utente preme "Set completato" e parte il recupero,
+schediamo anche la notifica; al "Salta recupero" / completamento /
+pausa la cancelliamo.
+
+Implica:
+- aggiungere `expo-notifications` a package.json + permessi
+- gestire il caso utente che non concede permessi (fallback:
+  comportamento attuale)
+- testare iOS vs Android (le notifiche local hanno API leggermente
+  diverse)
+
+**Done quando**: durante una sessione, al termine del recupero
+arriva una notifica anche con app in background; pause/skip/end
+cancellano la notifica schedulata; permessi richiesti la prima volta
+con messaggio in italiano spiegando l'uso.
+
+---
+
+### [17] Haptic feedback / suoni su completamento set e fine recupero
+
+**Aperta**: 2026-05-02
+**Area**: UX
+
+Il `RestTimer` finisce silenziosamente. Anche il "Set completato"
+non ha feedback tattile. Per un'app sport è una mancanza
+significativa: l'utente vuole vibrazione/suono breve a fine recupero
+mentre sta riprendendo fiato.
+
+Due dipendenze candidate:
+- `expo-haptics` per vibrazione (già usata in molte app Expo,
+  leggera)
+- `expo-av` per suono (più pesante; valutare se basta solo
+  haptic)
+
+Suggerimento MVP: solo haptic (`Haptics.notificationAsync(Success)`)
+a fine recupero e su tap "Set completato". Suono come iterazione
+successiva.
+
+**Done quando**: a fine recupero il device vibra brevemente; al tap
+"Set completato" un haptic leggero conferma l'azione; flag
+`hapticEnabled` nelle SportSettings (default true) per disattivare.
+
+---
+
+### [18] Video URL veri sugli esercizi
+
+**Aperta**: 2026-05-02
+**Area**: contenuti
+
+`exercises.video_url` esiste come colonna ma TUTTI i 40 esercizi
+seedati in Fase 4 hanno `videoUrl=null`. Il pulsante "Guarda video"
+in `ExerciseDetailModal` viene quindi nascosto.
+
+Da fare: curare una lista di link YouTube per ognuno dei 40
+esercizi (canali affidabili in italiano o senza speech, es.
+Calisthenicmovement, AthleanX, Yoga With Adriene). Aggiornare
+`seedExercises.ts` con i link. Considerare:
+- un re-seed mirato per gli utenti già installati (top-up con
+  UPDATE invece che INSERT OR IGNORE)
+- gestione del caso link rotto (`Linking.canOpenURL` prima di
+  aprire)
+
+**Done quando**: ogni esercizio ha un videoUrl funzionante; tap su
+"Guarda video" apre il video nel browser/app YouTube; il top-up
+funziona per utenti esistenti senza perdere modifiche locali (anche
+se in Fase 4 l'utente non può editare la libreria, lo lasciamo
+forward-compatible).
+
+---
+
+### [19] DB esterno esercizi (espansione massiccia libreria)
+
+**Aperta**: 2026-05-02
+**Area**: contenuti / codice
+
+I 40 esercizi seedati coprono i casi base ma per un utilizzo serio
+servirebbero 200-500. Candidati per espansione:
+- [wger.de](https://wger.de) — API REST gratuita, esercizi con
+  immagini, multilingua. Pull-once a un seed JSON statico bundlato.
+- [Free Exercise DB](https://github.com/yuhonas/free-exercise-db) —
+  ~800 esercizi MIT su GitHub con immagini animate. Ottima fonte.
+- [ExerciseDB](https://exercisedb.io) — paywall RapidAPI, scartato.
+
+Approccio suggerito: scaricare offline da Free Exercise DB
+(zip GitHub release), filtrare a corpo libero / con attrezzi
+domestici (~150-200 esercizi), pulire i campi, generare un seed JSON
+bundlato (no fetch runtime). Le animazioni gif sono ~50KB ciascuna →
+con 200 esercizi ~10MB di asset. Valutare se vale lo spazio o se
+linkare ai gif remoti via URL (con cache RN).
+
+**Done quando**: la libreria ha ≥150 esercizi; il bundle non cresce
+oltre +15MB; gli esercizi nuovi hanno descrizione + guideSteps +
+videoUrl o gif embed.
+
+---
+
+### [20] Spotify integration (deep-link MVP, OAuth Web API v2)
+
+**Aperta**: 2026-05-02
+**Area**: feature
+
+Idea originale Fase 1 dell'esplorazione sport mode: accesso veloce
+alla musica preferita per allenamento. Esclusa dal MVP per
+complessità.
+
+Due opzioni:
+- **MVP (~1g)**: tasto "🎵 Apri Spotify" in `SportHomeScreen` o nel
+  banner della sessione attiva. Usa `Linking.openURL('spotify:')` per
+  aprire l'app nativa. Se l'utente vuole una playlist specifica
+  (es. "Workout"), può fissarla nelle SportSettings come URI
+  `spotify:playlist:xyz`. Niente OAuth, niente backend.
+- **V2 (~3-5g)**: integrazione Spotify Web API con OAuth PKCE.
+  Permette controllo playback in-app (play/pause/next), lettura
+  della playlist corrente, ecc. Richiede redirect URI configurato e
+  account Premium dell'utente per il playback control.
+
+Suggerimento: partire da MVP e valutare se l'utente vuole di più.
+
+**Done quando**: dalle schermate sport è raggiungibile Spotify in
+1 tap; se l'utente ha configurato una playlist preferita, parte
+direttamente da lì.
+
+---
+
+### [21] CHECK constraint su `app_settings.weekly_target_days`
+
+**Aperta**: 2026-05-02
+**Area**: codice
+
+Lo stepper in `SportSettingsScreen` (Fase 5) mostra valori 1-7
+e l'UI gestisce il bound. Ma a livello DB la colonna
+`weekly_target_days` è `INTEGER NOT NULL DEFAULT 4`, senza CHECK
+constraint. Un import di backup malevolo o un bug futuro potrebbero
+scrivere valori illegali (0, -3, 100).
+
+Da fare: ALTER TABLE per aggiungere `CHECK (weekly_target_days
+BETWEEN 1 AND 7)` — su SQLite non si può ALTER aggiungendo CHECK,
+serve ricreare la tabella (rename + create new + insert select +
+drop old). Idempotente come gli altri pattern già nel db.ts. In
+alternativa, validare lato applicativo (più semplice, meno robusto).
+
+**Done quando**: il DB rifiuta scritture con valore fuori range
+1-7; l'errore viene gestito con Toast in `setWeeklyTarget` invece
+di crashare.
 
 ---
 
