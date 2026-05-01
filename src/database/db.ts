@@ -69,6 +69,7 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     CREATE TABLE IF NOT EXISTS daily_settings (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       side_dish_calories REAL NOT NULL DEFAULT 50,
+      seeded_quick_addons INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -154,15 +155,37 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     `INSERT OR IGNORE INTO daily_settings (id, side_dish_calories) VALUES (1, 50)`,
   );
 
-  // Seed iniziale di `quick_addons` con i 4 default proposti. Modalità A:
-  // si applica SOLO se la tabella e' vuota (DB nuovo o appena resettato).
-  // Gli utenti con `quick_addons` gia' popolato (anche solo dalla legacy
-  // "Contorno verdure" 50 kcal) NON vengono toccati, per non sovrascrivere
-  // eventuali personalizzazioni.
-  const seedRow = await db.getFirstAsync<{ n: number }>(
-    `SELECT COUNT(*) AS n FROM quick_addons`,
+  // Marker idempotente: indica se i `quick_addons` di default sono già
+  // stati seedati almeno una volta. Su DB nuovi viene aggiunta dall'ALTER
+  // con DEFAULT 0; su DB esistenti la riga corrente prende anche lei 0,
+  // così la prima esecuzione post-update ricontrolla.
+  try {
+    await db.execAsync(
+      `ALTER TABLE daily_settings ADD COLUMN seeded_quick_addons INTEGER NOT NULL DEFAULT 0`,
+    );
+  } catch {
+    // Colonna già presente.
+  }
+
+  // Seed dei `quick_addons` di default — Modalità B (per-label, una volta
+  // sola). Sostituisce la vecchia logica `count === 0`, che lasciava
+  // scoperti gli utenti già con almeno una riga (es. la legacy "Contorno
+  // verdure" 50 kcal di una versione precedente): i nuovi default non
+  // venivano mai aggiunti.
+  //
+  // Comportamento:
+  // - flag = 0: inseriamo solo i default che mancano per label
+  //   (case-insensitive); poi settiamo flag = 1.
+  // - flag = 1: niente. Se l'utente cancella un default in seguito, NON
+  //   viene reinserito.
+  //
+  // NB: per introdurre nuovi default in futuro non basta aggiungerli a
+  // `DEFAULT_QUICK_ADDONS` — serve un'azione esplicita (azzerare il flag
+  // in una migration dedicata) per redistribuirli agli utenti esistenti.
+  const seedRow = await db.getFirstAsync<{ done: number }>(
+    `SELECT seeded_quick_addons AS done FROM daily_settings WHERE id = 1`,
   );
-  if ((seedRow?.n ?? 0) === 0) {
+  if ((seedRow?.done ?? 0) === 0) {
     const DEFAULT_QUICK_ADDONS: Array<[string, number, number]> = [
       ['Contorno verdure (200g)', 60, 0],
       ['Olio condimento (1 cucchiaio)', 90, 1],
@@ -170,13 +193,22 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       ['Zucchero (1 cucchiaino)', 16, 3],
     ];
     for (const [label, calories, position] of DEFAULT_QUICK_ADDONS) {
-      await db.runAsync(
-        `INSERT INTO quick_addons (label, calories, position) VALUES (?, ?, ?)`,
+      const existing = await db.getFirstAsync<{ id: number }>(
+        `SELECT id FROM quick_addons WHERE LOWER(label) = LOWER(?) LIMIT 1`,
         label,
-        calories,
-        position,
       );
+      if (!existing) {
+        await db.runAsync(
+          `INSERT INTO quick_addons (label, calories, position) VALUES (?, ?, ?)`,
+          label,
+          calories,
+          position,
+        );
+      }
     }
+    await db.runAsync(
+      `UPDATE daily_settings SET seeded_quick_addons = 1 WHERE id = 1`,
+    );
   }
 }
 
