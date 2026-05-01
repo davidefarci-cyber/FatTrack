@@ -232,6 +232,19 @@ offline finché non lo dismissa o aggiorna.
 
 ## ✅ Fatto
 
+### [chiusa] Bottone "Cerca aggiornamenti" in Settings
+
+**Aperta**: 2026-05-01 — **Chiusa**: 2026-05-01
+
+Il check automatico in `updateChecker.ts` ha throttle 1h, quindi dopo
+una release fatta col proprio APK in mano si poteva aspettare fino a
+60 min per vedere il prompt. Aggiunto `manualCheckForUpdate()` che
+bypassa throttle + dismissedVersion (l'utente sta esplicitamente
+chiedendo) e bottone "Cerca aggiornamenti" in `VersionCard`. Toast
+per esiti `up-to-date` ed `error`; per `prompted` l'Alert si apre da solo.
+
+---
+
 ### [chiusa] Rimozione sistema OTA / EAS Update
 
 **Aperta**: 2026-05-01 — **Chiusa**: 2026-05-01
