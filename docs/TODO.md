@@ -519,13 +519,281 @@ di crashare.
 **Priorità**: 🟢 bassa
 **Area**: feature
 
-Idea proposta dall'utente in chat orchestratore senza ulteriori
-specifiche. Da espandere quando l'utente chiarirà cosa intende
-(counter persistente di pizze mangiate? Quick-add dedicato? Stat
-nel profilo / achievement?). Segnaposto in attesa di scope.
+Pagina scherzosa fuori dalla logica della dieta: contatore di pizze
+mangiate nell'anno corrente. Idea trattata come easter egg / stat
+divertente, non come voce nutrizionale tracciata.
 
-**Done quando**: TBD — rifinire il requisito prima di stimare e
-implementare.
+Proposta dell'utente per l'accesso: long-press sul tab "Storico" in
+diet (semantica: in fondo è uno storico anche quello), in alternativa
+pagina nascosta raggiungibile da un'icona dedicata. Da decidere quando
+si implementa.
+
+Schema indicativo: tabella `pizza_log (id, eaten_at, kind?, notes?)`
+con un + che incrementa di 1 e mostra il totale anno corrente, magari
+con breakdown mensile come barra/grafico. Nessuna integrazione coi
+pasti del diario (vita propria).
+
+**Done quando**: dalla home diet è raggiungibile in 1 gesto la
+"pizza counter screen", che mostra il totale anno + un + per
+incrementare; il dato è persistito in DB (sopravvive a reinstall via
+backup); export/import del backup la include.
+
+---
+
+### [23] Scroll orizzontale per cambiare giorno nella home diet
+
+**Aperta**: 2026-05-02
+**Priorità**: 🟢 bassa
+**Area**: UX (diet)
+
+Oggi nella home diet il giorno corrente si cambia solo via le frecce
+laterali sull'header data. Aggiungere swipe orizzontale sull'intera
+area diario (o sull'header) per andare al giorno precedente/successivo.
+Il tasto freccia resta come affordance esplicito.
+
+Implementazione: `react-native-gesture-handler` (già presente)
+PanGestureHandler oppure più semplicemente swipe via touch threshold
+sul contenitore principale. Animazione: cross-fade dei dati come fa
+oggi al cambio data, niente parallax complesso.
+
+**Done quando**: swipe sx/dx sulla home diet cambia giorno con la
+stessa semantica delle frecce; nessuna regressione sullo scroll
+verticale.
+
+---
+
+### [24] Selettore reps scorrimento (fit)
+
+**Aperta**: 2026-05-02
+**Priorità**: 🟡 media
+**Area**: UX (fit)
+
+In `ActiveSessionScreen` il campo "Reps fatte" durante un set è oggi
+un `<Input>` numerico testuale: l'utente deve cancellare il default
+e digitare il numero a mano. Difficoltoso durante l'allenamento, con
+le mani sudate o il telefono appoggiato.
+
+Proposta: sostituire con un selettore a scorrimento tipo "stepper
+infinito" o "wheel picker" centrato sul valore prescritto (default
+del workout, es. 12 reps), con tap su +/- per offset di ±1 e magari
+swipe per offset più ampi. La label sotto mostra "12 reps prescritte
++ N" o "12 reps prescritte − N" così è chiaro lo scostamento.
+
+Stesso pattern utile per il peso (kg) e la durata (sec) — generalizzare
+o lasciare reps come MVP iniziale.
+
+**Done quando**: durante una sessione live si può selezionare il
+numero di reps fatte senza tastiera, in 1-2 tap; il valore di default
+è quello prescritto; il salvataggio del set funziona come prima.
+
+---
+
+### [25] Migliorare timer pausa tra serie (fit)
+
+**Aperta**: 2026-05-02
+**Priorità**: 🟢 bassa
+**Area**: UX (fit)
+
+Richiesta vaga dell'utente: "migliorare il sistema a tempo della
+pausa tra serie". Possibili interpretazioni (chiedere prima di
+implementare):
+
+- UX del countdown attuale (`RestTimer`): font più grande / barra di
+  progresso più evidente / haptic alla fine.
+- Possibilità di aggiungere/togliere 15s al volo durante il
+  recupero ("ho bisogno di 30s in più").
+- Notifica/suono a fine recupero quando l'app è in background (già
+  in [16]) — possibile sovrapposizione.
+- Skip rest direttamente con un gesture grosso (swipe up?) invece
+  che il bottone secondario "Salta recupero".
+
+**Done quando**: TBD — chiarire scope con l'utente prima di stimare.
+
+---
+
+### [26] Categorizzare elenco esercizi
+
+**Aperta**: 2026-05-02
+**Priorità**: 🟢 bassa
+**Area**: UX (fit)
+
+Oggi `ExercisesScreen` mostra una lista lineare (40 esercizi seedati)
+filtrabile per gruppo muscolare / livello / attrezzatura via il
+BottomSheet "Filtri". L'utente trova la lista lunga e i nomi simili
+("Push-up", "Wide push-up", "Diamond push-up", "Push-up declinati"…)
+poco scansionabili.
+
+Proposta: raggruppare visualmente per `muscle_group` con header di
+sezione (`SectionList` invece di `ScrollView` + map), in modo che
+scrollando si vedano stacchi tipo "Petto · Spalle · Tricipiti" e
+sotto i relativi esercizi. I filtri restano funzionanti e si applicano
+intra-sezione.
+
+In una versione più ricca: tab orizzontale superiore (Petto / Gambe /
+Core / Cardio / Mobilità) che fa il jump alla sezione.
+
+**Done quando**: gli esercizi sono raggruppati per categoria con
+header chiari; i nomi simili sono più facili da distinguere; lo scroll
+è più rapido per trovare un esercizio specifico.
+
+---
+
+### [27] Immagini illustrate per esercizi
+
+**Aperta**: 2026-05-02
+**Priorità**: 🟢 bassa
+**Area**: contenuti / UX (fit)
+
+L'utente intende far disegnare esternamente illustrazioni per gli
+esercizi e droppare gli asset in una cartella tipo
+`assets/exercises/<slug>.png`. Il sistema dovrebbe pescarli in
+automatico e mostrarli nel `ExerciseDetailModal` (oggi mostra solo
+testo + guideSteps).
+
+Implementazione lato codice:
+- Mappa statica `EXERCISE_IMAGES` generata a build time (require
+  statici per ogni asset) — RN Metro non supporta require dinamici.
+- Lookup `slug = exerciseName.toLowerCase().replace(/\W/g, '-')`.
+- Fallback graceful: se non c'è asset, niente Image, solo testo (come
+  oggi).
+
+Scope iniziale: solo i 40 esercizi seedati. Quando arriverà la
+voce [19] (libreria espansa) si valuterà di nuovo.
+
+**Done quando**: dropping di un PNG in `assets/exercises/` con il
+giusto slug fa apparire l'illustrazione nel modal dettaglio esercizio
+senza modifiche al codice; gli asset mancanti non rompono nulla.
+
+---
+
+### [28] Aumentare durata `ModeTransitionOverlay`
+
+**Aperta**: 2026-05-02
+**Priorità**: 🟢 bassa
+**Area**: UX
+
+Oggi `ModeTransitionOverlay.tsx:23-25` ha 200ms fade-in + 300ms hold +
+200ms fade-out = 700ms totali. L'utente percepisce la transizione fit↔fat
+troppo veloce: il "wow" del cambio mode si perde, e con asset definitivi
+del wordmark (voce [15]) sarebbe stato meglio respirarli.
+
+Proposta: portare a ~1200-1500ms totali (es. 250 + 800 + 300, oppure
+300 + 700 + 400 — da provare a sensazione).
+
+**Done quando**: la transizione tra fit e fat è abbastanza lunga da
+rendere leggibile il wordmark / icona, ma non frustrante (non oltre
+~1.5s totali).
+
+---
+
+### [29] Feedback tattile al cambio modalità (fit↔fat)
+
+**Aperta**: 2026-05-02
+**Priorità**: 🟢 bassa
+**Area**: UX
+
+L'utente chiede vibrazione al "cambio scheda" — interpretazione:
+cambio modalità app (fit↔fat) tramite long-press home o toggle
+Settings. Da chiarire se l'utente intendeva invece il cambio di
+scheda allenamento (start workout) — questo caso ricadrebbe sotto
+voce [17] (haptic per completamento set / fine recupero, già aperta).
+
+Implementazione (presumendo cambio modalità):
+- Aggiungere `expo-haptics` (allineamento con [17] che lo richiede
+  comunque per completamento set).
+- `Haptics.notificationAsync(NotificationFeedbackType.Success)` al
+  toggle di `setAppMode()`.
+- Flag `hapticEnabled` in app_settings (default true), toggle in
+  Settings (entrambe le modalità).
+
+**Done quando**: long-press su tab Home produce un haptic breve nel
+momento dello switch modalità; flag `hapticEnabled` disattivabile da
+SportSettings/SettingsScreen; chiarimento avuto su cosa intendeva
+"cambio scheda".
+
+---
+
+### [30] Pulsante utente anche in fit (profilo trasversale)
+
+**Aperta**: 2026-05-02
+**Priorità**: 🟢 bassa
+**Area**: UX (fit)
+
+In modalità diet `HomeScreen` ha icone `cog` (Settings) e `user`
+(Profile) nel right slot di `ScreenHeader`. In modalità fit
+`SportHomeScreen` ha solo `cog` (SportSettings). Il profilo utente
+(peso/altezza/età/obiettivo) è trasversale tra le due modalità — il
+peso serve a calcolare le calorie sport via MET — quindi l'utente
+si aspetta di poter editare il profilo anche da fit senza dover
+prima switchare a diet.
+
+Implementazione: aggiungere icona `user` allo stesso slot in
+`SportHomeScreen.tsx`, con `navigate('Profile')`. Ma `Profile` è
+una Tab.Screen di `MainTabNavigator` (diet), non di
+`SportTabNavigator`. Opzioni:
+- Registrare `Profile` come Tab.Screen anche in `SportTabNavigator`
+  (nascosta dalla bar) — duplicato, ma navigazione locale.
+- Switch automatico a diet → tab Profile, poi switch back a fit
+  alla chiusura. Sgraziato.
+- Convertire `ProfileScreen` in modal/stack screen sopra entrambi i
+  tab navigator (cambio architetturale più grosso).
+
+**Done quando**: dalla home fit l'utente può aprire la stessa
+ProfileScreen che vede da diet, modificare peso/etc, salvare, e
+tornare alla home fit; il calcolo calorie sport recepisce il nuovo
+peso.
+
+---
+
+### [31] Migliorare UX TimerScreen (picker tipo orologio)
+
+**Aperta**: 2026-05-02
+**Priorità**: 🟢 bassa
+**Area**: UX (fit)
+
+Oggi `TimerScreen` (Tabata, Intervalli, Libero) richiede di
+compilare campi `<Input>` numerici per lavoro/recupero/round. L'utente
+trova la digitazione poco fluida e vorrebbe selettori a scorrimento
+tipo wheel picker (minuti / secondi separati, valori che scorrono
+in alto-basso) — pattern stile timer iOS / orologio Android.
+
+Implementazione: nessuna libreria nuova (CLAUDE.md vincolo). Si può
+costruire un wheel picker con `FlatList` + snap to interval + alpha
+fading sui bordi, oppure con `ScrollView` + `pagingEnabled` per snap.
+Riusabile per workSec/restSec/rounds e potenzialmente per [24]
+(selettore reps).
+
+**Done quando**: l'utente configura un timer Tabata/Intervalli senza
+tastiera virtuale, scorrendo i selettori; i valori sono validati
+(min/max sensati); il pulsante Avvia funziona come prima.
+
+---
+
+### [32] Espandere libreria esercizi con ricerca curata
+
+**Aperta**: 2026-05-02
+**Priorità**: 🟢 bassa
+**Area**: contenuti (fit)
+
+Versione MVP / lavoro contenutistico mirato come step intermedio
+prima di [19] (DB esterno completo, ~150-500 esercizi). Curare a
+mano altri 20-30 esercizi che oggi mancano: stacchi (deadlift varianti),
+trazioni assistite (con elastico/fascia), esercizi con manubri
+domestici (1-5kg), esercizi seduti per anziani, ecc.
+
+Posso proporre la lista via web research (ricerca esercizi standard
+da fonti affidabili tipo `wger.de`, `Free Exercise DB`) e droppare
+direttamente le righe nel `seedExercises.ts` con `met` ragionevoli.
+Il top-up idempotente di `seedExercisesIfEmpty` redistribuisce
+automaticamente agli utenti esistenti.
+
+Differenza con [19]: [32] è un lavoro di +20-30 esercizi curati
+manualmente (effort: ~2-3h), [19] è un'integrazione completa con DB
+esterno (effort: L, ~10MB asset).
+
+**Done quando**: la libreria ha ≥60-70 esercizi, tutti con
+descrizione + guideSteps + met sensato; il top-up redistribuisce ai
+DB esistenti senza duplicare.
 
 ---
 
