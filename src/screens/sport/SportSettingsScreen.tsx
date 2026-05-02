@@ -1,9 +1,12 @@
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { Input } from '@/components/Input';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { useToast } from '@/components/Toast';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { colors, radii, spacing, typography } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
@@ -21,14 +24,25 @@ const WEEKLY_TARGET_OPTIONS = [1, 2, 3, 4, 5, 6, 7] as const;
 //   recupero, switch modalità). UX coerente con SettingsScreen diet.
 export default function SportSettingsScreen() {
   const insets = useSafeAreaInsets();
+  const toast = useToast();
   const {
     setAppMode,
     weeklyTargetDays,
     setWeeklyTarget,
     hapticEnabled,
     setHapticEnabled,
+    spotifyPlaylistUri,
+    setSpotifyPlaylistUri,
   } = useAppSettings();
   const theme = useAppTheme();
+  const [spotifyDraft, setSpotifyDraft] = useState(spotifyPlaylistUri ?? '');
+
+  // Sync del draft quando il valore persistito cambia (es. dopo restore di
+  // backup): se l'utente non sta editando attivamente, riallinea il campo
+  // alla source of truth del DB.
+  useEffect(() => {
+    setSpotifyDraft(spotifyPlaylistUri ?? '');
+  }, [spotifyPlaylistUri]);
 
   function handleSwitchToDiet() {
     Alert.alert(
@@ -52,6 +66,21 @@ export default function SportSettingsScreen() {
     await setHapticEnabled(next);
     invalidateHapticCache();
     if (next) void successHaptic();
+  }
+
+  async function handleSpotifyBlur() {
+    const trimmed = spotifyDraft.trim();
+    if (trimmed === (spotifyPlaylistUri ?? '')) return;
+    if (trimmed === '') {
+      await setSpotifyPlaylistUri(null);
+      return;
+    }
+    if (!trimmed.startsWith('spotify:')) {
+      toast.show('Usa un URI che inizia con spotify:');
+      setSpotifyDraft(spotifyPlaylistUri ?? '');
+      return;
+    }
+    await setSpotifyPlaylistUri(trimmed);
   }
 
   return (
@@ -143,6 +172,23 @@ export default function SportSettingsScreen() {
               </Text>
             </View>
           </Pressable>
+        </Card>
+
+        <Card style={styles.card}>
+          <Text style={typography.label}>Musica</Text>
+          <Input
+            label="URI playlist Spotify"
+            value={spotifyDraft}
+            onChangeText={setSpotifyDraft}
+            onBlur={handleSpotifyBlur}
+            placeholder="spotify:playlist:37i9dQZF1DX..."
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <Text style={typography.caption}>
+            Es. {'spotify:playlist:37i9dQZF1DX...'}. Lascia vuoto per aprire
+            Spotify in home.
+          </Text>
         </Card>
 
         <Card style={styles.card}>

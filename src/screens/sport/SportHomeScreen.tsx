@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,10 +18,12 @@ import { CalorieRing } from '@/components/CalorieRing';
 import { Card } from '@/components/Card';
 import { Icon } from '@/components/Icon';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { useToast } from '@/components/Toast';
 import { WorkoutPickerSheet } from '@/components/sport/WorkoutPickerSheet';
 import { useActiveSession } from '@/contexts/ActiveSessionContext';
 import { sessionsDB, workoutsDB } from '@/database';
 import type { Workout } from '@/database';
+import { useAppSettings } from '@/hooks/useAppSettings';
 import { useSportStats } from '@/hooks/useSportStats';
 import {
   APP_NAME_SPORT,
@@ -53,7 +56,9 @@ export default function SportHomeScreen() {
   const navigation =
     useNavigation<BottomTabNavigationProp<SportTabParamList>>();
   const theme = useAppTheme();
+  const toast = useToast();
   const stats = useSportStats();
+  const { spotifyPlaylistUri } = useAppSettings();
   const {
     state: activeSessionState,
     start,
@@ -163,6 +168,23 @@ export default function SportHomeScreen() {
     });
   };
 
+  const handleOpenSpotify = async () => {
+    // URI generico apre Spotify in home; se l'utente ha configurato una
+    // playlist preferita parte direttamente da li'. Se Spotify non e'
+    // installato (canOpenURL falso) mostriamo un Toast invece di crashare.
+    const target = spotifyPlaylistUri ?? 'spotify:';
+    try {
+      const supported = await Linking.canOpenURL(target);
+      if (!supported) {
+        toast.show('Installa Spotify per usare questa scorciatoia.');
+        return;
+      }
+      await Linking.openURL(target);
+    } catch {
+      toast.show('Impossibile aprire Spotify.');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ScreenHeader
@@ -207,6 +229,8 @@ export default function SportHomeScreen() {
           onStart={handleStart}
           onChangeWorkout={() => setPickerOpen(true)}
         />
+
+        <SpotifyCard accent={theme.accent} onPress={handleOpenSpotify} />
 
         <WeekCard
           daysTrained={stats.week.daysTrained}
@@ -405,6 +429,34 @@ function TodayCard({
   );
 }
 
+type SpotifyCardProps = {
+  accent: string;
+  onPress: () => void;
+};
+
+function SpotifyCard({ accent, onPress }: SpotifyCardProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Apri Spotify"
+    >
+      <Card style={styles.card}>
+        <View style={styles.row}>
+          <Icon name="music" size={22} color={accent} />
+          <View style={styles.spotifyText}>
+            <Text style={typography.bodyBold}>Apri Spotify</Text>
+            <Text style={typography.caption}>
+              Avvia la musica per il tuo allenamento.
+            </Text>
+          </View>
+          <Icon name="chevron-right" size={18} color={colors.textSec} />
+        </View>
+      </Card>
+    </Pressable>
+  );
+}
+
 type WeekCardProps = {
   daysTrained: number;
   weeklyTarget: number;
@@ -578,5 +630,9 @@ const styles = StyleSheet.create({
   },
   onboardingBtn: {
     flex: 1,
+  },
+  spotifyText: {
+    flex: 1,
+    gap: spacing.xxs,
   },
 });
