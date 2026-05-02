@@ -513,6 +513,22 @@ di crashare.
 
 ---
 
+### [22] Inserire conta pizze
+
+**Aperta**: 2026-05-02
+**Priorità**: 🟢 bassa
+**Area**: feature
+
+Idea proposta dall'utente in chat orchestratore senza ulteriori
+specifiche. Da espandere quando l'utente chiarirà cosa intende
+(counter persistente di pizze mangiate? Quick-add dedicato? Stat
+nel profilo / achievement?). Segnaposto in attesa di scope.
+
+**Done quando**: TBD — rifinire il requisito prima di stimare e
+implementare.
+
+---
+
 ## ✅ Fatto
 
 ### [chiusa] Loop infinito di query DB sulla SportHomeScreen
