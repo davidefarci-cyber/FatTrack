@@ -830,6 +830,59 @@ DB esistenti senza duplicare.
 
 ---
 
+### [34] Widget Android per la home screen
+
+**Aperta**: 2026-05-02
+**Priorità**: 🟢 bassa
+**Area**: feature / codice (nativo Android)
+**Effort**: L (~1-2 giorni, richiede codice nativo o libreria nuova)
+
+Idea: un widget Android che mostra a colpo d'occhio sulla home del
+telefono i dati chiave del giorno senza dover aprire l'app.
+Candidati per il contenuto (da decidere):
+
+- **Diet (default)**: ring calorie giornaliere (riusa estetica
+  `CalorieRing`) + numero kcal residue, magari pasti registrati
+  oggi (X/4).
+- **Sport (se appMode=sport)**: scheda di oggi se programmata,
+  oppure "ultimo allenamento: N giorni fa", o banner sessione
+  attiva se in corso.
+- **Quick action**: tap sul widget apre l'app sulla `BarcodeScreen`
+  (diet) o sulla scheda di oggi (sport).
+
+Vincoli tecnici:
+
+- Expo non supporta widget Android out-of-the-box. Servono due
+  strade:
+  - **A — codice nativo Kotlin** in un nuovo modulo
+    `android/app/src/main/java/.../widget/` con
+    `AppWidgetProvider`, `RemoteViews`, `widget_provider_info.xml`.
+    Pieno controllo, no nuove dep, ma serve scrittura nativa.
+  - **B — libreria** `react-native-android-widget`
+    (https://github.com/sAleksovski/react-native-android-widget)
+    che permette di scrivere il widget in TSX. Più rapido, ma
+    nuova dep e va valutato se il design system riusa bene
+    (probabilmente no — il widget vive in un contesto RemoteViews
+    con vincoli di rendering).
+- **Sincronizzazione dati**: il widget NON può leggere il SQLite
+  app direttamente (sandbox). Due opzioni:
+  - L'app scrive uno snapshot leggero in `SharedPreferences` o
+    `MMKV` ad ogni mutazione rilevante (add pasto, completamento
+    sessione). Il widget legge quello.
+  - `ContentProvider` esposto dall'app sul DB SQLite (più
+    complesso, ma più "live").
+- **Refresh**: Android limita `updatePeriodMillis` a min 30 min.
+  Per refresh più frequenti serve trigger manuale via app
+  (broadcast) o `WorkManager`.
+
+**Done quando**: l'utente può aggiungere alla home Android un
+widget FatTrack 2x2 o 4x2 che mostra il ring calorie del giorno
+corrente; tap apre l'app; il widget si aggiorna entro ~1 minuto
+da una modifica fatta in app (es. registrato un pasto). Modalità
+sport copertura come iterazione successiva o bonus se semplice.
+
+---
+
 ## ✅ Fatto
 
 ### [chiusa] [28] Aumentare durata `ModeTransitionOverlay`
