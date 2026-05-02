@@ -18,6 +18,7 @@ import { useAppSettings } from '@/hooks/useAppSettings';
 import { useProfile } from '@/hooks/useProfile';
 import { colors, radii, spacing, typography } from '@/theme';
 import { exportBackup, importBackup } from '@/utils/dbBackup';
+import { invalidateHapticCache, successHaptic } from '@/utils/haptics';
 import { manualCheckForUpdate } from '@/utils/updateChecker';
 import type { TabParamList } from '@/types';
 
@@ -104,6 +105,8 @@ export default function SettingsScreen() {
             />
 
             <AppModeCard />
+
+            <HapticCard />
 
             <QuickAddonsCard />
 
@@ -194,6 +197,7 @@ function AppModeCard() {
           {
             text: 'Passa a Sport',
             onPress: async () => {
+              void successHaptic();
               await setAppMode('sport');
               await markSportModeSeen();
             },
@@ -202,6 +206,7 @@ function AppModeCard() {
       );
       return;
     }
+    void successHaptic();
     void setAppMode(next);
   };
 
@@ -213,6 +218,56 @@ function AppModeCard() {
         schede di allenamento e timer.
       </Text>
       <SegmentedControl options={APP_MODE_OPTIONS} value={appMode} onChange={handleChange} />
+    </Card>
+  );
+}
+
+function HapticCard() {
+  const { hapticEnabled, setHapticEnabled } = useAppSettings();
+
+  const onToggle = async () => {
+    const next = !hapticEnabled;
+    await setHapticEnabled(next);
+    invalidateHapticCache();
+    if (next) void successHaptic();
+  };
+
+  return (
+    <Card style={styles.card}>
+      <Text style={typography.label}>Feedback</Text>
+      <Pressable
+        onPress={onToggle}
+        accessibilityRole="switch"
+        accessibilityLabel="Vibrazione su set e fine recupero"
+        accessibilityState={{ checked: hapticEnabled }}
+        style={styles.hapticRow}
+      >
+        <View style={styles.hapticText}>
+          <Text style={typography.bodyBold}>
+            Vibrazione su set e fine recupero
+          </Text>
+          <Text style={typography.caption}>
+            Vibrazione breve a fine set, fine recupero e cambio modalità.
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.hapticChip,
+            hapticEnabled
+              ? { backgroundColor: colors.green, borderColor: colors.green }
+              : { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text
+            style={[
+              styles.hapticChipText,
+              { color: hapticEnabled ? '#FFFFFF' : colors.textSec },
+            ]}
+          >
+            {hapticEnabled ? 'ON' : 'OFF'}
+          </Text>
+        </View>
+      </Pressable>
     </Card>
   );
 }
@@ -387,5 +442,27 @@ const styles = StyleSheet.create({
   versionValue: {
     ...typography.bodyBold,
     color: colors.text,
+  },
+  hapticRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+  },
+  hapticText: {
+    flex: 1,
+    gap: spacing.xxs,
+  },
+  hapticChip: {
+    minWidth: 56,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.round,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hapticChipText: {
+    ...typography.bodyBold,
+    fontSize: 13,
   },
 });

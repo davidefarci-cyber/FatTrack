@@ -29,7 +29,8 @@ export type IconName =
   | 'play'
   | 'pause'
   | 'bolt'
-  | 'flame';
+  | 'flame'
+  | 'music';
 
 export type IconProps = {
   name: IconName;
@@ -362,6 +363,20 @@ export function Icon({ name, size = 22, color = colors.textSec, filled = false }
             strokeWidth={1.4}
             strokeLinejoin="round"
           />
+        </Svg>
+      );
+    case 'music':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M9 18V5l12-2v13"
+            stroke={color}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Circle cx={6} cy={18} r={3} stroke={color} strokeWidth={1.8} />
+          <Circle cx={18} cy={16} r={3} stroke={color} strokeWidth={1.8} />
         </Svg>
       );
     default: {
