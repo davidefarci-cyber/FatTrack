@@ -30,6 +30,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { colors, radii, spacing, sportColors, typography } from '@/theme';
 import type { TabParamList } from '@/types';
 import { DEFAULT_TARGET_KCAL } from '@/utils/calorieCalculator';
+import { lightHaptic } from '@/utils/haptics';
 import { computeMacroTargets } from '@/utils/macroTargets';
 
 // Abilita LayoutAnimation su Android (di default è off) per il collapse animato.
@@ -133,7 +134,10 @@ export default function HomeScreen() {
         carbsTotal: item.carbs ?? null,
         fatTotal: item.fat ?? null,
       }));
-      if (inputs.length > 0) await addMeals(inputs);
+      if (inputs.length > 0) {
+        await addMeals(inputs);
+        void lightHaptic();
+      }
     },
     [addMeals],
   );
@@ -151,6 +155,7 @@ export default function HomeScreen() {
           servingQty: null,
         },
       ]);
+      void lightHaptic();
     },
     [addMeals],
   );

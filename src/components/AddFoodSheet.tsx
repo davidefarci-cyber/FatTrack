@@ -27,6 +27,7 @@ import { useFoodSearch } from '@/hooks/useFoodSearch';
 import { colors, radii, spacing, typography } from '@/theme';
 import { calculateMealCalories, scaleMacro } from '@/utils/calorieCalculator';
 import { findMatchingLocalFood } from '@/utils/foodMatcher';
+import { lightHaptic } from '@/utils/haptics';
 import { inheritServingsForRemoteFood } from '@/utils/inheritServings';
 import { offByBarcode } from '@/utils/openFoodFacts';
 import type { OffProduct } from '@/utils/openFoodFacts';
@@ -126,6 +127,7 @@ export function AddFoodSheet({ visible, mealType, date, onClose, onAdded }: AddF
         carbsTotal: scaleMacro(args.carbsPer100g, args.grams),
         fatTotal: scaleMacro(args.fatPer100g, args.grams),
       });
+      void lightHaptic();
       toast.show('Aggiunto!');
       onAdded?.();
       onClose();

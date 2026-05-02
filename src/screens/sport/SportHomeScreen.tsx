@@ -35,6 +35,7 @@ import {
 } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
 import type { SportTabParamList } from '@/types';
+import { lightHaptic } from '@/utils/haptics';
 
 // Dashboard sport (Fase 4): tre Card sopra al cog di SportSettings.
 //
@@ -145,6 +146,7 @@ export default function SportHomeScreen() {
       // Sessione già attiva → riapertura della ActiveSessionScreen.
       // requestOpen alza pendingOpen=true; SportTabNavigator lo osserva
       // e rimonta il modal in cima. Niente start() qui (throwerebbe).
+      void lightHaptic();
       requestOpen();
       return;
     }
@@ -152,6 +154,7 @@ export default function SportHomeScreen() {
     setStarting(true);
     try {
       await start(todaysWorkout.id);
+      void lightHaptic();
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : 'Avvio sessione non riuscito';
