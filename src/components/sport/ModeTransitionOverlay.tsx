@@ -7,22 +7,26 @@ import { APP_NAME_SPORT, colors, sportColors, typography } from '@/theme';
 import { Icon } from '../Icon';
 
 // Splash di transizione tra modalità (Fase 5):
-// - 200ms fade-in opacity 0 → 1 con il "volto" della modalità destinazione
-// - 300ms hold con wordmark + sottotitolo
-// - 200ms fade-out opacity 1 → 0
+// - 300ms fade-in opacity 0 → 1 con il "volto" della modalità destinazione
+// - 800ms hold con wordmark + sottotitolo
+// - 400ms fade-out opacity 1 → 0
+//
+// Totale ~1500ms: il primo timing (700ms) era troppo veloce, il
+// wordmark si leggeva appena. Allungato post-test per dare respiro
+// alla transizione e rendere più chiaro il cambio di modalità.
 //
 // Mostra solo testo (placeholder): l'asset definitivo del wordmark
 // "FitTrack" arriva dopo il merge della Fase 5 — sarà un piccolo Edit.
 //
 // `pointerEvents="none"` sempre: l'utente non interagisce con l'overlay,
-// e il navigator sotto resta accessibile (in pratica per i 700ms di
+// e il navigator sotto resta accessibile (in pratica per i 1500ms di
 // animazione l'overlay copre lo schermo ma non blocca i tocchi residui).
 
 type Props = { mode: AppMode };
 
-const FADE_IN_MS = 200;
-const HOLD_MS = 300;
-const FADE_OUT_MS = 200;
+const FADE_IN_MS = 300;
+const HOLD_MS = 800;
+const FADE_OUT_MS = 400;
 
 export function ModeTransitionOverlay({ mode }: Props) {
   const opacity = useRef(new Animated.Value(0)).current;
