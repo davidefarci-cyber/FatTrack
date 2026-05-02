@@ -77,10 +77,9 @@ export default function SportHistoryScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    void reload();
-  }, [reload]);
-
+  // Reload solo via useFocusEffect: è già la prima volta al mount + ad
+  // ogni focus successivo. Avere anche un useEffect su [reload] sarebbe
+  // ridondante e produrrebbe due query al primo render.
   useFocusEffect(
     useCallback(() => {
       void reload();

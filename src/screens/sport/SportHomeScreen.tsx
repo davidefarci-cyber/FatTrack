@@ -105,12 +105,19 @@ export default function SportHomeScreen() {
   // Refresh quando l'utente torna in tab Home: la lista workouts può
   // essere cambiata in WorkoutsScreen, e useSportStats già si
   // re-aggiorna alla chiusura sessione.
+  //
+  // Dep su `stats.reload` (memoized) e NON su `stats` (oggetto nuovo a
+  // ogni render): se mettessimo `stats` la callback verrebbe ricreata
+  // dopo ogni setState interno di useSportStats, useFocusEffect la
+  // riesegue, parte una nuova reload, nuovo setState → loop infinito di
+  // query DB con CPU al 100%.
+  const reloadStats = stats.reload;
   useFocusEffect(
     useCallback(() => {
       void loadWorkouts();
-      void stats.reload();
+      void reloadStats();
       void refreshOnboarding();
-    }, [loadWorkouts, stats, refreshOnboarding]),
+    }, [loadWorkouts, reloadStats, refreshOnboarding]),
   );
 
   const lastSessionWorkoutId = stats.last?.session.workoutId ?? null;
