@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { useAppTheme } from '@/theme/ThemeContext';
 import { colors, radii, spacing, typography } from '@/theme';
+import { successHaptic } from '@/utils/haptics';
 
 // Countdown del recupero tra set: numero grosso al centro, barra di
 // progresso lineare in basso. Re-render ogni 200ms per fluidità senza
@@ -43,6 +44,7 @@ export function RestTimer({ endsAt, durationSec, paused, onComplete }: Props) {
     if (paused) return;
     if (remainingMs <= 0 && !completedRef.current) {
       completedRef.current = true;
+      void successHaptic();
       onComplete?.();
     }
   }, [remainingMs, paused, onComplete]);

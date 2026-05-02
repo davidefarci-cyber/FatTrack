@@ -120,6 +120,8 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       app_mode TEXT NOT NULL DEFAULT 'diet' CHECK (app_mode IN ('diet','sport')),
       sport_mode_seen INTEGER NOT NULL DEFAULT 0,
       weekly_target_days INTEGER NOT NULL DEFAULT 4,
+      haptic_enabled INTEGER NOT NULL DEFAULT 1,
+      spotify_playlist_uri TEXT,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -242,6 +244,8 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     `ALTER TABLE user_profile ADD COLUMN target_weight_kg REAL`,
     `ALTER TABLE user_profile ADD COLUMN start_weight_kg REAL`,
     `ALTER TABLE app_settings ADD COLUMN weekly_target_days INTEGER NOT NULL DEFAULT 4`,
+    `ALTER TABLE app_settings ADD COLUMN haptic_enabled INTEGER NOT NULL DEFAULT 1`,
+    `ALTER TABLE app_settings ADD COLUMN spotify_playlist_uri TEXT`,
   ]) {
     try {
       await db.execAsync(sql);

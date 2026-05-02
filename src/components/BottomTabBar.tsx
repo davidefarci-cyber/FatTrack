@@ -7,6 +7,7 @@ import type { AppMode } from '@/database';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { colors, radii, shadows, spacing, sportColors, typography } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
+import { successHaptic } from '@/utils/haptics';
 
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
@@ -126,11 +127,17 @@ export function BottomTabBar({
         };
 
         if (isHome) {
+          const onLongPress = onHomeLongPress
+            ? () => {
+                void successHaptic();
+                onHomeLongPress();
+              }
+            : undefined;
           return (
             <Pressable
               key={route.key}
               onPress={onPress}
-              onLongPress={onHomeLongPress}
+              onLongPress={onLongPress}
               delayLongPress={LONG_PRESS_MS}
               style={styles.tab}
             >

@@ -33,6 +33,7 @@ import {
 } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
 import type { SportCategory } from '@/theme';
+import { lightHaptic } from '@/utils/haptics';
 
 // Modal full-screen della sessione live. Montata in SportTabNavigator
 // come sibling del Tab.Navigator. NON è una Tab.Screen: è imperativa,
@@ -325,6 +326,7 @@ function LiveBody({
 
     const isLastSet = state.currentSetNumber >= totalSets;
     const isLastExercise = exIdx >= totalExercises - 1;
+    void lightHaptic();
     await onCompleteSet(data);
     if (isLastSet && isLastExercise) {
       onAllDone();

@@ -10,6 +10,8 @@ export type AppSettings = {
   appMode: AppMode;
   sportModeSeen: boolean;
   weeklyTargetDays: number;
+  hapticEnabled: boolean;
+  spotifyPlaylistUri: string | null;
   updatedAt: string;
 };
 
@@ -17,6 +19,8 @@ const COLUMNS = `
   app_mode AS appMode,
   sport_mode_seen AS sportModeSeen,
   weekly_target_days AS weeklyTargetDays,
+  haptic_enabled AS hapticEnabled,
+  spotify_playlist_uri AS spotifyPlaylistUri,
   updated_at AS updatedAt
 `;
 
@@ -24,6 +28,8 @@ type Row = {
   appMode: AppMode;
   sportModeSeen: number;
   weeklyTargetDays: number;
+  hapticEnabled: number;
+  spotifyPlaylistUri: string | null;
   updatedAt: string;
 };
 
@@ -32,6 +38,8 @@ function rowToSettings(row: Row): AppSettings {
     appMode: row.appMode,
     sportModeSeen: row.sportModeSeen === 1,
     weeklyTargetDays: row.weeklyTargetDays,
+    hapticEnabled: row.hapticEnabled === 1,
+    spotifyPlaylistUri: row.spotifyPlaylistUri,
     updatedAt: row.updatedAt,
   };
 }
@@ -80,6 +88,26 @@ export async function setWeeklyTarget(days: number): Promise<AppSettings> {
   await db.runAsync(
     `UPDATE app_settings SET weekly_target_days = ?, updated_at = datetime('now') WHERE id = 1`,
     clamped,
+  );
+  return getAppSettings();
+}
+
+export async function setHapticEnabled(enabled: boolean): Promise<AppSettings> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `UPDATE app_settings SET haptic_enabled = ?, updated_at = datetime('now') WHERE id = 1`,
+    enabled ? 1 : 0,
+  );
+  return getAppSettings();
+}
+
+export async function setSpotifyPlaylistUri(
+  uri: string | null,
+): Promise<AppSettings> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `UPDATE app_settings SET spotify_playlist_uri = ?, updated_at = datetime('now') WHERE id = 1`,
+    uri,
   );
   return getAppSettings();
 }

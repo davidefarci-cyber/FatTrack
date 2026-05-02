@@ -19,6 +19,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   appMode: 'diet',
   sportModeSeen: false,
   weeklyTargetDays: 4,
+  hapticEnabled: true,
+  spotifyPlaylistUri: null,
   updatedAt: '',
 };
 
@@ -76,15 +78,31 @@ async function setWeeklyTarget(days: number): Promise<AppSettings> {
   return updated;
 }
 
+async function setHapticEnabled(enabled: boolean): Promise<AppSettings> {
+  const updated = await appSettingsDB.setHapticEnabled(enabled);
+  setSnapshot({ settings: updated, loading: false, error: null });
+  return updated;
+}
+
+async function setSpotifyPlaylistUri(uri: string | null): Promise<AppSettings> {
+  const updated = await appSettingsDB.setSpotifyPlaylistUri(uri);
+  setSnapshot({ settings: updated, loading: false, error: null });
+  return updated;
+}
+
 export type UseAppSettingsResult = {
   appMode: AppMode;
   sportModeSeen: boolean;
   weeklyTargetDays: number;
+  hapticEnabled: boolean;
+  spotifyPlaylistUri: string | null;
   loading: boolean;
   error: Error | null;
   setAppMode: (mode: AppMode) => Promise<AppSettings>;
   markSportModeSeen: () => Promise<AppSettings>;
   setWeeklyTarget: (days: number) => Promise<AppSettings>;
+  setHapticEnabled: (enabled: boolean) => Promise<AppSettings>;
+  setSpotifyPlaylistUri: (uri: string | null) => Promise<AppSettings>;
   reload: () => Promise<void>;
 };
 
@@ -96,6 +114,11 @@ export function useAppSettings(): UseAppSettingsResult {
   const setModeFn = useCallback((m: AppMode) => setAppMode(m), []);
   const markSeenFn = useCallback(() => markSportModeSeen(), []);
   const setWeeklyTargetFn = useCallback((d: number) => setWeeklyTarget(d), []);
+  const setHapticFn = useCallback((e: boolean) => setHapticEnabled(e), []);
+  const setSpotifyFn = useCallback(
+    (u: string | null) => setSpotifyPlaylistUri(u),
+    [],
+  );
 
   const settings = state.settings ?? DEFAULT_SETTINGS;
 
@@ -103,11 +126,15 @@ export function useAppSettings(): UseAppSettingsResult {
     appMode: settings.appMode,
     sportModeSeen: settings.sportModeSeen,
     weeklyTargetDays: settings.weeklyTargetDays,
+    hapticEnabled: settings.hapticEnabled,
+    spotifyPlaylistUri: settings.spotifyPlaylistUri,
     loading: state.loading,
     error: state.error,
     setAppMode: setModeFn,
     markSportModeSeen: markSeenFn,
     setWeeklyTarget: setWeeklyTargetFn,
+    setHapticEnabled: setHapticFn,
+    setSpotifyPlaylistUri: setSpotifyFn,
     reload: reloadFn,
   };
 }
