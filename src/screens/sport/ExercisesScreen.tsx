@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   ScrollView,
+  SectionList,
   StyleSheet,
   Text,
   View,
@@ -20,6 +21,10 @@ import { exercisesDB } from '@/database';
 import type { Exercise, ExerciseLevel } from '@/database';
 import { colors, radii, spacing, typography } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
+import {
+  exerciseCountLabel,
+  groupByMuscle,
+} from '@/utils/exerciseGrouping';
 
 // Libreria esercizi con search live (debounce 250ms) + filtri
 // (gruppo muscolare / livello / attrezzatura) raccolti in un BottomSheet
@@ -113,6 +118,45 @@ export default function ExercisesScreen() {
     });
   }, [exercises, debouncedQuery, filters]);
 
+  const sections = useMemo(() => groupByMuscle(filtered), [filtered]);
+
+  const renderItem = useCallback(
+    ({ item }: { item: Exercise }) => (
+      <Pressable
+        onPress={() => setOpenExercise(item)}
+        accessibilityRole="button"
+        accessibilityLabel={`Apri dettaglio ${item.name}`}
+      >
+        <Card style={styles.row}>
+          <View style={styles.rowText}>
+            <Text style={typography.body} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={typography.caption} numberOfLines={1}>
+              {item.muscleGroup} · {item.equipment} · {item.level}
+            </Text>
+          </View>
+          <Icon name="chevron-right" size={14} color={colors.textSec} />
+        </Card>
+      </Pressable>
+    ),
+    [],
+  );
+
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: { title: string; count: number } }) => (
+      <View style={styles.sectionHeader}>
+        <Text style={[typography.label, styles.sectionTitle]}>
+          {section.title}
+        </Text>
+        <Text style={[typography.caption, styles.sectionCount]}>
+          {exerciseCountLabel(section.count)}
+        </Text>
+      </View>
+    ),
+    [],
+  );
+
   return (
     <View style={styles.container}>
       <ScreenHeader
@@ -164,48 +208,36 @@ export default function ExercisesScreen() {
         </Pressable>
       </View>
 
-      <ScrollView
-        contentContainerStyle={[
-          styles.scroll,
-          { paddingBottom: insets.bottom + spacing.screen * 4 },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {loading ? (
+      {loading ? (
+        <View style={styles.scroll}>
           <Card style={styles.placeholder}>
             <ActivityIndicator color={colors.textSec} />
           </Card>
-        ) : filtered.length === 0 ? (
+        </View>
+      ) : sections.length === 0 ? (
+        <View style={styles.scroll}>
           <Card style={styles.placeholder}>
             <Text style={typography.body}>Nessun esercizio</Text>
             <Text style={typography.caption}>
               Nessun esercizio trovato per i filtri attuali.
             </Text>
           </Card>
-        ) : (
-          filtered.map((ex) => (
-            <Pressable
-              key={ex.id}
-              onPress={() => setOpenExercise(ex)}
-              accessibilityRole="button"
-              accessibilityLabel={`Apri dettaglio ${ex.name}`}
-            >
-              <Card style={styles.row}>
-                <View style={styles.rowText}>
-                  <Text style={typography.body} numberOfLines={1}>
-                    {ex.name}
-                  </Text>
-                  <Text style={typography.caption} numberOfLines={1}>
-                    {ex.muscleGroup} · {ex.equipment} · {ex.level}
-                  </Text>
-                </View>
-                <Icon name="chevron-right" size={14} color={colors.textSec} />
-              </Card>
-            </Pressable>
-          ))
-        )}
-      </ScrollView>
+        </View>
+      ) : (
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderItem}
+          renderSectionHeader={renderSectionHeader}
+          stickySectionHeadersEnabled
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingBottom: insets.bottom + spacing.screen * 4 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
       <ExerciseDetailModal
         visible={openExercise !== null}
@@ -407,18 +439,32 @@ const styles = StyleSheet.create({
   },
   scroll: {
     padding: spacing.screen,
-    gap: spacing.md,
   },
   placeholder: {
     padding: spacing.screen,
     gap: spacing.sm,
     alignItems: 'center',
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    backgroundColor: colors.bg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  sectionTitle: {
+    color: colors.text,
+  },
+  sectionCount: {
+    color: colors.textSec,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     padding: spacing.xl,
+    marginBottom: spacing.md,
   },
   rowText: {
     flex: 1,
