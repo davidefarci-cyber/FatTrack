@@ -311,7 +311,33 @@ all'utente per dare il via.
 
 _Nessuna issue aperta._
 
-### 5.2 Quirks architetturali (non bug, ma "by design" da ricordare)
+### 5.2 Lezione appresa — oggetti instabili come dep di useEffect/useFocusEffect
+
+Nel primo utilizzo reale di FitTrack (2026-05-02) è emerso un loop
+infinito di query DB sulla `SportHomeScreen` causato da un return
+`{ ... }` non memoized di `useSportStats()` passato come dep di
+`useFocusEffect`. Risolto in PR #57.
+
+**Pattern da non ripetere**: hook custom che ritornano oggetti literal
+(`{ loading, data, reload }`) producono un nuovo reference a ogni
+render. Mettere l'intero oggetto come dep di `useEffect` /
+`useFocusEffect` provoca loop quando il callback chiama un setter del
+hook, perché ogni setState ricrea l'oggetto, ricrea la callback,
+ritriggera l'effect.
+
+**Best practice**:
+- Estrai i singoli campi memoized (es. `const reloadFn = stats.reload`)
+  e mettili come dep, non l'intero oggetto.
+- Oppure, dentro il hook, wrappa il return in `useMemo` con dipendenze
+  primitive — più costoso da scrivere ma rende il consumer "naturale".
+- Quando lavori in un useEffect su un valore di un hook custom,
+  controlla SEMPRE se il return è memoized. Se non lo è, non passarlo
+  intero come dep.
+
+Cerca pattern simili con `grep -rn "stats\b\|store\b\|state\b" src/`
+nelle dep di useEffect prima di mergiare nuovi hook custom.
+
+### 5.3 Quirks architetturali (non bug, ma "by design" da ricordare)
 
 - **`active_session` orfano**: se per qualche motivo (crash, race) la
   riga `active_session` punta a un `sessions.id` che non esiste più,
@@ -358,6 +384,7 @@ git history.
 
 | Data | PR | Branch | Cosa | Note |
 | --- | --- | --- | --- | --- |
+| 2026-05-02 | #57 | `claude/review-orchestrator-workflow-zzPaV` | Fix loop SportHomeScreen | `stats` → `stats.reload` in useFocusEffect dep. Risolve scaldamento + freeze + "Inizia ora" bloccato. |
 | 2026-05-02 | #56 | `claude/sport-mode-polish` | Sport Fase 5 | Last sport phase |
 | 2026-05-02 | #55 | `claude/sport-mode-exercises-dashboard` | Sport Fase 4 | Libreria + dashboard |
 | 2026-05-02 | #54 | `claude/sport-mode-session` | Sport Fase 3 | Sessione live |
