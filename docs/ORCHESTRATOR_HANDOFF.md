@@ -247,6 +247,7 @@ all'utente per dare il via.
 | [14] | Backup/restore include tabelle sport | M (~2h) | — | ✅ sì |
 | [15] | Asset wordmark "FitTrack" definitivi | S (~30min) | Asset dell'utente | ⏳ aspetta asset |
 | [11] | Backup / restore del database utente | L (~4-6h) | — (già base esistente?) | da verificare |
+| [24] | Selettore reps a scorrimento (fit) | M (~3-4h) | — | ✅ sì — alta UX impact |
 
 **Voce [14] (consigliata come primo prossimo lavoro)**:
 - Cosa serve all'utente: niente, è autocontenuta.
@@ -286,6 +287,15 @@ all'utente per dare il via.
 | [19] | DB esterno esercizi | L | Espansione massiccia, ~10MB asset |
 | [20] | Spotify integration (deep-link MVP) | S/L | MVP via Linking semplice |
 | [21] | CHECK constraint weekly_target_days | S | DB migration |
+| [22] | Conta pizze (easter egg) | S | Pagina scherzosa, long-press storico |
+| [23] | Swipe orizzontale cambio giorno (diet) | S | UX home diet |
+| [25] | Polish RestTimer (+30s, bip 5s, pie chart) | M | Sinergia con [16]/[17] |
+| [26] | Categorizzare esercizi (SectionList) | S | UX libreria |
+| [27] | Illustrazioni esercizi auto-discovered | M | Asset esterni utente |
+| [29] | Haptic cambio modalità fit↔fat | S | Aggiunge expo-haptics, sinergia [17] |
+| [30] | Pulsante profilo anche in fit | M | Architettura navigation da decidere |
+| [31] | TimerScreen wheel picker | M | UX timer, niente lib nuove |
+| [32] | +20-30 esercizi curati (MVP prima di [19]) | M | Lavoro contenutistico |
 
 ### 4.3 Workflow per affrontare una voce TODO
 
@@ -384,6 +394,7 @@ git history.
 
 | Data | PR | Branch | Cosa | Note |
 | --- | --- | --- | --- | --- |
+| 2026-05-02 | — (direct) | main | UX [28] timing transizione mode | Bump 700ms → 1500ms (commit `e462a1d`). Fix orchestratore diretto. |
 | 2026-05-02 | #57 | `claude/review-orchestrator-workflow-zzPaV` | Fix loop SportHomeScreen | `stats` → `stats.reload` in useFocusEffect dep. Risolve scaldamento + freeze + "Inizia ora" bloccato. |
 | 2026-05-02 | #56 | `claude/sport-mode-polish` | Sport Fase 5 | Last sport phase |
 | 2026-05-02 | #55 | `claude/sport-mode-exercises-dashboard` | Sport Fase 4 | Libreria + dashboard |
@@ -434,9 +445,17 @@ lavoro logico) e attendi istruzioni.
 - **Per la voce [15] asset wordmark**: gli SVG/PNG di "FitTrack" e
   "FatTrack" droppati in `assets/sport-splash/` PRIMA di lanciare
   l'orchestratore (altrimenti il prompt verrà bloccato in attesa).
-- **Per voci 🟢 [16] [17] [18] [19] [20] [21]**: nulla, sono
-  autonome. La [19] richiede una scelta tra alternative (wger /
-  Free Exercise DB) — attendi la tabella di tradeoff dell'orchestratore.
+- **Per la voce [24] selettore reps a scorrimento (🟡)**: nulla,
+  autonoma. Alta UX impact su sessione live, candidato forte come
+  prossimo lavoro.
+- **Per voci 🟢 autonome ([8] [9] [10] [13] [16] [17] [18] [19] [20]
+  [21] [22] [23] [25] [26] [29] [30] [31] [32])**: nulla. La [19]
+  richiede una scelta tra alternative (wger / Free Exercise DB) —
+  attendi la tabella di tradeoff dell'orchestratore.
+- **Per [27] illustrazioni esercizi**: l'utente deve produrre le
+  immagini PNG/SVG e droppare in `assets/exercises/` con slug
+  `nome-esercizio-lowercase.png`. Senza asset, il prompt resta in
+  attesa come per [15].
 - **Per nuove feature non in TODO**: descrizione in 1-2 frasi
   ("vorrei aggiungere X perché Y"). L'orchestratore espanderà in
   fase esplorativa.

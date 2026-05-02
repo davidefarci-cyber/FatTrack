@@ -675,26 +675,6 @@ senza modifiche al codice; gli asset mancanti non rompono nulla.
 
 ---
 
-### [28] Aumentare durata `ModeTransitionOverlay`
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟢 bassa
-**Area**: UX
-
-Oggi `ModeTransitionOverlay.tsx:23-25` ha 200ms fade-in + 300ms hold +
-200ms fade-out = 700ms totali. L'utente percepisce la transizione fit↔fat
-troppo veloce: il "wow" del cambio mode si perde, e con asset definitivi
-del wordmark (voce [15]) sarebbe stato meglio respirarli.
-
-Proposta: portare a ~1200-1500ms totali (es. 250 + 800 + 300, oppure
-300 + 700 + 400 — da provare a sensazione).
-
-**Done quando**: la transizione tra fit e fat è abbastanza lunga da
-rendere leggibile il wordmark / icona, ma non frustrante (non oltre
-~1.5s totali).
-
----
-
 ### [29] Feedback tattile al cambio modalità (fit↔fat)
 
 **Aperta**: 2026-05-02
@@ -805,6 +785,18 @@ DB esistenti senza duplicare.
 ---
 
 ## ✅ Fatto
+
+### [chiusa] [28] Aumentare durata `ModeTransitionOverlay`
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-02
+
+Timing precedente 200+300+200 = 700ms percepito troppo veloce
+nell'uso reale: il wordmark "FitTrack" / "FatTrack" si leggeva
+appena. Portato a 300+800+400 = 1500ms in
+`src/components/sport/ModeTransitionOverlay.tsx:23-25` (commit
+`e462a1d`). Asset definitivi del wordmark restano voce [15] aperta.
+
+---
 
 ### [chiusa] Loop infinito di query DB sulla SportHomeScreen
 
