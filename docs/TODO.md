@@ -594,20 +594,29 @@ numero di reps fatte senza tastiera, in 1-2 tap; il valore di default
 **Priorità**: 🟢 bassa
 **Area**: UX (fit)
 
-Richiesta vaga dell'utente: "migliorare il sistema a tempo della
-pausa tra serie". Possibili interpretazioni (chiedere prima di
-implementare):
+Migliorare il `RestTimer` durante una sessione live. Scope chiarito
+dall'utente:
 
-- UX del countdown attuale (`RestTimer`): font più grande / barra di
-  progresso più evidente / haptic alla fine.
-- Possibilità di aggiungere/togliere 15s al volo durante il
-  recupero ("ho bisogno di 30s in più").
-- Notifica/suono a fine recupero quando l'app è in background (già
-  in [16]) — possibile sovrapposizione.
-- Skip rest direttamente con un gesture grosso (swipe up?) invece
-  che il bottone secondario "Salta recupero".
+- **Tasto +30s**: durante il countdown di recupero, aggiungere 30
+  secondi con un tap (utile quando l'utente vuole respirare di più).
+  Possibile anche -30s simmetrico, da valutare.
+- **Bip negli ultimi 5 secondi**: feedback sonoro/haptic per gli
+  ultimi 5s del countdown ("contdown to start"). Probabile uso di
+  `expo-haptics` (già richiesto in [17]) e/o `expo-av` per il suono.
+- **Grafico circolare di progresso** (pie / arc): visualizzazione
+  più immediata del tempo che scorre rispetto alla barra lineare
+  attuale (`RestTimer.tsx:54-65`). Pattern allineato a `CalorieRing`
+  ma con rotazione ogni secondo.
 
-**Done quando**: TBD — chiarire scope con l'utente prima di stimare.
+Possibile sovrapposizione con [16] (notifica fine recupero in
+background) e [17] (haptic generale): le tre voci si parlano e
+potrebbe valere la pena trattarle come unica fase "polish sessione
+live".
+
+**Done quando**: durante il recupero c'è un tasto "+30s" che
+estende il countdown, gli ultimi 5s emettono bip, il countdown ha
+una visualizzazione circolare oltre alla barra lineare; tutte le
+funzionalità sono disattivabili da SportSettings (almeno il suono).
 
 ---
 
@@ -692,24 +701,22 @@ rendere leggibile il wordmark / icona, ma non frustrante (non oltre
 **Priorità**: 🟢 bassa
 **Area**: UX
 
-L'utente chiede vibrazione al "cambio scheda" — interpretazione:
-cambio modalità app (fit↔fat) tramite long-press home o toggle
-Settings. Da chiarire se l'utente intendeva invece il cambio di
-scheda allenamento (start workout) — questo caso ricadrebbe sotto
-voce [17] (haptic per completamento set / fine recupero, già aperta).
+Confermato dall'utente: vibrazione al passaggio fit↔fat (long-press
+home o toggle Settings) per dare feedback "è iniziata la transizione".
+Sinergia con [28] (transizione visiva più lunga) e [17] (haptic
+sport).
 
-Implementazione (presumendo cambio modalità):
+Implementazione:
 - Aggiungere `expo-haptics` (allineamento con [17] che lo richiede
   comunque per completamento set).
-- `Haptics.notificationAsync(NotificationFeedbackType.Success)` al
-  toggle di `setAppMode()`.
+- `Haptics.notificationAsync(NotificationFeedbackType.Success)`
+  invocato all'avvio del long-press / toggle di `setAppMode()`.
 - Flag `hapticEnabled` in app_settings (default true), toggle in
   Settings (entrambe le modalità).
 
 **Done quando**: long-press su tab Home produce un haptic breve nel
-momento dello switch modalità; flag `hapticEnabled` disattivabile da
-SportSettings/SettingsScreen; chiarimento avuto su cosa intendeva
-"cambio scheda".
+momento esatto dello switch modalità; il flag è disattivabile da
+SportSettings / SettingsScreen.
 
 ---
 
