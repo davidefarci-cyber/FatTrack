@@ -1,6 +1,6 @@
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   LayoutAnimation,
   Platform,
@@ -11,6 +11,7 @@ import {
   UIManager,
   View,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddFoodSheet } from '@/components/AddFoodSheet';
@@ -160,6 +161,27 @@ export default function HomeScreen() {
     [addMeals],
   );
 
+  // Swipe orizzontale per cambio giorno: stessa semantica delle frecce
+  // nel DayNavigator (chevron-left → giorno precedente, quindi swipe
+  // verso destra = `goToPreviousDay`). `activeOffsetX` ritarda l'attivazione
+  // a 15px orizzontali e `failOffsetY` cede subito allo scroll verticale
+  // se il gesto vira sopra i 25px in Y. Threshold di fine gesto: 60px di
+  // translation + 200 di velocity per evitare cambi giorno accidentali.
+  const swipeDayGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX([-15, 15])
+        .failOffsetY([-25, 25])
+        .onEnd((e) => {
+          const dx = e.translationX;
+          const vx = Math.abs(e.velocityX);
+          if (vx < 200) return;
+          if (dx > 60) goToPreviousDay();
+          else if (dx < -60) goToNextDay();
+        }),
+    [goToPreviousDay, goToNextDay],
+  );
+
   return (
     <View style={styles.container}>
       <ScreenHeader
@@ -188,57 +210,59 @@ export default function HomeScreen() {
         }
       />
 
-      <ScrollView
-        contentContainerStyle={[
-          styles.scroll,
-          { paddingBottom: insets.bottom + spacing.screen * 2 },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        {appMode === 'diet' && !sportModeSeen ? (
-          <SportModeHintBanner
-            onTry={async () => {
-              await setAppMode('sport');
-              await markSportModeSeen();
-            }}
-            onDismiss={() => {
-              void markSportModeSeen();
-            }}
+      <GestureDetector gesture={swipeDayGesture}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingBottom: insets.bottom + spacing.screen * 2 },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {appMode === 'diet' && !sportModeSeen ? (
+            <SportModeHintBanner
+              onTry={async () => {
+                await setAppMode('sport');
+                await markSportModeSeen();
+              }}
+              onDismiss={() => {
+                void markSportModeSeen();
+              }}
+            />
+          ) : null}
+
+          <DayNavigator
+            dateLabel={dateLabel}
+            isToday={isToday}
+            onPrev={goToPreviousDay}
+            onNext={goToNextDay}
+            onToday={goToToday}
           />
-        ) : null}
 
-        <DayNavigator
-          dateLabel={dateLabel}
-          isToday={isToday}
-          onPrev={goToPreviousDay}
-          onNext={goToNextDay}
-          onToday={goToToday}
-        />
-
-        <HomeSummaryCard
-          consumed={totalCalories}
-          target={target}
-          macrosConsumed={macros}
-          macroTargets={macroTargets}
-        />
-
-        {MEAL_ORDER.map((mealType) => (
-          <MealSection
-            key={mealType}
-            mealType={mealType}
-            meals={mealsByType[mealType]}
-            loading={loading}
-            collapsed={collapsed[mealType]}
-            quickAddons={quickAddons}
-            onToggleCollapse={() => toggleCollapse(mealType)}
-            onAdd={() => setAddFoodMeal(mealType)}
-            onAddFavorite={() => setFavoritesMeal(mealType)}
-            onAddAddon={(addon) => handleAddAddon(mealType, addon)}
-            onDelete={handleDelete}
-            onEdit={handleEdit}
+          <HomeSummaryCard
+            consumed={totalCalories}
+            target={target}
+            macrosConsumed={macros}
+            macroTargets={macroTargets}
           />
-        ))}
-      </ScrollView>
+
+          {MEAL_ORDER.map((mealType) => (
+            <MealSection
+              key={mealType}
+              mealType={mealType}
+              meals={mealsByType[mealType]}
+              loading={loading}
+              collapsed={collapsed[mealType]}
+              quickAddons={quickAddons}
+              onToggleCollapse={() => toggleCollapse(mealType)}
+              onAdd={() => setAddFoodMeal(mealType)}
+              onAddFavorite={() => setFavoritesMeal(mealType)}
+              onAddAddon={(addon) => handleAddAddon(mealType, addon)}
+              onDelete={handleDelete}
+              onEdit={handleEdit}
+            />
+          ))}
+        </ScrollView>
+      </GestureDetector>
 
       <AddFoodSheet
         visible={addFoodMeal !== null}
