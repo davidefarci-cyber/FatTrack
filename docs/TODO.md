@@ -515,6 +515,41 @@ di crashare.
 
 ## ✅ Fatto
 
+### [chiusa] Loop infinito di query DB sulla SportHomeScreen
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-02
+
+Bug critico segnalato in fase di primo utilizzo reale di FitTrack: app
+estremamente lenta (30+ secondi di blank al primo ingresso in tab),
+device che scaldava (S25 Ultra, top di gamma — escluso problema
+performance hardware), pulsante "Inizia ora" e "Salva sessione" con
+spinner infinito.
+
+Root cause: `SportHomeScreen.tsx:108-114` aveva `stats` (return di
+`useSportStats()`) come dipendenza di `useFocusEffect`. `stats` è un
+oggetto literal `{ loading, week, last, reload }` ricreato a ogni
+render. Ogni `setState` interno di `useSportStats` (3 per ogni
+reload) ricreava `stats` → callback ricreata → `useFocusEffect`
+rieseguiva → nuova reload → setState → loop infinito di query DB con
+JS thread al 100%. Tutte le altre operazioni (mount di altre tab,
+start sessione, save sessione) finivano in coda dietro la coda SQLite
+saturata. Diet non aveva equivalente.
+
+Fix in PR #57 (`fix(sport): elimina loop infinito di query DB nella
+SportHomeScreen`, commit `13e5370`): dep `stats` → `stats.reload`
+(memoized stabile via useCallback in `useSportStats`). Estratto come
+costante per evitare falso positivo `react-hooks/exhaustive-deps`.
+
+Anche: rimosso `useEffect([reload])` ridondante in
+`SportHistoryScreen` — già coperto da `useFocusEffect` adiacente,
+causava una doppia query iniziale. Niente loop ma overhead inutile.
+
+Verifica round-trip dell'utente: clean install di APK pre-FitTrack →
+restore backup utente → upgrade a APK con FitTrack post-fix → tutto
+funziona, dati preservati, app scattante senza freeze.
+
+---
+
 ### [chiusa] [12] Split `SettingsScreen` con tab Profile dedicata
 
 **Aperta**: 2026-05-01 — **Chiusa**: 2026-05-01
