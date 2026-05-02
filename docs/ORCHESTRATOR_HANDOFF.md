@@ -245,7 +245,8 @@ all'utente per dare il via.
 | # | Titolo | Effort | Dipendenze | Pronto a partire? |
 | --- | --- | --- | --- | --- |
 | [14] | Backup/restore include tabelle sport | M (~2h) | — | ✅ sì |
-| [15] | Asset wordmark "FitTrack" definitivi | S (~30min) | Asset dell'utente | ⏳ aspetta asset |
+| [33] | Permessi: rimuovere RECORD_AUDIO + QA prompt camera | S (~1h) | — | ✅ sì — pianificata in Sessione A UX Polish |
+| [15] | Asset wordmark "FitTrack" definitivi | M | Asset dell'utente | ⏳ trattare SEPARATAMENTE quando arrivano asset |
 | [11] | Backup / restore del database utente | L (~4-6h) | — (già base esistente?) | da verificare |
 | [24] | Selettore reps a scorrimento (fit) | M (~3-4h) | — | ✅ sì — alta UX impact |
 
