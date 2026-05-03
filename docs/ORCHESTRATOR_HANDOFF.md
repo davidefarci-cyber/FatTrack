@@ -41,7 +41,7 @@
   - Switch tra modalità via long-press tab Home (~600ms) o toggle Settings.
   - ThemeContext con accent arancio dedicato (`useAppTheme()`).
   - SportTabNavigator con 5 tab: Timer · Schede · Home · Storico · Esercizi.
-  - 40 esercizi seedati + 3 schede preset (Full Body Casa / PPL Day 1 /
+  - 67 esercizi seedati (post-F, PR #72) + 3 schede preset (Full Body Casa / PPL Day 1 /
     Mobilità mattina).
   - Sessione live full-screen con persistenza DB + AppState
     (background/foreground) + banner sticky.
@@ -90,7 +90,7 @@ GestureHandlerRootView
 | Modalità app | `src/database/appSettingsDB.ts`, `src/hooks/useAppSettings.ts` |
 | Sessione attiva | `src/contexts/ActiveSessionContext.tsx`, `src/database/sessionsDB.ts` |
 | Calorie sport | `src/utils/sportCalories.ts` |
-| Backup DB | `src/utils/dbBackup.ts` (⚠️ NON include tabelle sport — vedi TODO [14]) |
+| Backup DB | `src/utils/dbBackup.ts` (include diet + 6 tabelle sport post-E, PR #73; `active_session` esclusa per design) |
 | Migrations | `src/database/db.ts` (CREATE TABLE IF NOT EXISTS + ALTER nel try/catch) |
 | Piano storico sport | `docs/sport-mode/PLAN.md` |
 | Prompt fasi sport | `docs/sport-mode/NEW_SESSION_PROMPT.md` (Fase 1) e `..._PHASE_2.md` … `_PHASE_5.md` |
@@ -429,6 +429,8 @@ git history.
 
 | Data | PR | Branch | Cosa | Note |
 | --- | --- | --- | --- | --- |
+| 2026-05-03 | #73 | `claude/sport-backup-tables-Oc9Ar` | Sport E (backup include tabelle sport) | 1 commit. Chiude [14] e [11]. `TABLES` in `src/utils/dbBackup.ts` esteso da 7 a 13 tabelle (aggiunte `app_settings`, `exercises`, `workouts`, `workout_exercises`, `sessions`, `session_sets` in ordine padri→figli). `BACKUP_SCHEMA_VERSION` resta 1 come da convenzione documentata nel file. `active_session` esclusa per design. |
+| 2026-05-03 | #72 | `claude/sport-seed-extra-exercises-b6de4` | Sport F (+25 esercizi al seed) | 1 commit. Chiude [32]. Append idempotente di 25 esercizi a `SEED_EXERCISES` (schiena 5 / bicipiti 2 / spalle 2 / glutei 3 / gambe varianti 3 / stacchi 2 / pliometria 2 / esercizi seduti 3 / mobilità 3). Conteggio finale **67 voci** (pre-merge il file aveva già 42, non 40 come da mio prompt — la worker ha segnalato la discrepanza nel commit). Equipment nuovi raccolti dinamicamente: Bottiglie d'acqua, Elastico, Elastico+sbarra, Asciugamano, Sedia. |
 | 2026-05-03 | #69 | `claude/fix-tabata-sounds-vmonN` | UX Polish D2 (fix auto-advance Tabata + 4 suoni) | 4 commit. Fix bug auto-advance work↔rest (check `Date.now() >= endsAt` dentro callback `setInterval` di tick, rimosso `useEffect` separato). Refactor `countdownSound.ts` → `sportSounds.ts` con 4 loader cached (`tick`=8bit, `workStart`=gogogo, `restStart`=cool, `pauseTick`=countdown-tick). Audio Tabata: 8bit su tutti i tick (countdown 5→1 + ultimi 5s work + ultimi 5s rest), gogogo a inizio ogni Lavoro, cool a inizio ogni Recupero. `playPauseTick()` (countdown-tick) negli ultimi 5s di `RestTimer.tsx` + `RestTimerStandaloneModal.tsx` accanto al `lightHaptic()` esistente. |
 | 2026-05-03 | #67 | `claude/ux-polish-tabata-running-feedback-zbaT2` | UX Polish D (RunningView Tabata + ActiveSession overhaul) | 5 commit. Chiude [37]. RunningView restyle con pie chart accent + "Round X/Y" prominente + palette work/rest. `WheelPicker` prop `orientation` horizontal (retrocompat). `RepsPicker` orizzontale (fix gesture conflict ScrollView). RPE 1-10 → pill Poco/Troppo (mappato 3/9/null). Rimossa UI Peso da sport (DB invariato per forward-compat). |
 | 2026-05-03 | #65 | `claude/ux-polish-rest-timer-standalone-S4IRN` | UX Polish C3.2 (timer pausa standalone in SportHome) | 3 commit. Chiude [36]. Nuovo `RestTimerStandaloneModal`, riga 50/50 quick action SportHome, helper `src/utils/svgArc.ts` estratto. |
@@ -519,39 +521,46 @@ come fonte di verità storica.
 
 ## 9. Roadmap
 
-Aggiornata 2026-05-03 post-merge sessioni D (PR #67) + D2 (PR #69).
+Aggiornata 2026-05-03 post-merge **D, D2, E, F** — la roadmap
+concordata col proprietario è chiusa al 100%.
 
 | Sessione | Stato | Voce | Effort | Cosa |
 | --- | --- | --- | --- | --- |
-| **D** | ✅ chiusa | [37] | M | Restyle RunningView Tabata + ActiveSession overhaul (WheelPicker horizontal, RPE→Poco/Troppo, rimozione UI Peso). PR #67. |
-| **D2** | ✅ chiusa | — | S | Fix bug auto-advance Tabata + 4 suoni (8bit/gogogo/cool su Tabata, countdown-tick sui due RestTimer di pausa). PR #69. |
-| **E** | 🔜 prossima | [14] (+ [11]) | S-M (~1-2h) | Estende `TABLES` di `dbBackup.ts` con le 7 tabelle sport (`active_session` esclusa). Bumpa `BACKUP_SCHEMA_VERSION` a 2. Round-trip export → reset → import preserva schede personali, sessioni storiche, modalità corrente, weekly target, config Tabata, settings haptic/Spotify. Al merge si chiude anche [11]. |
-| **F** | 🔜 in parallelo | [32] | M (~2-3h) | +25 esercizi curati al seed (`src/database/seedExercises.ts`) — schiena/bicipiti/spalle/glutei/varianti/stacchi/pliometria/seduti/mobilità. Top-up idempotente. **Prompt già scritto** in `docs/sport-mode/PROMPT_SESSION_F_SEED_EXERCISES.md` con lista 25 esercizi prescritti (worker scrive solo description + guideSteps). Tocca SOLO `seedExercises.ts` → zero conflitti con E. Può partire in parallelo. |
+| **D** | ✅ chiusa | [37] | M | Restyle RunningView Tabata + ActiveSession overhaul. PR #67. |
+| **D2** | ✅ chiusa | — | S | Fix auto-advance Tabata + 4 suoni. PR #69. |
+| **E** | ✅ chiusa | [14] + [11] | S-M | Backup include le 6 tabelle sport. PR #73. |
+| **F** | ✅ chiusa | [32] | M | +25 esercizi curati (67 totali). PR #72. |
 
-**Pre-requisiti per E**: nessuno. Lista TABLES in
-`src/utils/dbBackup.ts:22-30`; CREATE TABLE delle 7 tabelle sport
-in `src/database/db.ts`; ordine FK per restore (`exercises` →
-`workouts` → `workout_exercises` → `sessions` → `session_sets`;
-`app_settings` standalone).
+**Stato del backlog post-roadmap**:
 
-**Pre-requisiti per F**: nessuno. Pattern di seed in
-`src/database/seedExercises.ts`. Per [32] basta scegliere a mano
-~25 esercizi sensati senza fetch esterno.
+- 🔴 alta: vuota.
+- 🟡 media: [15] asset wordmark FitTrack/FatTrack (in attesa
+  di asset esterni del proprietario).
+- 🟢 bassa: [8] [9] [10] [13] [18] [19] [21] [22] [27] [30]
+  [34]. Nessuna critica, scelte autonome.
 
-**Sequenza per l'orchestratore**:
+**Rivalutazione [19] (DB esterno completo, ~150-500 esercizi)**:
+con 67 esercizi in libreria post-F, la pressione su [19] è
+calata. Lascia aperta come 🟢 bassa — può essere rivalutata
+quando l'utente sente il bisogno di una libreria più ampia. Non
+chiusa formalmente.
 
-1. **E ed F sono parallelizzabili** (zero overlap di file: E
-   tocca `src/utils/dbBackup.ts`, F tocca
-   `src/database/seedExercises.ts`). Possono partire in
-   contemporanea o in qualsiasi ordine.
-2. Per **E**: scrivi prompt operaio in
-   `docs/sport-mode/PROMPT_SESSION_E_BACKUP_SPORT.md` quando
-   il proprietario dà il via.
-3. Per **F**: prompt **già scritto** in
-   `docs/sport-mode/PROMPT_SESSION_F_SEED_EXERCISES.md`. Pronto
-   da lanciare.
-4. Al merge di E chiudi ANCHE [11] in TODO (la base era già
-   implementata, vedi nota §4.1 storica).
-5. Al merge di F valuta se [19] (DB esterno completo) è ancora
-   rilevante con 65 esercizi in libreria, o se si può chiudere
-   come "rimandata indefinitamente".
+**Prossimi candidati naturali se l'utente chiede "cosa resta?"**:
+- [13] foto profilo avatar reale (M, diet, autonomo, richiede
+  `expo-image-picker` + persistenza file).
+- [22] conta pizze easter egg (M, diet, richiede tabella DB
+  nuova `pizza_log` + interseca con backup come da nota §4 del
+  TODO).
+- [30] pulsante profilo trasversale fit↔fat (M, sport,
+  architettura navigation da decidere).
+- [21] CHECK constraint `weekly_target_days` (S, sport, DB
+  migration).
+- [15] asset wordmark se l'utente ha prodotto gli SVG/PNG.
+
+**Workflow per il prossimo turno**:
+
+- L'utente potrebbe voler iniziare un nuovo filone (feature o
+  voce TODO 🟢). In quel caso applica il pattern §2.1 / §2.2.
+- Oppure potrebbe voler chiudere [15] se ha gli asset pronti.
+- Oppure potrebbe voler aprire un nuovo brainstorming di
+  prodotto. In quel caso applica il pattern §2.2.

@@ -179,73 +179,6 @@ per richiederlo prima del merge.
 
 ---
 
-### [11] Backup / restore del database utente
-
-**Aperta**: 2026-05-01
-**Area**: codice / UX
-
-Oggi se l'utente disinstalla l'app o se cambia la firma keystore (vedi
-[2]) perde tutto: profilo, pasti, preferiti, food custom, quick addons.
-SQLite vive solo nello storage interno dell'app.
-
-Implementazione: export di tutte le tabelle come JSON unico
-(`{ schemaVersion, exportedAt, appVersion, tables: { ... } }`), share
-via `expo-sharing`. Import via `expo-document-picker` con `Alert` di
-conferma (sostituisce tutti i dati attuali).
-
-L'import deve essere **best-effort cross-version**: un backup fatto con
-una versione vecchia dell'app deve poter essere ripristinato in una
-versione più nuova caricando tutto quello che è ancora compatibile.
-Niente rifiuto rigido su mismatch di `schemaVersion`. Strategia:
-introspection schema corrente con `PRAGMA table_info`, intersection
-colonna-per-colonna, skip righe che violano constraint, report finale
-all'utente con i warning (tabelle/colonne ignorate, righe scartate).
-
-**Done quando**: in `SettingsScreen` esistono i bottoni "Esporta backup"
-e "Importa backup"; il file esportato è un JSON leggibile; l'import
-sostituisce il DB, svuota la cache `mealsStore` e mostra warning se
-parte dei dati non è stata ripristinata; backup di versione "futura"
-(`schemaVersion` più alto del corrente) viene rifiutato con messaggio
-chiaro; backup vuoti o incompatibili rollbackano la transazione invece
-di azzerare il DB.
-
----
-
-### [14] Backup/restore include tabelle sport mode
-
-**Aperta**: 2026-05-02
-**Area**: codice / UX
-**Dipende da**: [11] (almeno la versione base esiste)
-
-`src/utils/dbBackup.ts` ha la lista `TABLES` (linee 22-30) hardcodata
-con solo le tabelle diet: `foods`, `food_servings`, `meals`,
-`favorites`, `quick_addons`, `daily_settings`, `user_profile`. Le
-tabelle introdotte dal progetto sport mode (Fasi 1-5, PR #51-#56) NON
-sono incluse: `app_settings`, `exercises`, `workouts`,
-`workout_exercises`, `sessions`, `session_sets`, `active_session`.
-
-Effetto attuale: chi fa export e poi reimporta perde tutto il sport
-(modalità app, schede personali, sessioni, libreria esercizi
-custom in futuro). I preset si riseminerebbero automaticamente
-(`seedPresetWorkoutsIfEmpty`), ma le sessioni/storico no.
-
-Da fare: aggiungere le 7 tabelle sport alla lista `TABLES`, in ordine
-di dipendenza FK per il restore (parents prima dei children: `exercises`
-→ `workouts` → `workout_exercises` → `sessions` → `session_sets`;
-`active_session` per ultimo o saltato dal backup — è uno stato
-runtime, ha senso esportarlo solo se vogliamo ripristinare anche la
-sessione in corso, valutare). Bumpare `SCHEMA_VERSION`. Aggiornare il
-test plan dell'import.
-
-**Done quando**: l'export di backup contiene le tabelle sport;
-l'import le ripristina; un round-trip export → reset DB → import
-preserva schede personali, sessioni storiche, modalità corrente,
-weeklyTarget; le tabelle nuove vivono nel JSON con lo stesso pattern
-di quelle esistenti (warning su tabelle sconosciute al restore di
-backup vecchi).
-
----
-
 ### [15] Asset wordmark "FitTrack" definitivi
 
 **Aperta**: 2026-05-02
@@ -689,34 +622,6 @@ peso.
 
 ---
 
-### [32] Espandere libreria esercizi con ricerca curata
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟢 bassa
-**Area**: contenuti (fit)
-
-Versione MVP / lavoro contenutistico mirato come step intermedio
-prima di [19] (DB esterno completo, ~150-500 esercizi). Curare a
-mano altri 20-30 esercizi che oggi mancano: stacchi (deadlift varianti),
-trazioni assistite (con elastico/fascia), esercizi con manubri
-domestici (1-5kg), esercizi seduti per anziani, ecc.
-
-Posso proporre la lista via web research (ricerca esercizi standard
-da fonti affidabili tipo `wger.de`, `Free Exercise DB`) e droppare
-direttamente le righe nel `seedExercises.ts` con `met` ragionevoli.
-Il top-up idempotente di `seedExercisesIfEmpty` redistribuisce
-automaticamente agli utenti esistenti.
-
-Differenza con [19]: [32] è un lavoro di +20-30 esercizi curati
-manualmente (effort: ~2-3h), [19] è un'integrazione completa con DB
-esterno (effort: L, ~10MB asset).
-
-**Done quando**: la libreria ha ≥60-70 esercizi, tutti con
-descrizione + guideSteps + met sensato; il top-up redistribuisce ai
-DB esistenti senza duplicare.
-
----
-
 ### [34] Widget Android per la home screen
 
 **Aperta**: 2026-05-02
@@ -771,6 +676,66 @@ sport copertura come iterazione successiva o bonus se semplice.
 ---
 
 ## ✅ Fatto
+
+### [chiusa] [14] Backup/restore include tabelle sport mode
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-03
+
+PR #73 (sessione E, 1 commit). `TABLES` in `src/utils/dbBackup.ts`
+esteso da 7 a 13 tabelle: aggiunte `app_settings`, `exercises`,
+`workouts`, `workout_exercises`, `sessions`, `session_sets` in
+ordine padri→figli per le FK. `active_session` esclusa per design
+(stato runtime, una sola sessione live alla volta).
+`BACKUP_SCHEMA_VERSION` resta a 1 come da convenzione documentata
+nel file (linee 8-15: bump solo per cambi di formato JSON, non per
+aggiunta di tabelle che il layer best-effort gestisce
+automaticamente). Round-trip export → reset → import ora preserva
+modalità corrente, weeklyTarget, config Tabata, schede personali,
+sessioni storiche.
+
+---
+
+### [chiusa] [11] Backup / restore del database utente
+
+**Aperta**: 2026-05-01 — **Chiusa**: 2026-05-03
+
+La base era già implementata pre-sport (`exportBackup` /
+`importBackup` in `src/utils/dbBackup.ts` con introspection schema
+via `PRAGMA table_info`, intersection colonne, transazione + rollback
+su errore, share via `expo-sharing`, picker via
+`expo-document-picker`, bottoni "Esporta backup" / "Importa backup"
+in `SettingsScreen`). Resa formalmente "completa" al merge di [14]
+(PR #73) che ha aggiunto le 6 tabelle sport mancanti.
+
+---
+
+### [chiusa] [32] Espandere libreria esercizi con ricerca curata
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-03
+
+PR #72 (sessione F, 1 commit). Append idempotente di 25 esercizi
+curati a `SEED_EXERCISES`: schiena/dorsali (5: Superman, Reverse
+snow angel, Rematore con bottiglie, Pull-apart con elastico,
+Trazioni assistite con elastico), bicipiti (2: Curl con bottiglie,
+Curl isometrico con asciugamano), spalle (2: Shoulder taps, Y-T-W
+prone), glutei (3: Clamshell, Donkey kick, Fire hydrant), gambe
+varianti (3: Lateral lunge, Cossack squat, Goblet squat con
+bottiglia), stacchi (2: Romanian deadlift con bottiglie, Good
+morning), pliometria (2: Tuck jump, Broad jump), esercizi seduti
+(3: Marcia da seduti, Alzata gambe da seduti, Twist da seduti),
+mobilità (3: Leg swings, Wrist circles, Ankle circles).
+
+Conteggio finale: **67 esercizi** in libreria (la spec del prompt
+citava "65 = 40 + 25" ma il file aveva 42 esercizi pre-merge —
+discrepanza segnalata dalla worker nel commit message). Equipment
+nuovi raccolti dinamicamente da `ExercisesScreen` (Bottiglie d'acqua,
+Elastico, Elastico+sbarra, Asciugamano, Sedia). MuscleGroup nuovi
+(Schiena, Bicipiti, Glutei/Femorali, Mobilità polsi, Mobilità
+caviglie) appaiono come nuove sezioni nella SectionList senza
+modifiche UI. Top-up via `INSERT OR IGNORE` redistribuirà ai DB
+esistenti al prossimo avvio app.
+
+---
 
 ### [chiusa] [37] Restyle RunningView post-countdown (Tabata)
 
