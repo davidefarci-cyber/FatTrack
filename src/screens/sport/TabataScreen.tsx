@@ -57,28 +57,29 @@ export default function TabataScreen() {
   const [pausedAt, setPausedAt] = useState<number | null>(null);
   const [, setPausedTotalMs] = useState(0);
 
-  // Tick ogni 200ms; ferma in pausa o quando non running.
+  // Tick + check di avanzamento ogni 200ms. Il check di scadenza vive
+  // qui dentro (non in un effect separato) perché `endsAt` cambia solo
+  // a inizio fase: senza polling non potremmo accorgerci che il timer è
+  // arrivato a 0. setTick forza il re-render di RunningView per il
+  // countdown visivo.
   const [, setTick] = useState(0);
-  useEffect(() => {
-    if (!running || paused) return;
-    const id = setInterval(() => setTick((t) => t + 1), 200);
-    return () => clearInterval(id);
-  }, [running, paused]);
-
-  // Avanzamento intervalli: quando endsAt è scaduto e siamo in
-  // running+!paused, passiamo alla fase successiva. Logica copiata dal
-  // vecchio TimerScreen (semantica work → rest → next round → done).
   const intervalStateRef = useRef(intervalState);
   useEffect(() => {
     intervalStateRef.current = intervalState;
   }, [intervalState]);
   useEffect(() => {
     if (!running || paused) return;
-    if (!intervalState) return;
-    if (Date.now() < intervalState.endsAt) return;
-    advanceInterval();
+    const id = setInterval(() => {
+      setTick((t) => t + 1);
+      const current = intervalStateRef.current;
+      if (!current || current.phase === 'done') return;
+      if (Date.now() >= current.endsAt) {
+        advanceInterval();
+      }
+    }, 200);
+    return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [intervalState?.endsAt, running, paused]);
+  }, [running, paused]);
 
   function advanceInterval() {
     const current = intervalStateRef.current;
