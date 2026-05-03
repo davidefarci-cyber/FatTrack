@@ -41,6 +41,12 @@
           "cameraPermission": "FatTrack usa la fotocamera per scansionare i codici a barre dei prodotti alimentari.",
           "microphonePermission": false
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#FF7A1A"
+        }
       ]
     ],
     "extra": {

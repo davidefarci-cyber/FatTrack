@@ -200,6 +200,7 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       current_exercise_index INTEGER NOT NULL DEFAULT 0,
       current_set_number INTEGER NOT NULL DEFAULT 1,
       rest_ends_at TEXT,
+      rest_duration_sec INTEGER,
       paused_at TEXT,
       paused_total_sec INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -246,6 +247,7 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     `ALTER TABLE app_settings ADD COLUMN weekly_target_days INTEGER NOT NULL DEFAULT 4`,
     `ALTER TABLE app_settings ADD COLUMN haptic_enabled INTEGER NOT NULL DEFAULT 1`,
     `ALTER TABLE app_settings ADD COLUMN spotify_playlist_uri TEXT`,
+    `ALTER TABLE active_session ADD COLUMN rest_duration_sec INTEGER`,
   ]) {
     try {
       await db.execAsync(sql);

@@ -1,3 +1,4 @@
+import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -11,6 +12,18 @@ import { useAppSettings } from '@/hooks/useAppSettings';
 import { useFonts } from '@/hooks/useFonts';
 import { RootNavigator } from '@/navigation';
 import { checkForUpdates } from '@/utils/updateChecker';
+
+// Notifiche locali (TODO [16]): handler globale per la presentazione in
+// foreground. Le notifiche programmate da `restNotifications.ts` mostrano
+// alert + suono anche se l'app e' aperta — coerente con il caso d'uso
+// (utente in pausa, magari ha messo via il telefono ma e' tornato in app).
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 // Wrapper interno: legge `appMode` dallo store condiviso e monta
 // l'overlay di transizione SOPRA RootNavigator. È un componente
