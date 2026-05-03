@@ -1,3 +1,4 @@
+import type { IconName } from '@/components/Icon';
 import type { Exercise } from '@/database';
 
 // Raggruppamento client-side della libreria esercizi per `muscleGroup`.
@@ -68,4 +69,24 @@ export function groupByMuscle(exercises: Exercise[]): ExerciseSection[] {
 
 export function exerciseCountLabel(count: number): string {
   return count === 1 ? '1 esercizio' : `${count} esercizi`;
+}
+
+// Mappa muscleGroup → IconName muscolare. Le varianti composite
+// (`Petto/Core`, `Gambe/Cardio`) usano l'icona del primo termine: è
+// quello dominante delle schede e la coerenza visiva conta più della
+// precisione anatomica per un'icona da 24px.
+export function muscleGroupToIcon(muscleGroup: string): IconName {
+  const m = muscleGroup.toLowerCase();
+  if (m.startsWith('petto')) return 'muscle-chest';
+  if (m.startsWith('spalle')) return 'muscle-shoulders';
+  if (m.startsWith('tricipiti') || m.startsWith('bicipiti') || m.startsWith('braccia'))
+    return 'muscle-arm';
+  if (m.startsWith('core')) return 'muscle-core';
+  if (m.startsWith('glutei')) return 'muscle-glutes';
+  if (m.startsWith('gambe')) return 'muscle-legs';
+  if (m.startsWith('full body')) return 'muscle-fullbody';
+  if (m.startsWith('cardio')) return 'muscle-cardio';
+  if (m.startsWith('mobilità') || m.startsWith('stretching'))
+    return 'muscle-mobility';
+  return 'dumbbell';
 }
