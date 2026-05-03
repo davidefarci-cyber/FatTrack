@@ -20,6 +20,7 @@ const BACKUP_SCHEMA_VERSION = 1;
 // figli per le FK). Backup più vecchi possono averne meno; l'import gestirà
 // solo le tabelle che esistono sia nel backup sia nello schema corrente.
 const TABLES = [
+  // Diet
   'foods',
   'food_servings',
   'meals',
@@ -27,6 +28,14 @@ const TABLES = [
   'quick_addons',
   'daily_settings',
   'user_profile',
+  // Sport (post-Fasi 1-5 + UX Polish A→D2)
+  // Ordine padri→figli per FK; active_session esclusa (stato runtime).
+  'app_settings',
+  'exercises',
+  'workouts',
+  'workout_exercises',
+  'sessions',
+  'session_sets',
 ] as const;
 
 type TableName = (typeof TABLES)[number];
