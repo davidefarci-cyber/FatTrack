@@ -47,6 +47,7 @@ export type ActiveSessionRow = {
   currentExerciseIndex: number;
   currentSetNumber: number;
   restEndsAt: string | null;
+  restDurationSec: number | null;
   pausedAt: string | null;
   pausedTotalSec: number;
   updatedAt: string;
@@ -87,6 +88,7 @@ const ACTIVE_COLUMNS = `
   current_exercise_index AS currentExerciseIndex,
   current_set_number AS currentSetNumber,
   rest_ends_at AS restEndsAt,
+  rest_duration_sec AS restDurationSec,
   paused_at AS pausedAt,
   paused_total_sec AS pausedTotalSec,
   updated_at AS updatedAt
@@ -179,6 +181,7 @@ export async function advanceActive(patch: {
   currentExerciseIndex?: number;
   currentSetNumber?: number;
   restEndsAt?: string | null;
+  restDurationSec?: number | null;
   pausedAt?: string | null;
   pausedTotalSec?: number;
 }): Promise<ActiveSessionRow> {
@@ -196,6 +199,10 @@ export async function advanceActive(patch: {
   if (patch.restEndsAt !== undefined) {
     fields.push('rest_ends_at = ?');
     values.push(patch.restEndsAt);
+  }
+  if (patch.restDurationSec !== undefined) {
+    fields.push('rest_duration_sec = ?');
+    values.push(patch.restDurationSec);
   }
   if (patch.pausedAt !== undefined) {
     fields.push('paused_at = ?');

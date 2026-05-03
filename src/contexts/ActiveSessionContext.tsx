@@ -40,6 +40,11 @@ export type ActiveSessionState = {
   currentExerciseIndex: number;
   currentSetNumber: number;
   restEndsAt: number | null;
+  // Durata totale corrente del recupero in corso (somma del valore
+  // prescritto + eventuali estensioni "+30s"). Usata dal pie chart del
+  // RestTimer per calcolare il progress senza dipendere dal valore
+  // statico della scheda. Null quando non si è in fase rest.
+  restDurationSec: number | null;
   isPaused: boolean;
   pausedAt: number | null;
   pausedTotalSec: number;
@@ -73,6 +78,7 @@ type ContextValue = {
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   skipRest: () => Promise<void>;
+  extendRest: (seconds: number) => Promise<void>;
   endSession: (notes?: string | null) => Promise<EndSessionResult>;
   cancelSession: () => Promise<void>;
 };
@@ -136,6 +142,7 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
       currentExerciseIndex: active.active.currentExerciseIndex,
       currentSetNumber: active.active.currentSetNumber,
       restEndsAt,
+      restDurationSec: active.active.restDurationSec,
       isPaused: active.active.pausedAt !== null,
       pausedAt: active.active.pausedAt
         ? parseSqlIso(active.active.pausedAt)
@@ -208,7 +215,13 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
   const computeNextStep = useCallback(
     (
       current: ActiveSessionState,
-    ): { exerciseIndex: number; setNumber: number; restEndsAt: number | null; finished: boolean } => {
+    ): {
+      exerciseIndex: number;
+      setNumber: number;
+      restEndsAt: number | null;
+      restDurationSec: number | null;
+      finished: boolean;
+    } => {
       const ex = current.workout.exercises[current.currentExerciseIndex];
       const totalSets = ex?.sets ?? 1;
       const isLastSet = current.currentSetNumber >= totalSets;
@@ -219,16 +232,17 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
           exerciseIndex: current.currentExerciseIndex,
           setNumber: current.currentSetNumber,
           restEndsAt: null,
+          restDurationSec: null,
           finished: true,
         };
       }
       if (isLastSet) {
-        const nextEx = current.workout.exercises[current.currentExerciseIndex + 1];
         const restSec = ex?.restSec ?? 0;
         return {
           exerciseIndex: current.currentExerciseIndex + 1,
           setNumber: 1,
           restEndsAt: restSec > 0 ? Date.now() + restSec * 1000 : null,
+          restDurationSec: restSec > 0 ? restSec : null,
           finished: false,
         };
       }
@@ -237,6 +251,7 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
         exerciseIndex: current.currentExerciseIndex,
         setNumber: current.currentSetNumber + 1,
         restEndsAt: restSec > 0 ? Date.now() + restSec * 1000 : null,
+        restDurationSec: restSec > 0 ? restSec : null,
         finished: false,
       };
     },
@@ -246,7 +261,12 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
   const advance = useCallback(
     async (
       current: ActiveSessionState,
-      next: { exerciseIndex: number; setNumber: number; restEndsAt: number | null },
+      next: {
+        exerciseIndex: number;
+        setNumber: number;
+        restEndsAt: number | null;
+        restDurationSec: number | null;
+      },
     ) => {
       const restIso = next.restEndsAt
         ? new Date(next.restEndsAt).toISOString()
@@ -255,12 +275,14 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
         currentExerciseIndex: next.exerciseIndex,
         currentSetNumber: next.setNumber,
         restEndsAt: restIso,
+        restDurationSec: next.restDurationSec,
       });
       setState({
         ...current,
         currentExerciseIndex: next.exerciseIndex,
         currentSetNumber: next.setNumber,
         restEndsAt: next.restEndsAt,
+        restDurationSec: next.restDurationSec,
       });
     },
     [],
@@ -336,8 +358,26 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
   const skipRest = useCallback(async () => {
     const current = stateRef.current;
     if (!current || current.restEndsAt === null) return;
-    await sessionsDB.advanceActive({ restEndsAt: null });
-    setState({ ...current, restEndsAt: null });
+    await sessionsDB.advanceActive({ restEndsAt: null, restDurationSec: null });
+    setState({ ...current, restEndsAt: null, restDurationSec: null });
+  }, []);
+
+  const extendRest = useCallback(async (seconds: number) => {
+    const current = stateRef.current;
+    if (!current || current.restEndsAt === null) return;
+    if (!Number.isFinite(seconds) || seconds <= 0) return;
+    const newEndsAt = current.restEndsAt + seconds * 1000;
+    const newDuration = (current.restDurationSec ?? 0) + seconds;
+    const newRestIso = new Date(newEndsAt).toISOString();
+    await sessionsDB.advanceActive({
+      restEndsAt: newRestIso,
+      restDurationSec: newDuration,
+    });
+    setState({
+      ...current,
+      restEndsAt: newEndsAt,
+      restDurationSec: newDuration,
+    });
   }, []);
 
   const endSession = useCallback(
@@ -401,6 +441,7 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
       pause,
       resume,
       skipRest,
+      extendRest,
       endSession,
       cancelSession,
     }),
@@ -416,6 +457,7 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
       pause,
       resume,
       skipRest,
+      extendRest,
       endSession,
       cancelSession,
     ],

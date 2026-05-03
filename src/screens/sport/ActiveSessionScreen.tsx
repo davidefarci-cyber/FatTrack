@@ -67,6 +67,7 @@ export default function ActiveSessionScreen({ visible, onClose }: Props) {
     pause,
     resume,
     skipRest,
+    extendRest,
     endSession,
     cancelSession,
   } = useActiveSession();
@@ -213,6 +214,7 @@ export default function ActiveSessionScreen({ visible, onClose }: Props) {
             onPause={pause}
             onResume={resume}
             onSkipRest={skipRest}
+            onExtendRest={extendRest}
             onAllDone={goToSummary}
             insetBottom={insets.bottom}
             accent={theme.accent}
@@ -248,6 +250,7 @@ type LiveBodyProps = {
   onPause: () => Promise<void>;
   onResume: () => Promise<void>;
   onSkipRest: () => Promise<void>;
+  onExtendRest: (seconds: number) => Promise<void>;
   onAllDone: () => void;
   insetBottom: number;
   accent: string;
@@ -261,6 +264,7 @@ function LiveBody({
   onPause,
   onResume,
   onSkipRest,
+  onExtendRest,
   onAllDone,
   insetBottom,
   accent,
@@ -279,9 +283,11 @@ function LiveBody({
 
   const isResting = state.restEndsAt !== null;
   const restDurationSec = useMemo(() => {
-    if (!ex) return 0;
-    return ex.restSec ?? 0;
-  }, [ex]);
+    if (state.restDurationSec !== null && state.restDurationSec > 0) {
+      return state.restDurationSec;
+    }
+    return ex?.restSec ?? 0;
+  }, [state.restDurationSec, ex]);
 
   const [reps, setReps] = useState<string>('');
   const [weight, setWeight] = useState<string>('');
@@ -409,6 +415,9 @@ function LiveBody({
               durationSec={restDurationSec}
               paused={state.isPaused}
               onComplete={onSkipRest}
+              onExtend={(s) => {
+                void onExtendRest(s);
+              }}
             />
             <Pressable
               onPress={onSkipRest}
