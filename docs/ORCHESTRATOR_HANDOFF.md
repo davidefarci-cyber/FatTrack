@@ -264,13 +264,25 @@ all'utente per dare il via.
 
 | # | Titolo | Effort | Dipendenze | Pronto a partire? |
 | --- | --- | --- | --- | --- |
-| [14] | Backup/restore include tabelle sport | M (~2h) | — | ✅ sì |
+| [14] | Backup/restore include tabelle sport | S-M (~1-2h) | — | ✅ sì — chiude anche [11] |
 | [15] | Asset wordmark "FitTrack" definitivi | M | Asset dell'utente | ⏳ trattare SEPARATAMENTE quando arrivano asset |
-| [11] | Backup / restore del database utente | L (~4-6h) | — (già base esistente?) | da verificare |
+| [11] | Backup / restore del database utente | — | [14] | ✅ già implementata, da chiudere formalmente al merge di [14] |
 
 > Aggiornamento 2026-05-03: voci [33] [17] [29] [20] [26] [23] [24]
 > [31] [25] [16] [35] [36] chiuse dai batch UX Polish A/B/C1/C2/C3
 > (PR #58-#65). Restano in 🟡 le 3 voci sopra.
+
+> **Scoperta 2026-05-03 (consegna)**: la base di [11] è GIÀ
+> implementata. `src/utils/dbBackup.ts` (350 righe) espone
+> `exportBackup()` + `importBackup()` con `BACKUP_SCHEMA_VERSION = 1`,
+> introspection schema, share via `expo-sharing`, doc picker per
+> import. `SettingsScreen.tsx:20,384,390` ha già i bottoni "Esporta
+> backup" / "Importa backup" wired. Manca solo [14]: estendere
+> la lista `TABLES` (linee 22-30) con le 7 tabelle sport
+> (`app_settings`, `exercises`, `workouts`, `workout_exercises`,
+> `sessions`, `session_sets` — `active_session` esclusa, è stato
+> runtime). Bumpare `BACKUP_SCHEMA_VERSION` a 2. Quando [14] è
+> mergeata, chiudi anche [11] formalmente (la base era già viva).
 
 **Voce [14] (consigliata come primo prossimo lavoro)**:
 - Cosa serve all'utente: niente, è autocontenuta.
@@ -500,3 +512,61 @@ parte/finisce), aggiorna anche le sezioni 4.1, 4.2, 6.1 di questo
 file. È normale che la sezione 6 si "accumuli" — sposta le voci
 vecchie in `docs/TODO.md` "✅ Fatto" se serve, o lascia il git log
 come fonte di verità storica.
+
+---
+
+## 9. Roadmap concordata (consegna 2026-05-03 → nuovo orchestratore)
+
+**Contesto**: l'orchestratrice precedente (sessione lunga, batch UX
+Polish A→C3 completato) ha concordato col proprietario il prossimo
+filone di lavoro prima di passare la mano. Il nuovo orchestratore
+parte da qui senza dover rifare la chiacchierata di pianificazione.
+Si è deciso di proseguire con 3 sessioni operaie autonome in serie
+**D / E / F**:
+
+| Sessione | Voce | Effort | Cosa | Ordine |
+| --- | --- | --- | --- | --- |
+| **D** | [37] | M (~3-4h) | Restyle `RunningView` post-countdown Tabata: allinea il treatment visivo del workout in esecuzione alla brochure premium della home Tabata (palette accent, pie chart progress per il round, "round X di Y" prominente). | Prima — chiude il loop visivo Tabata mentre il contesto C3 è fresco. |
+| **E** | [14] (+ [11]) | S-M (~1-2h) | Estende `TABLES` di `dbBackup.ts` con le 7 tabelle sport (`active_session` esclusa). Bumpa `BACKUP_SCHEMA_VERSION` a 2. Round-trip export → reset → import preserva schede personali, sessioni storiche, modalità corrente, weekly target, config Tabata, settings haptic/Spotify. Al merge si chiude anche [11] (la base era già implementata, vedi §4.1 nota di scoperta). | Dopo D — autonoma, chiude il debito tecnico. |
+| **F** | [32] | M (~2-3h) | Aggiunge 20-30 esercizi curati al seed (`src/database/seedExercises.ts`) — stacchi/varianti, trazioni assistite, esercizi con manubri leggeri, esercizi seduti. Top-up idempotente preserva eventuali esercizi custom futuri. Singola sessione — non serve splittare (è un seed update, non lavoro architetturale). | Dopo E — lavoro contenutistico. |
+
+**Pre-requisiti già verificati**:
+- [37]: nessuno. `RunningView` vive dentro `src/screens/sport/TabataScreen.tsx` (post-C3.1 commit `1666561`); pattern `describeArc` disponibile in `src/utils/svgArc.ts`; haptic + audio già configurati.
+- [14]: nessuno. Lista TABLES in `src/utils/dbBackup.ts:22-30`; CREATE TABLE delle 7 tabelle sport in `src/database/db.ts` (cerca `app_settings`, `exercises`, ecc.); ordine FK per restore (parents prima dei children: `exercises` → `workouts` → `workout_exercises` → `sessions` → `session_sets`; `app_settings` standalone).
+- [32]: nessuno. Pattern di seed già rodato in `src/database/seedExercises.ts`. Possibile fonte: Free Exercise DB su GitHub (CC0 / MIT) o `wger.de` per ispirazione, ma per [32] basta scegliere a mano i ~25 più sensati senza fetch esterno.
+
+**Sequenza suggerita per il nuovo orchestratore**:
+
+1. Saluta + recap stato (post-C3 batch UX Polish chiuso, 12 voci
+   chiuse, typecheck verde, repo pulito).
+2. Quando il proprietario dice "ok parti con D" → leggi
+   `src/screens/sport/TabataScreen.tsx` e in particolare la
+   `RunningView` per capire cosa ridisegnare. Verifica se il
+   restyle ha bisogno di brainstorming di prodotto (proposta:
+   pie chart attorno al numero del countdown corrente, indicatore
+   "round X / Y" grande, palette accent saturo) o se può andare
+   diretto a prompt operaio. Se serve brainstorming, propone una
+   tabella di tradeoff e chiede conferma — **NON inventare
+   decisioni di prodotto**.
+3. Scrivi `docs/ux-polish/PROMPT_SESSION_D.md` (stesso pattern di
+   C3.1/C3.2 visti nei commit recenti — vedi §3.2 di questo file).
+4. Stesso pattern per E e F dopo i merge rispettivi.
+5. Al merge di E ricordati di chiudere ANCHE [11] in TODO (vedi
+   nota §4.1). Al merge di F valuta se [19] (DB esterno completo)
+   è ancora rilevante o si può chiudere come "rimandata
+   indefinitamente".
+
+**Cosa il proprietario non ha ancora deciso**:
+- Per [37]: forma esatta del restyle (testo libero o brainstorming
+  guidato).
+- Per [32]: lista esatta dei 20-30 esercizi (può venire da
+  ricerca dell'orchestratore, da proposta del proprietario, o
+  delegata alla worker — decidere prima del prompt).
+
+**Cosa è già stato deciso e NON va rimesso in discussione**:
+- Naming serie sessioni: D, E, F (continuazione naturale dopo
+  C3.1/C3.2).
+- Singola sessione operaia per ognuna (no split).
+- Ordine D → E → F.
+- [11] si chiude formalmente al merge di [14] senza prompt
+  dedicato.
