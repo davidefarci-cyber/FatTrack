@@ -8,6 +8,7 @@ import { Icon } from '@/components/Icon';
 import { colors, radii, spacing, typography } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
 import { lightHaptic, successHaptic } from '@/utils/haptics';
+import { describeArc } from '@/utils/svgArc';
 
 // Modal "Timer di pausa" standalone aperto da SportHomeScreen ([36] / C3.2).
 // Spin-off della modalità "Libero" di TimerScreen: timer di riposo
@@ -420,33 +421,6 @@ function formatSeconds(total: number): string {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
-function polarToCartesian(
-  cx: number,
-  cy: number,
-  r: number,
-  angleDeg: number,
-): { x: number; y: number } {
-  const rad = (angleDeg * Math.PI) / 180;
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-}
-
-// Arco da `startAngle` a `endAngle` (gradi) disegnato in senso orario.
-// Identico alla versione di RestTimer/HoldToStartButton: estratta in
-// `src/utils/svgArc.ts` nello step C3.2.3 (refactor finale del branch).
-function describeArc(
-  cx: number,
-  cy: number,
-  r: number,
-  startAngle: number,
-  endAngle: number,
-): string {
-  const safeEnd = endAngle - startAngle >= 360 ? startAngle + 359.999 : endAngle;
-  const start = polarToCartesian(cx, cy, r, startAngle);
-  const end = polarToCartesian(cx, cy, r, safeEnd);
-  const largeArcFlag = safeEnd - startAngle <= 180 ? 0 : 1;
-  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`;
 }
 
 const styles = StyleSheet.create({

@@ -5,6 +5,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { useAppTheme } from '@/theme/ThemeContext';
 import { colors, radii, spacing, typography } from '@/theme';
 import { lightHaptic, successHaptic } from '@/utils/haptics';
+import { describeArc } from '@/utils/svgArc';
 
 // Countdown del recupero tra set: pie chart SVG che si svuota in senso
 // orario, numero centrale, pulsante "+30s" sotto. Re-render ogni 200ms
@@ -142,35 +143,6 @@ function formatSeconds(total: number): string {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
-function polarToCartesian(
-  cx: number,
-  cy: number,
-  r: number,
-  angleDeg: number,
-): { x: number; y: number } {
-  const rad = (angleDeg * Math.PI) / 180;
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-}
-
-// Arco da `startAngle` a `endAngle` (gradi) disegnato in senso orario.
-// Convenzione SVG-friendly: 0° è a destra, gli angoli crescono in senso
-// orario nel sistema di coordinate SVG (Y verso il basso). Per evitare
-// che il flag M+A degeneri quando l'arco è quasi 360°, taglia il sweep
-// a 359.999° prima di chiamare.
-function describeArc(
-  cx: number,
-  cy: number,
-  r: number,
-  startAngle: number,
-  endAngle: number,
-): string {
-  const safeEnd = endAngle - startAngle >= 360 ? startAngle + 359.999 : endAngle;
-  const start = polarToCartesian(cx, cy, r, startAngle);
-  const end = polarToCartesian(cx, cy, r, safeEnd);
-  const largeArcFlag = safeEnd - startAngle <= 180 ? 0 : 1;
-  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`;
 }
 
 const styles = StyleSheet.create({
