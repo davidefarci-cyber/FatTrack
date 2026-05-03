@@ -12,6 +12,9 @@ export type AppSettings = {
   weeklyTargetDays: number;
   hapticEnabled: boolean;
   spotifyPlaylistUri: string | null;
+  tabataWorkSec: number;
+  tabataRestSec: number;
+  tabataRounds: number;
   updatedAt: string;
 };
 
@@ -21,6 +24,9 @@ const COLUMNS = `
   weekly_target_days AS weeklyTargetDays,
   haptic_enabled AS hapticEnabled,
   spotify_playlist_uri AS spotifyPlaylistUri,
+  tabata_work_sec AS tabataWorkSec,
+  tabata_rest_sec AS tabataRestSec,
+  tabata_rounds AS tabataRounds,
   updated_at AS updatedAt
 `;
 
@@ -30,6 +36,9 @@ type Row = {
   weeklyTargetDays: number;
   hapticEnabled: number;
   spotifyPlaylistUri: string | null;
+  tabataWorkSec: number;
+  tabataRestSec: number;
+  tabataRounds: number;
   updatedAt: string;
 };
 
@@ -40,6 +49,9 @@ function rowToSettings(row: Row): AppSettings {
     weeklyTargetDays: row.weeklyTargetDays,
     hapticEnabled: row.hapticEnabled === 1,
     spotifyPlaylistUri: row.spotifyPlaylistUri,
+    tabataWorkSec: row.tabataWorkSec,
+    tabataRestSec: row.tabataRestSec,
+    tabataRounds: row.tabataRounds,
     updatedAt: row.updatedAt,
   };
 }
@@ -108,6 +120,28 @@ export async function setSpotifyPlaylistUri(
   await db.runAsync(
     `UPDATE app_settings SET spotify_playlist_uri = ?, updated_at = datetime('now') WHERE id = 1`,
     uri,
+  );
+  return getAppSettings();
+}
+
+// Config Tabata personalizzata: persistita perché è "il TUO Tabata" (i valori
+// crescono con la resistenza dell'utente). Singolo UPDATE atomico.
+export async function setTabataConfig(config: {
+  workSec: number;
+  restSec: number;
+  rounds: number;
+}): Promise<AppSettings> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `UPDATE app_settings
+       SET tabata_work_sec = ?,
+           tabata_rest_sec = ?,
+           tabata_rounds = ?,
+           updated_at = datetime('now')
+     WHERE id = 1`,
+    config.workSec,
+    config.restSec,
+    config.rounds,
   );
   return getAppSettings();
 }

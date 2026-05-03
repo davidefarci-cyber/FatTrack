@@ -13,14 +13,14 @@ export type TabParamList = {
   Profile: undefined;
 };
 
-// Bottom tab della modalità Sport: Timer · Schede · Home · Storico · Esercizi.
+// Bottom tab della modalità Sport: Tabata · Schede · Home · Storico · Esercizi.
 // `SportSettings` è registrato ma nascosto dalla bar (raggiungibile dal cog
 // icon di SportHomeScreen, analogo a Settings in modalità diet).
 // `History` accetta opzionalmente `openSessionId` per aprire direttamente il
 // detail modal della sessione passata (deep-link da "Ultimo allenamento"
 // in SportHomeScreen).
 export type SportTabParamList = {
-  Timer: undefined;
+  Tabata: undefined;
   Workouts: undefined;
   Home: undefined;
   History: { openSessionId?: number } | undefined;

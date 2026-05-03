@@ -16,7 +16,7 @@ type TabConfig = { routeName: string; label: string; icon: IconName };
 
 // Tab bar a 5 voci, parametrizzata sulla modalità corrente:
 // - diet:  Barcode · Preferiti · Home (FAB) · Storico · Cerca
-// - sport: Timer   · Schede    · Home (FAB) · Storico · Esercizi
+// - sport: Tabata  · Schede    · Home (FAB) · Storico · Esercizi
 // L'ordine nel TabParamList mette la Home al centro così il FAB rialzato
 // resta visualmente centrato; `initialRouteName` sul Tab.Navigator
 // garantisce comunque l'avvio sulla Home.
@@ -32,7 +32,7 @@ const DIET_TAB_CONFIG: Record<string, TabConfig> = {
 };
 
 const SPORT_TAB_CONFIG: Record<string, TabConfig> = {
-  Timer: { routeName: 'Timer', label: 'Timer', icon: 'timer' },
+  Tabata: { routeName: 'Tabata', label: 'Tabata', icon: 'timer' },
   Workouts: { routeName: 'Workouts', label: 'Schede', icon: 'list-checks' },
   Home: { routeName: 'Home', label: 'Home', icon: 'home' },
   History: { routeName: 'History', label: 'Storico', icon: 'chart' },
