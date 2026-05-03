@@ -269,7 +269,7 @@ export const SEED_EXERCISES: SeedExercise[] = [
   },
   {
     name: 'Plank to push-up',
-    muscleGroup: 'Petto/Core',
+    muscleGroup: 'Petto',
     equipment: 'Corpo libero',
     level: 'intermedio',
     met: 5,
@@ -483,7 +483,7 @@ export const SEED_EXERCISES: SeedExercise[] = [
   },
   {
     name: 'Squat jumps',
-    muscleGroup: 'Gambe/Cardio',
+    muscleGroup: 'Cardio',
     equipment: 'Corpo libero',
     level: 'intermedio',
     met: 8,
@@ -499,7 +499,7 @@ export const SEED_EXERCISES: SeedExercise[] = [
 
   // ─── MOBILITÀ ──────────────────────────────────────────────────
   {
-    name: 'Cat-cow',
+    name: 'Schiena - Cat-cow',
     muscleGroup: 'Mobilità',
     equipment: 'Corpo libero',
     level: 'principiante',
@@ -514,8 +514,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
     videoUrl: null,
   },
   {
-    name: 'Cobra',
-    muscleGroup: 'Mobilità schiena',
+    name: 'Schiena - Cobra',
+    muscleGroup: 'Mobilità',
     equipment: 'Corpo libero',
     level: 'principiante',
     met: 2,
@@ -529,8 +529,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
     videoUrl: null,
   },
   {
-    name: 'Child pose',
-    muscleGroup: 'Mobilità schiena',
+    name: 'Schiena - Child pose',
+    muscleGroup: 'Mobilità',
     equipment: 'Corpo libero',
     level: 'principiante',
     met: 2,
@@ -544,8 +544,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
     videoUrl: null,
   },
   {
-    name: 'Downward dog',
-    muscleGroup: 'Mobilità full body',
+    name: 'Full body - Downward dog',
+    muscleGroup: 'Mobilità',
     equipment: 'Corpo libero',
     level: 'principiante',
     met: 2.5,
@@ -559,8 +559,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
     videoUrl: null,
   },
   {
-    name: 'Hip circles',
-    muscleGroup: 'Mobilità anche',
+    name: 'Anche - Hip circles',
+    muscleGroup: 'Mobilità',
     equipment: 'Corpo libero',
     level: 'principiante',
     met: 2,
@@ -574,8 +574,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
     videoUrl: null,
   },
   {
-    name: 'Shoulder rolls',
-    muscleGroup: 'Mobilità spalle',
+    name: 'Spalle - Shoulder rolls',
+    muscleGroup: 'Mobilità',
     equipment: 'Corpo libero',
     level: 'principiante',
     met: 2,
@@ -589,8 +589,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
     videoUrl: null,
   },
   {
-    name: 'Pigeon pose',
-    muscleGroup: 'Mobilità anche',
+    name: 'Anche - Pigeon pose',
+    muscleGroup: 'Mobilità',
     equipment: 'Corpo libero',
     level: 'intermedio',
     met: 2.5,
@@ -714,7 +714,7 @@ export const SEED_EXERCISES: SeedExercise[] = [
   },
   {
     name: 'Pull-apart con elastico',
-    muscleGroup: 'Schiena alta',
+    muscleGroup: 'Schiena',
     equipment: 'Elastico',
     level: 'principiante',
     met: 4,
@@ -905,7 +905,7 @@ export const SEED_EXERCISES: SeedExercise[] = [
   // ─── STACCHI VARIANTI ──────────────────────────────────────────
   {
     name: 'Romanian deadlift con bottiglie',
-    muscleGroup: 'Glutei/Femorali',
+    muscleGroup: 'Glutei',
     equipment: 'Bottiglie d’acqua',
     level: 'intermedio',
     met: 5,
@@ -920,7 +920,7 @@ export const SEED_EXERCISES: SeedExercise[] = [
   },
   {
     name: 'Good morning',
-    muscleGroup: 'Glutei/Femorali',
+    muscleGroup: 'Glutei',
     equipment: 'Corpo libero',
     level: 'principiante',
     met: 4,
@@ -952,7 +952,7 @@ export const SEED_EXERCISES: SeedExercise[] = [
   },
   {
     name: 'Broad jump',
-    muscleGroup: 'Gambe/Cardio',
+    muscleGroup: 'Cardio',
     equipment: 'Corpo libero',
     level: 'intermedio',
     met: 7,
@@ -1015,8 +1015,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
 
   // ─── MOBILITÀ ──────────────────────────────────────────────────
   {
-    name: 'Leg swings',
-    muscleGroup: 'Mobilità anche',
+    name: 'Anche - Leg swings',
+    muscleGroup: 'Mobilità',
     equipment: 'Corpo libero',
     level: 'principiante',
     met: 3,
@@ -1030,8 +1030,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
     videoUrl: null,
   },
   {
-    name: 'Wrist circles',
-    muscleGroup: 'Mobilità polsi',
+    name: 'Polsi - Wrist circles',
+    muscleGroup: 'Mobilità',
     equipment: 'Corpo libero',
     level: 'principiante',
     met: 2,
@@ -1045,8 +1045,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
     videoUrl: null,
   },
   {
-    name: 'Ankle circles',
-    muscleGroup: 'Mobilità caviglie',
+    name: 'Caviglie - Ankle circles',
+    muscleGroup: 'Mobilità',
     equipment: 'Corpo libero',
     level: 'principiante',
     met: 2,
@@ -1097,6 +1097,11 @@ export async function seedExercisesIfEmpty(
     return;
   }
 
+  // Migration idempotente di accorpamento muscleGroup + rinaming nomi
+  // mobilità. Eseguita prima del top-up così le UPDATE non collidono
+  // con eventuali INSERT OR IGNORE successivi sugli stessi name.
+  await migrateMuscleGroupsAndNames(db);
+
   // Top-up idempotente: chi ha già seedato una versione precedente con
   // meno esercizi riceve i nuovi nomi. UNIQUE su `exercises.name` ci
   // protegge da duplicati; INSERT OR IGNORE evita di sovrascrivere
@@ -1104,5 +1109,50 @@ export async function seedExercisesIfEmpty(
   // teniamo aperta la porta — vedi PLAN.md §4A).
   for (const ex of SEED_EXERCISES) {
     await insertExercise(db, ex, true);
+  }
+}
+
+const MUSCLE_GROUP_RENAMES: Array<[string, string]> = [
+  ['Petto/Core', 'Petto'],
+  ['Gambe/Cardio', 'Cardio'],
+  ['Glutei/Femorali', 'Glutei'],
+  ['Schiena alta', 'Schiena'],
+  ['Mobilità schiena', 'Mobilità'],
+  ['Mobilità full body', 'Mobilità'],
+  ['Mobilità anche', 'Mobilità'],
+  ['Mobilità spalle', 'Mobilità'],
+  ['Mobilità polsi', 'Mobilità'],
+  ['Mobilità caviglie', 'Mobilità'],
+];
+
+const NAME_RENAMES: Array<[string, string]> = [
+  ['Cat-cow', 'Schiena - Cat-cow'],
+  ['Cobra', 'Schiena - Cobra'],
+  ['Child pose', 'Schiena - Child pose'],
+  ['Downward dog', 'Full body - Downward dog'],
+  ['Hip circles', 'Anche - Hip circles'],
+  ['Shoulder rolls', 'Spalle - Shoulder rolls'],
+  ['Pigeon pose', 'Anche - Pigeon pose'],
+  ['Leg swings', 'Anche - Leg swings'],
+  ['Wrist circles', 'Polsi - Wrist circles'],
+  ['Ankle circles', 'Caviglie - Ankle circles'],
+];
+
+async function migrateMuscleGroupsAndNames(
+  db: SQLite.SQLiteDatabase,
+): Promise<void> {
+  for (const [from, to] of MUSCLE_GROUP_RENAMES) {
+    await db.runAsync(
+      'UPDATE exercises SET muscle_group = ? WHERE muscle_group = ?',
+      to,
+      from,
+    );
+  }
+  for (const [from, to] of NAME_RENAMES) {
+    await db.runAsync(
+      'UPDATE OR IGNORE exercises SET name = ? WHERE name = ?',
+      to,
+      from,
+    );
   }
 }
