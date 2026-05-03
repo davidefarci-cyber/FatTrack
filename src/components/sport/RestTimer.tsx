@@ -5,6 +5,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { useAppTheme } from '@/theme/ThemeContext';
 import { colors, radii, spacing, typography } from '@/theme';
 import { lightHaptic, successHaptic } from '@/utils/haptics';
+import { playPauseTick } from '@/utils/sportSounds';
 import { describeArc } from '@/utils/svgArc';
 
 // Countdown del recupero tra set: pie chart SVG che si svuota in senso
@@ -71,6 +72,7 @@ export function RestTimer({
       if (!fired.has(remainingSec)) {
         fired.add(remainingSec);
         void lightHaptic();
+        void playPauseTick();
       }
     }
   }, [remainingMs, remainingSec, paused, onComplete]);
