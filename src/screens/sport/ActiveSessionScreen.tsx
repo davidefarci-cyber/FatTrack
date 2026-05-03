@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -24,6 +25,7 @@ import {
 } from '@/contexts/ActiveSessionContext';
 import type { ActiveSessionState } from '@/contexts/ActiveSessionContext';
 import type { Session, WorkoutExercise } from '@/database';
+import { useAppSettings } from '@/hooks/useAppSettings';
 import {
   colors,
   radii,
@@ -262,6 +264,8 @@ function LiveBody({
   insetBottom,
   accent,
 }: LiveBodyProps) {
+  const toast = useToast();
+  const { spotifyPlaylistUri } = useAppSettings();
   const totalExercises = state.workout.exercises.length;
   const exIdx = state.currentExerciseIndex;
   const ex = state.workout.exercises[exIdx];
@@ -302,6 +306,20 @@ function LiveBody({
   }, [ex, state.currentSetNumber]);
 
   const elapsed = getElapsedSec(state);
+
+  const openSpotify = async () => {
+    const target = spotifyPlaylistUri ?? 'spotify:';
+    try {
+      const supported = await Linking.canOpenURL(target);
+      if (!supported) {
+        toast.show('Installa Spotify per usare questa scorciatoia.');
+        return;
+      }
+      await Linking.openURL(target);
+    } catch {
+      toast.show('Impossibile aprire Spotify.');
+    }
+  };
 
   const submit = async () => {
     if (!ex) return;
@@ -345,6 +363,14 @@ function LiveBody({
             {formatElapsed(elapsed)}{state.isPaused ? ' · in pausa' : ''}
           </Text>
         </View>
+        <Pressable
+          onPress={openSpotify}
+          style={styles.iconBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Apri Spotify"
+        >
+          <Icon name="music" size={18} color={accent} />
+        </Pressable>
         <Pressable
           onPress={onTerminate}
           style={styles.iconBtn}
