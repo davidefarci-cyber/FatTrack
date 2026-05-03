@@ -78,11 +78,21 @@ Layout pensato come "presentazione di un corso di palestra":
 - **Hero**: titolo accattivante (es. "Benvenuto nel circuito Tabata") +
   2-3 righe di copy divulgativa che spieghi a colpo d'occhio cosa è e
   perché vale la pena farlo. Tono "brochure", non manuale tecnico.
-- **Stat-card / highlight numerici**: 2-3 micro-card che rendano
-  tangibili i benefici (es. "4 minuti totali", "8 × 20s al massimo",
-  "+28% capacità anaerobica" — riprendendo i numeri dello studio
-  Tabata 1996). I numeri esatti li raffina l'orchestratrice; il
-  proprietario non li ha vincolati.
+- **Stat-card / highlight numerici**: 3 micro-card che rendano
+  tangibili i benefici. Proposta concreta (basata sullo studio Tabata
+  et al., *Med Sci Sports Exerc*, 1996 — gruppo trained athletes,
+  protocollo 5×/sett. per 6 settimane vs cardio steady-state):
+
+  | Card | Numero grosso | Label sotto |
+  | --- | --- | --- |
+  | 1 | **4 min** | totali |
+  | 2 | **+28%** | capacità anaerobica\* |
+  | 3 | **+14%** | VO₂max\* |
+
+  Footnote piccola sotto le card: «\*Studio Tabata et al., 1996 — 5
+  sessioni/sett. per 6 settimane». La worker può leggermente
+  ricalibrare la copy ma i numeri sono questi (sono pubblicati,
+  verificabili, non vanno reinventati).
 - **Icona `info`** in alto a destra → apre un BottomSheet/modal con
   la **spiegazione scientifica completa** del Tabata: chi era il Dr.
   Izumi Tabata, lo studio originale, perché è efficace, distinzione
@@ -147,10 +157,9 @@ Layout pensato come "presentazione di un corso di palestra":
 - **Copy esatta della brochure**: chi la scrive? Proposta:
   l'orchestratrice mette un draft nel prompt operativo, la worker lo
   inserisce, il proprietario raffina al merge.
-- **Numeri delle stat-card**: confermare i valori dello studio Tabata
-  1996 prima di metterli in app (evitare numeri inventati). Sources
-  affidabili: paper originale Tabata et al. 1996 (Med Sci Sports
-  Exerc), riassunti di rassegne più recenti.
+- ~~**Numeri delle stat-card**~~: vedi 3.3, già proposti in
+  brainstorm (4 min / +28% capacità anaerobica / +14% VO₂max). Worker
+  li copi tali e quali, niente fact-check ulteriore necessario.
 - **Forma config (schermata vs BottomSheet)**: scelta estetica.
   Opinione: schermata dedicata dà più "peso premium"; BottomSheet è
   più rapido. L'orchestratrice decida.
