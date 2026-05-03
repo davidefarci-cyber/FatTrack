@@ -161,7 +161,7 @@ export default function ActiveSessionScreen({ visible, onClose }: Props) {
       'Cancellare la sessione?',
       'I set registrati andranno persi.',
       [
-        { text: 'No', style: 'cancel' },
+        { text: 'Indietro', style: 'cancel' },
         {
           text: 'Cancella',
           style: 'destructive',
