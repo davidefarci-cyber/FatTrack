@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  LayoutAnimation,
+  Platform,
   Pressable,
   ScrollView,
-  SectionList,
   StyleSheet,
   Text,
+  UIManager,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,7 +26,16 @@ import { useAppTheme } from '@/theme/ThemeContext';
 import {
   exerciseCountLabel,
   groupByMuscle,
+  muscleGroupToIcon,
 } from '@/utils/exerciseGrouping';
+
+// LayoutAnimation richiede l'opt-in esplicito su Android. Idempotente: se
+// HomeScreen è stato già montato in passato (modalità diet) il flag è
+// già attivo, ma se l'utente parte direttamente in modalità sport
+// arriva qui senza il side-effect di HomeScreen.
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 // Libreria esercizi con search live (debounce 250ms) + filtri
 // (gruppo muscolare / livello / attrezzatura) raccolti in un BottomSheet
@@ -120,41 +131,23 @@ export default function ExercisesScreen() {
 
   const sections = useMemo(() => groupByMuscle(filtered), [filtered]);
 
-  const renderItem = useCallback(
-    ({ item }: { item: Exercise }) => (
-      <Pressable
-        onPress={() => setOpenExercise(item)}
-        accessibilityRole="button"
-        accessibilityLabel={`Apri dettaglio ${item.name}`}
-      >
-        <Card style={styles.row}>
-          <View style={styles.rowText}>
-            <Text style={typography.body} numberOfLines={1}>
-              {item.name}
-            </Text>
-            <Text style={typography.caption} numberOfLines={1}>
-              {item.muscleGroup} · {item.equipment} · {item.level}
-            </Text>
-          </View>
-          <Icon name="chevron-right" size={14} color={colors.textSec} />
-        </Card>
-      </Pressable>
-    ),
-    [],
-  );
+  // Mappa "muscleGroup → aperto?". Default chiuso. Quando ci sono filtri
+  // attivi (search o filtri sheet) forziamo tutto aperto: l'utente vuole
+  // vedere subito i risultati senza tap aggiuntivi. Lo state utente
+  // resta intatto e torna in scena quando i filtri vengono rimossi.
+  const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
 
-  const renderSectionHeader = useCallback(
-    ({ section }: { section: { title: string; count: number } }) => (
-      <View style={styles.sectionHeader}>
-        <Text style={[typography.label, styles.sectionTitle]}>
-          {section.title}
-        </Text>
-        <Text style={[typography.caption, styles.sectionCount]}>
-          {exerciseCountLabel(section.count)}
-        </Text>
-      </View>
-    ),
-    [],
+  const hasActiveFilters =
+    debouncedQuery.length > 0 || activeFiltersCount > 0;
+
+  const toggleSection = useCallback((title: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedMap((prev) => ({ ...prev, [title]: !prev[title] }));
+  }, []);
+
+  const isSectionExpanded = useCallback(
+    (title: string) => hasActiveFilters || expandedMap[title] === true,
+    [hasActiveFilters, expandedMap],
   );
 
   return (
@@ -208,36 +201,98 @@ export default function ExercisesScreen() {
         </Pressable>
       </View>
 
-      {loading ? (
-        <View style={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: insets.bottom + spacing.screen * 4 },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {loading ? (
           <Card style={styles.placeholder}>
             <ActivityIndicator color={colors.textSec} />
           </Card>
-        </View>
-      ) : sections.length === 0 ? (
-        <View style={styles.scroll}>
+        ) : sections.length === 0 ? (
           <Card style={styles.placeholder}>
             <Text style={typography.body}>Nessun esercizio</Text>
             <Text style={typography.caption}>
               Nessun esercizio trovato per i filtri attuali.
             </Text>
           </Card>
-        </View>
-      ) : (
-        <SectionList
-          sections={sections}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={renderItem}
-          renderSectionHeader={renderSectionHeader}
-          stickySectionHeadersEnabled
-          contentContainerStyle={[
-            styles.scroll,
-            { paddingBottom: insets.bottom + spacing.screen * 4 },
-          ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+        ) : (
+          sections.map((section) => {
+            const expanded = isSectionExpanded(section.title);
+            return (
+              <View key={section.title} style={styles.sectionWrap}>
+                <Pressable
+                  onPress={() => toggleSection(section.title)}
+                  disabled={hasActiveFilters}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded }}
+                  accessibilityLabel={`${section.title}, ${exerciseCountLabel(section.count)}`}
+                  style={({ pressed }) => [
+                    styles.sectionHeader,
+                    pressed && !hasActiveFilters && styles.pressed,
+                  ]}
+                >
+                  <View style={styles.sectionIcon}>
+                    <Icon
+                      name={muscleGroupToIcon(section.title)}
+                      size={22}
+                      color={theme.accentDark}
+                    />
+                  </View>
+                  <View style={styles.sectionTextWrap}>
+                    <Text style={typography.bodyBold} numberOfLines={1}>
+                      {section.title}
+                    </Text>
+                    <Text style={typography.caption}>
+                      {exerciseCountLabel(section.count)}
+                    </Text>
+                  </View>
+                  {!hasActiveFilters ? (
+                    <Icon
+                      name={expanded ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={colors.textSec}
+                    />
+                  ) : null}
+                </Pressable>
+
+                {expanded ? (
+                  <View style={styles.sectionItems}>
+                    {section.data.map((ex) => (
+                      <Pressable
+                        key={ex.id}
+                        onPress={() => setOpenExercise(ex)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Apri dettaglio ${ex.name}`}
+                      >
+                        <Card style={styles.row}>
+                          <View style={styles.rowText}>
+                            <Text style={typography.body} numberOfLines={1}>
+                              {ex.name}
+                            </Text>
+                            <Text style={typography.caption} numberOfLines={1}>
+                              {ex.equipment} · {ex.level}
+                            </Text>
+                          </View>
+                          <Icon
+                            name="chevron-right"
+                            size={14}
+                            color={colors.textSec}
+                          />
+                        </Card>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            );
+          })
+        )}
+      </ScrollView>
 
       <ExerciseDetailModal
         visible={openExercise !== null}
@@ -439,32 +494,47 @@ const styles = StyleSheet.create({
   },
   scroll: {
     padding: spacing.screen,
+    gap: spacing.md,
   },
   placeholder: {
     padding: spacing.screen,
     gap: spacing.sm,
     alignItems: 'center',
   },
+  sectionWrap: {
+    gap: spacing.md,
+  },
   sectionHeader: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    backgroundColor: colors.bg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    alignItems: 'center',
+    gap: spacing.lg,
+    backgroundColor: colors.card,
+    borderRadius: radii.lg,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
   },
-  sectionTitle: {
-    color: colors.text,
+  sectionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.round,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  sectionCount: {
-    color: colors.textSec,
+  sectionTextWrap: {
+    flex: 1,
+    gap: spacing.xxs,
+  },
+  sectionItems: {
+    gap: spacing.md,
+    paddingLeft: spacing.lg,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     padding: spacing.xl,
-    marginBottom: spacing.md,
   },
   rowText: {
     flex: 1,

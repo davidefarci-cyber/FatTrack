@@ -30,7 +30,16 @@ export type IconName =
   | 'pause'
   | 'bolt'
   | 'flame'
-  | 'music';
+  | 'music'
+  | 'muscle-chest'
+  | 'muscle-shoulders'
+  | 'muscle-arm'
+  | 'muscle-core'
+  | 'muscle-legs'
+  | 'muscle-glutes'
+  | 'muscle-fullbody'
+  | 'muscle-cardio'
+  | 'muscle-mobility';
 
 export type IconProps = {
   name: IconName;
@@ -377,6 +386,245 @@ export function Icon({ name, size = 22, color = colors.textSec, filled = false }
           />
           <Circle cx={6} cy={18} r={3} stroke={color} strokeWidth={1.8} />
           <Circle cx={18} cy={16} r={3} stroke={color} strokeWidth={1.8} />
+        </Svg>
+      );
+    case 'muscle-chest':
+      // Due pettorali a goccia simmetrici sopra una piccola V dello sterno.
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M11.5 7C8 7 5 9 4.5 12.5C4 15.5 6 17 8 17C10 17 11.5 15 11.5 12V7Z"
+            fill={color}
+            fillOpacity={0.18}
+            stroke={color}
+            strokeWidth={1.5}
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M12.5 7C16 7 19 9 19.5 12.5C20 15.5 18 17 16 17C14 17 12.5 15 12.5 12V7Z"
+            fill={color}
+            fillOpacity={0.18}
+            stroke={color}
+            strokeWidth={1.5}
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M12 7V17"
+            stroke={color}
+            strokeWidth={1.2}
+            strokeLinecap="round"
+          />
+        </Svg>
+      );
+    case 'muscle-shoulders':
+      // Yoke trapezio + due deltoidi tondi su collo a U.
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M3 14C3 9 7 6.5 12 6.5S21 9 21 14"
+            stroke={color}
+            strokeWidth={1.6}
+            strokeLinecap="round"
+          />
+          <Path
+            d="M10 5C10 7 11 8 12 8S14 7 14 5"
+            stroke={color}
+            strokeWidth={1.5}
+            strokeLinecap="round"
+          />
+          <Circle
+            cx={5.5}
+            cy={12.5}
+            r={3}
+            fill={color}
+            fillOpacity={0.18}
+            stroke={color}
+            strokeWidth={1.5}
+          />
+          <Circle
+            cx={18.5}
+            cy={12.5}
+            r={3}
+            fill={color}
+            fillOpacity={0.18}
+            stroke={color}
+            strokeWidth={1.5}
+          />
+        </Svg>
+      );
+    case 'muscle-arm':
+      // Braccio piegato con bicipite gonfio + avambraccio.
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M5 19C5 13 6 9 9 6C12 3 16 4 17 7C17.5 9 16 11 13 11C11 11 10 12 10 14C10 16 12 17 14 17"
+            fill={color}
+            fillOpacity={0.18}
+            stroke={color}
+            strokeWidth={1.6}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M9 8C11 9 13 9 15 8"
+            stroke={color}
+            strokeWidth={1.2}
+            strokeLinecap="round"
+          />
+        </Svg>
+      );
+    case 'muscle-core':
+      // Six-pack stilizzato: rettangolo arrotondato con divisioni interne.
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Rect
+            x={7}
+            y={3}
+            width={10}
+            height={18}
+            rx={2}
+            fill={color}
+            fillOpacity={0.15}
+            stroke={color}
+            strokeWidth={1.6}
+          />
+          <Path d="M12 3v18" stroke={color} strokeWidth={1.4} />
+          <Path d="M7.5 9h9" stroke={color} strokeWidth={1.4} />
+          <Path d="M7.5 14h9" stroke={color} strokeWidth={1.4} />
+        </Svg>
+      );
+    case 'muscle-legs':
+      // Due quadricipiti paralleli con curva esterna marcata.
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M8 3C5 8 5 15 7 21H10C10.5 15 10.5 9 10 3H8Z"
+            fill={color}
+            fillOpacity={0.18}
+            stroke={color}
+            strokeWidth={1.5}
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M14 3C13.5 9 13.5 15 14 21H17C19 15 19 8 16 3H14Z"
+            fill={color}
+            fillOpacity={0.18}
+            stroke={color}
+            strokeWidth={1.5}
+            strokeLinejoin="round"
+          />
+        </Svg>
+      );
+    case 'muscle-glutes':
+      // Due emisferi affiancati sotto una piccola arcata.
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M5 6C7 5 10 5 12 7C14 5 17 5 19 6"
+            stroke={color}
+            strokeWidth={1.5}
+            strokeLinecap="round"
+          />
+          <Path
+            d="M3.5 14C3.5 9.5 7 7.5 11 9.5C11.5 12 11 16 9 18C5.5 19.5 3.5 17.5 3.5 14Z"
+            fill={color}
+            fillOpacity={0.2}
+            stroke={color}
+            strokeWidth={1.6}
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M20.5 14C20.5 9.5 17 7.5 13 9.5C12.5 12 13 16 15 18C18.5 19.5 20.5 17.5 20.5 14Z"
+            fill={color}
+            fillOpacity={0.2}
+            stroke={color}
+            strokeWidth={1.6}
+            strokeLinejoin="round"
+          />
+        </Svg>
+      );
+    case 'muscle-fullbody':
+      // Figura stilizzata: testa, busto, braccia aperte, gambe.
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Circle cx={12} cy={5} r={2.4} stroke={color} strokeWidth={1.6} />
+          <Path
+            d="M12 7.5V15"
+            stroke={color}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+          />
+          <Path
+            d="M5 11L12 9L19 11"
+            stroke={color}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M12 15L8 21"
+            stroke={color}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+          />
+          <Path
+            d="M12 15L16 21"
+            stroke={color}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+          />
+        </Svg>
+      );
+    case 'muscle-cardio':
+      // Cuore stilizzato attraversato da una traccia ECG.
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M12 21C12 21 3 14.5 3 8.5C3 5.5 5.5 3.5 8 3.5C9.8 3.5 11.2 4.5 12 6C12.8 4.5 14.2 3.5 16 3.5C18.5 3.5 21 5.5 21 8.5C21 14.5 12 21 12 21Z"
+            fill={color}
+            fillOpacity={0.2}
+            stroke={color}
+            strokeWidth={1.6}
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M5.5 11H8L9.5 8L11 14L12.5 10L14.5 12H18.5"
+            stroke={color}
+            strokeWidth={1.6}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </Svg>
+      );
+    case 'muscle-mobility':
+      // Figura in stretching: testa china e busto inclinato verso le gambe.
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Circle cx={7} cy={6} r={2} stroke={color} strokeWidth={1.6} />
+          <Path
+            d="M8 8C9.5 11 13 13 18 13"
+            stroke={color}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+          />
+          <Path
+            d="M18 13L20.5 11"
+            stroke={color}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+          />
+          <Path
+            d="M11 12L9 21"
+            stroke={color}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+          />
+          <Path
+            d="M14.5 13L16 21"
+            stroke={color}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+          />
         </Svg>
       );
     default: {
