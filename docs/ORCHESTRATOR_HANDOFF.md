@@ -269,8 +269,8 @@ all'utente per dare il via.
 | [11] | Backup / restore del database utente | L (~4-6h) | — (già base esistente?) | da verificare |
 
 > Aggiornamento 2026-05-03: voci [33] [17] [29] [20] [26] [23] [24]
-> [31] [25] [16] chiuse dai batch UX Polish A/B/C1/C2 (PR #58-#63).
-> Restano in 🟡 le 3 voci sopra.
+> [31] [25] [16] [35] [36] chiuse dai batch UX Polish A/B/C1/C2/C3
+> (PR #58-#65). Restano in 🟡 le 3 voci sopra.
 
 **Voce [14] (consigliata come primo prossimo lavoro)**:
 - Cosa serve all'utente: niente, è autocontenuta.
@@ -417,6 +417,8 @@ git history.
 
 | Data | PR | Branch | Cosa | Note |
 | --- | --- | --- | --- | --- |
+| 2026-05-03 | #65 | `claude/ux-polish-rest-timer-standalone-S4IRN` | UX Polish C3.2 (timer pausa standalone in SportHome) | 3 commit. Chiude [36]. Nuovo `RestTimerStandaloneModal`, riga 50/50 quick action SportHome, helper `src/utils/svgArc.ts` estratto. |
+| 2026-05-03 | #64 | `claude/ux-polish-tabata-redesign-h2hGZ` | UX Polish C3.1 (redesign tab Timer → Tabata) | 7 commit. Chiude [35]. Aggiunta dep `expo-av`. Nuovi `TabataScreen`, `TabataConfigModal`, `TabataInfoSheet`, `HoldToStartButton`, `CountdownOverlay`, `src/utils/countdownSound.ts`. 3 colonne nuove `app_settings.tabata_*`. |
 | 2026-05-03 | #63 | `claude/ux-polish-resttimer-notifications-uziCT` | UX Polish C2 (RestTimer pie chart + notifiche) | 2 commit. Chiude [25] [16]. Aggiunta dep `expo-notifications`. Nuovo `src/utils/restNotifications.ts` + action `extendRest` in ActiveSessionContext. |
 | 2026-05-03 | #62 | `claude/ux-polish-wheelpicker-dQbvb` | UX Polish C1 (WheelPicker primitive + reps + timer) | 3 commit. Chiude [31] [24]. Nuovo primitive `src/components/WheelPicker.tsx` riusabile. |
 | 2026-05-03 | #61 | `claude/ux-polish-haptic-permissions-kKTLh` (rimerge) | Iterazione 2 sessione A | Bonus: bottone Spotify nell'header sessione live (commit `36ddf2e`). |
