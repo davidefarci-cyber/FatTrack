@@ -16,7 +16,7 @@ import { useAppSettings } from '@/hooks/useAppSettings';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
 import { lightHaptic } from '@/utils/haptics';
-import { playCountdownTick } from '@/utils/countdownSound';
+import { playRestStart, playTick, playWorkStart } from '@/utils/sportSounds';
 import { describeArc } from '@/utils/svgArc';
 
 // Schermata Tabata: brochure premium del protocollo HIIT.
@@ -57,33 +57,50 @@ export default function TabataScreen() {
   const [pausedAt, setPausedAt] = useState<number | null>(null);
   const [, setPausedTotalMs] = useState(0);
 
-  // Tick ogni 200ms; ferma in pausa o quando non running.
+  // Tick + check di avanzamento ogni 200ms. Il check di scadenza vive
+  // qui dentro (non in un effect separato) perché `endsAt` cambia solo
+  // a inizio fase: senza polling non potremmo accorgerci che il timer è
+  // arrivato a 0. setTick forza il re-render di RunningView per il
+  // countdown visivo.
   const [, setTick] = useState(0);
-  useEffect(() => {
-    if (!running || paused) return;
-    const id = setInterval(() => setTick((t) => t + 1), 200);
-    return () => clearInterval(id);
-  }, [running, paused]);
-
-  // Avanzamento intervalli: quando endsAt è scaduto e siamo in
-  // running+!paused, passiamo alla fase successiva. Logica copiata dal
-  // vecchio TimerScreen (semantica work → rest → next round → done).
   const intervalStateRef = useRef(intervalState);
+  // Set di secondi già "ticchettati" negli ultimi 5 della fase corrente:
+  // evita che il polling 200ms emetta due volte audio+haptic sullo stesso
+  // secondo intero. Reset a ogni cambio fase.
+  const tickedSecondsRef = useRef<Set<number>>(new Set());
   useEffect(() => {
     intervalStateRef.current = intervalState;
   }, [intervalState]);
   useEffect(() => {
     if (!running || paused) return;
-    if (!intervalState) return;
-    if (Date.now() < intervalState.endsAt) return;
-    advanceInterval();
+    const id = setInterval(() => {
+      setTick((t) => t + 1);
+      const current = intervalStateRef.current;
+      if (!current || current.phase === 'done') return;
+      const remainingMs = current.endsAt - Date.now();
+      if (remainingMs <= 0) {
+        advanceInterval();
+        return;
+      }
+      const remainingSec = Math.ceil(remainingMs / 1000);
+      if (remainingSec >= 1 && remainingSec <= 5) {
+        const fired = tickedSecondsRef.current;
+        if (!fired.has(remainingSec)) {
+          fired.add(remainingSec);
+          void playTick();
+          void lightHaptic();
+        }
+      }
+    }, 200);
+    return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [intervalState?.endsAt, running, paused]);
+  }, [running, paused]);
 
   function advanceInterval() {
     const current = intervalStateRef.current;
     if (!current) return;
     const now = Date.now();
+    tickedSecondsRef.current.clear();
     if (current.phase === 'work') {
       if (tabataRestSec > 0) {
         setIntervalState({
@@ -91,6 +108,7 @@ export default function TabataScreen() {
           round: current.round,
           endsAt: now + tabataRestSec * 1000,
         });
+        void playRestStart();
         return;
       }
       // Recupero a 0 → vai al prossimo round o termina.
@@ -108,6 +126,7 @@ export default function TabataScreen() {
       round: current.round + 1,
       endsAt: now + tabataWorkSec * 1000,
     });
+    void playWorkStart();
   }
 
   const handleConfirmStart = () => {
@@ -116,6 +135,7 @@ export default function TabataScreen() {
 
   const handleCountdownComplete = () => {
     setOverlayVisible(false);
+    tickedSecondsRef.current.clear();
     setIntervalState({
       phase: 'work',
       round: 1,
@@ -125,10 +145,11 @@ export default function TabataScreen() {
     setPausedAt(null);
     setRunning(true);
     setPaused(false);
+    void playWorkStart();
   };
 
   const handleTick = () => {
-    void playCountdownTick();
+    void playTick();
     void lightHaptic();
   };
 
