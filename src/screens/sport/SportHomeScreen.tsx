@@ -19,6 +19,7 @@ import { Card } from '@/components/Card';
 import { Icon } from '@/components/Icon';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
+import { RestTimerStandaloneModal } from '@/components/sport/RestTimerStandaloneModal';
 import { WorkoutPickerSheet } from '@/components/sport/WorkoutPickerSheet';
 import { useActiveSession } from '@/contexts/ActiveSessionContext';
 import { sessionsDB, workoutsDB } from '@/database';
@@ -73,6 +74,7 @@ export default function SportHomeScreen() {
   );
   const [pickerOpen, setPickerOpen] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [restTimerModalOpen, setRestTimerModalOpen] = useState(false);
   // Card di benvenuto (Fase 5C): visibile solo per utenti nuovi che non
   // hanno mai completato una sessione e non hanno schede personali. Viene
   // ricontrollata al focus della tab — basta una sessione completata o
@@ -233,7 +235,20 @@ export default function SportHomeScreen() {
           onChangeWorkout={() => setPickerOpen(true)}
         />
 
-        <SpotifyCard accent={theme.accent} onPress={handleOpenSpotify} />
+        <View style={styles.quickActionsRow}>
+          <View style={styles.quickActionHalf}>
+            <SpotifyCard
+              accent={theme.accent}
+              onPress={handleOpenSpotify}
+            />
+          </View>
+          <View style={styles.quickActionHalf}>
+            <RestTimerCard
+              accent={theme.accent}
+              onPress={() => setRestTimerModalOpen(true)}
+            />
+          </View>
+        </View>
 
         <WeekCard
           daysTrained={stats.week.daysTrained}
@@ -273,6 +288,11 @@ export default function SportHomeScreen() {
           setPickerOpen(false);
         }}
         onClose={() => setPickerOpen(false)}
+      />
+
+      <RestTimerStandaloneModal
+        visible={restTimerModalOpen}
+        onClose={() => setRestTimerModalOpen(false)}
       />
     </View>
   );
@@ -444,17 +464,29 @@ function SpotifyCard({ accent, onPress }: SpotifyCardProps) {
       accessibilityRole="button"
       accessibilityLabel="Apri Spotify"
     >
-      <Card style={styles.card}>
-        <View style={styles.row}>
-          <Icon name="music" size={22} color={accent} />
-          <View style={styles.spotifyText}>
-            <Text style={typography.bodyBold}>Apri Spotify</Text>
-            <Text style={typography.caption}>
-              Avvia la musica per il tuo allenamento.
-            </Text>
-          </View>
-          <Icon name="chevron-right" size={18} color={colors.textSec} />
-        </View>
+      <Card style={styles.quickActionCard}>
+        <Icon name="music" size={22} color={accent} />
+        <Text style={typography.bodyBold}>Spotify</Text>
+      </Card>
+    </Pressable>
+  );
+}
+
+type RestTimerCardProps = {
+  accent: string;
+  onPress: () => void;
+};
+
+function RestTimerCard({ accent, onPress }: RestTimerCardProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Apri timer pausa"
+    >
+      <Card style={styles.quickActionCard}>
+        <Icon name="timer" size={22} color={accent} />
+        <Text style={typography.bodyBold}>Timer pausa</Text>
       </Card>
     </Pressable>
   );
@@ -634,8 +666,17 @@ const styles = StyleSheet.create({
   onboardingBtn: {
     flex: 1,
   },
-  spotifyText: {
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  quickActionHalf: {
     flex: 1,
-    gap: spacing.xxs,
+  },
+  quickActionCard: {
+    padding: spacing.screen,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
   },
 });

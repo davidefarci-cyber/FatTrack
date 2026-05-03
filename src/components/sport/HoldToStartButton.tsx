@@ -4,6 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { colors, typography } from '@/theme';
 import { lightHaptic, successHaptic } from '@/utils/haptics';
+import { describeArc } from '@/utils/svgArc';
 
 // Pulsante hero "Avvia" del Tabata: hold-to-confirm con animazione di
 // riempimento ad arco SVG (-90° → 360° in holdDurationMs) e glow accent
@@ -174,33 +175,6 @@ export function HoldToStartButton({
       ) : null}
     </View>
   );
-}
-
-// Helper SVG: arco da `startAngle` a `endAngle` in gradi, in senso orario.
-// Gemello del describeArc di RestTimer; quando avremo un terzo consumer
-// vale la pena estrarre in `src/utils/svgArc.ts`.
-function describeArc(
-  cx: number,
-  cy: number,
-  r: number,
-  startAngle: number,
-  endAngle: number,
-): string {
-  const safeEnd = endAngle - startAngle >= 360 ? startAngle + 359.999 : endAngle;
-  const start = polarToCartesian(cx, cy, r, startAngle);
-  const end = polarToCartesian(cx, cy, r, safeEnd);
-  const largeArcFlag = safeEnd - startAngle <= 180 ? 0 : 1;
-  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`;
-}
-
-function polarToCartesian(
-  cx: number,
-  cy: number,
-  r: number,
-  angleDeg: number,
-): { x: number; y: number } {
-  const rad = (angleDeg * Math.PI) / 180;
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
 const styles = StyleSheet.create({
