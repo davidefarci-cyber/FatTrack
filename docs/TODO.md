@@ -396,37 +396,6 @@ con warning.
 
 ---
 
-### [16] Notifiche locali per fine recupero (sessione attiva)
-
-**Aperta**: 2026-05-02
-**Area**: UX / codice
-
-Durante una sessione attiva (`ActiveSessionScreen`), il `RestTimer`
-parte automaticamente alla fine di un set. Se l'utente sblocca il
-telefono, mette il telefono in tasca, o l'app va in background, oggi
-non c'è alcun alert al termine del recupero — l'utente o tiene
-l'app in foreground o si perde il segnale.
-
-`expo-notifications` permette notifiche local schedulate
-(`scheduleNotificationAsync` con `trigger: { seconds: restSec }`).
-Quando l'utente preme "Set completato" e parte il recupero,
-schediamo anche la notifica; al "Salta recupero" / completamento /
-pausa la cancelliamo.
-
-Implica:
-- aggiungere `expo-notifications` a package.json + permessi
-- gestire il caso utente che non concede permessi (fallback:
-  comportamento attuale)
-- testare iOS vs Android (le notifiche local hanno API leggermente
-  diverse)
-
-**Done quando**: durante una sessione, al termine del recupero
-arriva una notifica anche con app in background; pause/skip/end
-cancellano la notifica schedulata; permessi richiesti la prima volta
-con messaggio in italiano spiegando l'uso.
-
----
-
 ### [17] Haptic feedback / suoni su completamento set e fine recupero
 
 **Aperta**: 2026-05-02
@@ -608,64 +577,6 @@ verticale.
 
 ---
 
-### [24] Selettore reps scorrimento (fit)
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟡 media
-**Area**: UX (fit)
-
-In `ActiveSessionScreen` il campo "Reps fatte" durante un set è oggi
-un `<Input>` numerico testuale: l'utente deve cancellare il default
-e digitare il numero a mano. Difficoltoso durante l'allenamento, con
-le mani sudate o il telefono appoggiato.
-
-Proposta: sostituire con un selettore a scorrimento tipo "stepper
-infinito" o "wheel picker" centrato sul valore prescritto (default
-del workout, es. 12 reps), con tap su +/- per offset di ±1 e magari
-swipe per offset più ampi. La label sotto mostra "12 reps prescritte
-+ N" o "12 reps prescritte − N" così è chiaro lo scostamento.
-
-Stesso pattern utile per il peso (kg) e la durata (sec) — generalizzare
-o lasciare reps come MVP iniziale.
-
-**Done quando**: durante una sessione live si può selezionare il
-numero di reps fatte senza tastiera, in 1-2 tap; il valore di default
-è quello prescritto; il salvataggio del set funziona come prima.
-
----
-
-### [25] Migliorare timer pausa tra serie (fit)
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟢 bassa
-**Area**: UX (fit)
-
-Migliorare il `RestTimer` durante una sessione live. Scope chiarito
-dall'utente:
-
-- **Tasto +30s**: durante il countdown di recupero, aggiungere 30
-  secondi con un tap (utile quando l'utente vuole respirare di più).
-  Possibile anche -30s simmetrico, da valutare.
-- **Bip negli ultimi 5 secondi**: feedback sonoro/haptic per gli
-  ultimi 5s del countdown ("contdown to start"). Probabile uso di
-  `expo-haptics` (già richiesto in [17]) e/o `expo-av` per il suono.
-- **Grafico circolare di progresso** (pie / arc): visualizzazione
-  più immediata del tempo che scorre rispetto alla barra lineare
-  attuale (`RestTimer.tsx:54-65`). Pattern allineato a `CalorieRing`
-  ma con rotazione ogni secondo.
-
-Possibile sovrapposizione con [16] (notifica fine recupero in
-background) e [17] (haptic generale): le tre voci si parlano e
-potrebbe valere la pena trattarle come unica fase "polish sessione
-live".
-
-**Done quando**: durante il recupero c'è un tasto "+30s" che
-estende il countdown, gli ultimi 5s emettono bip, il countdown ha
-una visualizzazione circolare oltre alla barra lineare; tutte le
-funzionalità sono disattivabili da SportSettings (almeno il suono).
-
----
-
 ### [26] Categorizzare elenco esercizi
 
 **Aperta**: 2026-05-02
@@ -778,30 +689,6 @@ peso.
 
 ---
 
-### [31] Migliorare UX TimerScreen (picker tipo orologio)
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟢 bassa
-**Area**: UX (fit)
-
-Oggi `TimerScreen` (Tabata, Intervalli, Libero) richiede di
-compilare campi `<Input>` numerici per lavoro/recupero/round. L'utente
-trova la digitazione poco fluida e vorrebbe selettori a scorrimento
-tipo wheel picker (minuti / secondi separati, valori che scorrono
-in alto-basso) — pattern stile timer iOS / orologio Android.
-
-Implementazione: nessuna libreria nuova (CLAUDE.md vincolo). Si può
-costruire un wheel picker con `FlatList` + snap to interval + alpha
-fading sui bordi, oppure con `ScrollView` + `pagingEnabled` per snap.
-Riusabile per workSec/restSec/rounds e potenzialmente per [24]
-(selettore reps).
-
-**Done quando**: l'utente configura un timer Tabata/Intervalli senza
-tastiera virtuale, scorrendo i selettori; i valori sono validati
-(min/max sensati); il pulsante Avvia funziona come prima.
-
----
-
 ### [32] Espandere libreria esercizi con ricerca curata
 
 **Aperta**: 2026-05-02
@@ -884,6 +771,80 @@ sport copertura come iterazione successiva o bonus se semplice.
 ---
 
 ## ✅ Fatto
+
+### [chiusa] [16] Notifiche locali per fine recupero (sessione attiva)
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-03
+
+PR #63 commit `17e2c15` (sessione UX Polish C2). Aggiunta dipendenza
+`expo-notifications` + helper centralizzato
+`src/utils/restNotifications.ts` con 4 funzioni esposte
+(`ensurePermission`, `scheduleRestEndNotification`,
+`cancelRestEndNotification`, `invalidatePermissionCache`). Quando un
+recupero parte (transizione `phase = 'rest'` in
+`ActiveSessionContext`) la notifica viene schedulata con
+`trigger: { seconds: restSec }`; cancellata su skip/pausa/end e
+rischedulata su `extendRest` (+30s). Permessi richiesti in modo lazy
+alla prima sessione, fallback silent disabled se rifiutati. Handler
+`Notifications.setNotificationHandler` configurato all'inizio di
+`App.tsx`. MVP solo Android — iOS può seguire in iterazione futura.
+
+---
+
+### [chiusa] [24] Selettore reps a scorrimento (fit)
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-03
+
+PR #62 commit `1fb1f90` (sessione UX Polish C1). In
+`ActiveSessionScreen` il campo "Reps fatte" è ora un `<WheelPicker>`
+centrato sul valore prescritto (`ex.reps`), con label sotto che mostra
+il delta vs prescritto ("Come prescritto" / "+N rispetto a X
+prescritte" / "−N rispetto a X prescritte"). Selezione 1-2 swipe
+invece di digitazione tastiera — pensato per mani sudate o telefono
+appoggiato. Esercizi a tempo o senza reps prescritte preservano il
+flow esistente. Pattern peso/durata NON generalizzato (MVP solo reps,
+come da scope).
+
+---
+
+### [chiusa] [25] Migliorare timer pausa tra serie (fit)
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-03
+
+PR #63 commit `41e3662` (sessione UX Polish C2). Tre interventi in
+`RestTimer.tsx`:
+- **Pie chart SVG** al posto della barra lineare — arco da -90° a
+  -90° + `progress*360°` con `strokeWidth=12` e
+  `strokeLinecap="round"`, color `accent` del theme. Numero del
+  countdown centrato dentro il pie chart.
+- **Pulsante "+30s"** che estende il recupero — nuova action
+  `extendRest(seconds)` in `ActiveSessionContext` che bumpa
+  `endsAt` + `restDurationSec`, persistente su DB e rischedula la
+  notifica fine recupero. Disabilitato in pausa.
+- **Bip negli ultimi 5 secondi** via `lightHaptic()` deduplicato con
+  un Set di secondi già emessi (evita doppi haptic ai bordi del
+  TICK 200ms). Skip in pausa. Niente `expo-av`: gli haptic
+  rispettano già il flag `hapticEnabled`.
+
+`onComplete` finale continua a chiamare `successHaptic()` come da
+sessione A.
+
+---
+
+### [chiusa] [31] Migliorare UX TimerScreen (picker tipo orologio)
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-03
+
+PR #62 commit `c55b5ea` (sessione UX Polish C1). I 3 `<Input>`
+numerici (workSec / restSec / rounds) in `TimerScreen` per Tabata e
+Intervalli sono stati sostituiti con 3 `<WheelPicker>` affiancati.
+Range: workSec/restSec 5-300 step 5, rounds 1-30 step 1. Niente più
+tastiera virtuale per configurare un timer. Modalità Libero
+(count-up) preservata invariata. Il primitive `WheelPicker`
+introdotto in commit `42b390a` resta riusabile per qualsiasi input
+numerico ranged futuro (peso, durata, ecc.).
+
+---
 
 ### [chiusa] [33] Permessi: rimuovere RECORD_AUDIO + verificare prompt camera
 

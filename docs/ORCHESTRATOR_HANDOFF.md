@@ -187,8 +187,8 @@ Spostare la voce nella sezione "✅ Fatto" col campo
 
 ### 3.2 Stile dei prompt operai
 
-Vedi `docs/sport-mode/NEW_SESSION_PROMPT_PHASE_1.md` …
-`_PHASE_5.md` come template. Struttura:
+I prompt operai vivono come `.md` self-contained in `docs/<area>/`
+(es. `docs/ux-polish/PROMPT_SESSION_X.md`). Struttura standard:
 
 1. **Pre-requisiti** (cosa deve essere mergeato su main).
 2. **Branch da creare**.
@@ -209,6 +209,12 @@ Vedi `docs/sport-mode/NEW_SESSION_PROMPT_PHASE_1.md` …
 4. **Note operative** per chi avvia la sessione (verifica, tempi attesi,
    testing manuale).
 5. **Cosa NON includere** (scope creep prevention).
+
+I prompt sono **monouso**: appena la sessione è mergeata, il file va
+cancellato nello stesso commit di chiusura voci TODO (vedi §3.5).
+La storia resta in git log per chi vuole riferimento. Per scrivere
+nuovi prompt, prendi come template l'ultimo `PROMPT_SESSION_*.md`
+ancora vivo in repo (copia uno e adatta).
 
 ### 3.3 Stile della comunicazione con l'utente
 
@@ -232,6 +238,20 @@ Prima di scrivere il prompt della fase successiva:
 - Verifica che i file menzionati nel piano esistano davvero.
 - Verifica che le API esposte siano coerenti con quanto pianificato.
 
+### 3.5 Cleanup post-merge (convenzione)
+
+Quando una sessione operaia viene mergeata, oltre al pattern §2.1:
+
+- **Cancella** il `PROMPT_SESSION_*.md` corrispondente in
+  `docs/<area>/`.
+- **Includi** la cancellazione nello stesso commit di chiusura voci
+  TODO (`docs: chiudi N voci <area> + cleanup prompt`).
+
+I prompt sono guide one-shot di implementazione, non documentazione
+architetturale. Le sessioni nuove non li leggono mai — leggono solo
+CLAUDE.md, TODO chiuso, e codice vivo. Mantenerli in repo aggiunge
+solo rumore. La storia resta in git log se serve.
+
 ---
 
 ## 4. Lavori schedulati (backlog operativo)
@@ -247,10 +267,10 @@ all'utente per dare il via.
 | [14] | Backup/restore include tabelle sport | M (~2h) | — | ✅ sì |
 | [15] | Asset wordmark "FitTrack" definitivi | M | Asset dell'utente | ⏳ trattare SEPARATAMENTE quando arrivano asset |
 | [11] | Backup / restore del database utente | L (~4-6h) | — (già base esistente?) | da verificare |
-| [24] | Selettore reps a scorrimento (fit) | M (~3-4h) | — | ✅ sì — alta UX impact |
 
-> Aggiornamento 2026-05-03: voci [33] [17] [29] [20] [26] [23] chiuse
-> dal batch UX Polish (PR #58 + #59). Restano in 🟡 le 4 voci sopra.
+> Aggiornamento 2026-05-03: voci [33] [17] [29] [20] [26] [23] [24]
+> [31] [25] [16] chiuse dai batch UX Polish A/B/C1/C2 (PR #58-#63).
+> Restano in 🟡 le 3 voci sopra.
 
 **Voce [14] (consigliata come primo prossimo lavoro)**:
 - Cosa serve all'utente: niente, è autocontenuta.
@@ -397,6 +417,10 @@ git history.
 
 | Data | PR | Branch | Cosa | Note |
 | --- | --- | --- | --- | --- |
+| 2026-05-03 | #63 | `claude/ux-polish-resttimer-notifications-uziCT` | UX Polish C2 (RestTimer pie chart + notifiche) | 2 commit. Chiude [25] [16]. Aggiunta dep `expo-notifications`. Nuovo `src/utils/restNotifications.ts` + action `extendRest` in ActiveSessionContext. |
+| 2026-05-03 | #62 | `claude/ux-polish-wheelpicker-dQbvb` | UX Polish C1 (WheelPicker primitive + reps + timer) | 3 commit. Chiude [31] [24]. Nuovo primitive `src/components/WheelPicker.tsx` riusabile. |
+| 2026-05-03 | #61 | `claude/ux-polish-haptic-permissions-kKTLh` (rimerge) | Iterazione 2 sessione A | Bonus: bottone Spotify nell'header sessione live (commit `36ddf2e`). |
+| 2026-05-03 | #60 | `claude/ux-polish-layout-gestures-WutQB` (rimerge) | Iterazione 2 sessione B | Bonus: sezioni esercizi collassabili + icone muscle group (commit `7336e97`). |
 | 2026-05-03 | #59 | `claude/ux-polish-layout-gestures-WutQB` | UX Polish B (SectionList esercizi + swipe diet) | 2 commit. Chiude [26] [23]. Helper nuovo `src/utils/exerciseGrouping.ts`. |
 | 2026-05-03 | #58 | `claude/ux-polish-haptic-permissions-kKTLh` | UX Polish A (haptic + permessi camera + Spotify) | 4 commit. Chiude [17] [29] [33] [20]. Bonus operaia: haptic esteso a add-food/preferito/quick-addon/"Inizia ora". |
 | 2026-05-02 | — (direct) | main | UX [28] timing transizione mode | Bump 700ms → 1500ms (commit `e462a1d`). Fix orchestratore diretto. |
