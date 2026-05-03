@@ -16,7 +16,7 @@ import { useAppSettings } from '@/hooks/useAppSettings';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
 import { lightHaptic } from '@/utils/haptics';
-import { playCountdownTick } from '@/utils/countdownSound';
+import { playTick } from '@/utils/sportSounds';
 import { describeArc } from '@/utils/svgArc';
 
 // Schermata Tabata: brochure premium del protocollo HIIT.
@@ -129,7 +129,7 @@ export default function TabataScreen() {
   };
 
   const handleTick = () => {
-    void playCountdownTick();
+    void playTick();
     void lightHaptic();
   };
 
