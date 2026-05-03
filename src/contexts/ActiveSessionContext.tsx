@@ -13,6 +13,10 @@ import type { AppStateStatus } from 'react-native';
 
 import { exercisesDB, profileDB, sessionsDB, workoutsDB } from '@/database';
 import type { Exercise, Session, Workout } from '@/database';
+import {
+  cancelRestEndNotification,
+  scheduleRestEndNotification,
+} from '@/utils/restNotifications';
 import { estimateSessionCalories } from '@/utils/sportCalories';
 
 // Stato globale della sessione di allenamento attiva (Fase 3).
@@ -284,6 +288,15 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
         restEndsAt: next.restEndsAt,
         restDurationSec: next.restDurationSec,
       });
+      if (next.restEndsAt && next.restDurationSec) {
+        const remainingSec = Math.max(
+          0,
+          Math.round((next.restEndsAt - Date.now()) / 1000),
+        );
+        void scheduleRestEndNotification(remainingSec);
+      } else {
+        void cancelRestEndNotification();
+      }
     },
     [],
   );
@@ -323,6 +336,11 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
     const pausedAtIso = new Date(pausedAtMs).toISOString();
     await sessionsDB.advanceActive({ pausedAt: pausedAtIso });
     setState({ ...current, isPaused: true, pausedAt: pausedAtMs });
+    // Pausa durante un recupero: cancelliamo la notifica programmata.
+    // Verra' rischedulata al resume con i secondi residui.
+    if (current.restEndsAt !== null) {
+      void cancelRestEndNotification();
+    }
   }, []);
 
   const resume = useCallback(async () => {
@@ -353,6 +371,15 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
       pausedTotalSec: newPausedTotalSec,
       restEndsAt: newRestEndsAt,
     });
+    // Ripresa durante un recupero ancora attivo: rischedula la notifica
+    // con i secondi residui post-pausa.
+    if (newRestEndsAt !== null) {
+      const remainingSec = Math.max(
+        0,
+        Math.round((newRestEndsAt - Date.now()) / 1000),
+      );
+      void scheduleRestEndNotification(remainingSec);
+    }
   }, []);
 
   const skipRest = useCallback(async () => {
@@ -360,6 +387,7 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
     if (!current || current.restEndsAt === null) return;
     await sessionsDB.advanceActive({ restEndsAt: null, restDurationSec: null });
     setState({ ...current, restEndsAt: null, restDurationSec: null });
+    void cancelRestEndNotification();
   }, []);
 
   const extendRest = useCallback(async (seconds: number) => {
@@ -378,6 +406,16 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
       restEndsAt: newEndsAt,
       restDurationSec: newDuration,
     });
+    // +30s: rischedulazione "cancel + reschedule" sempre. Se la sessione
+    // e' in pausa (case raro: extend disabilitato in UI), la notifica
+    // resta cancellata e verra' rischedulata al resume.
+    if (!current.isPaused) {
+      const remainingSec = Math.max(
+        0,
+        Math.round((newEndsAt - Date.now()) / 1000),
+      );
+      void scheduleRestEndNotification(remainingSec);
+    }
   }, []);
 
   const endSession = useCallback(
@@ -416,6 +454,7 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
         notes: notes ?? null,
       });
       setState(null);
+      void cancelRestEndNotification();
       return { session: updated, calories };
     },
     [],
@@ -426,6 +465,7 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
     if (!current) return;
     await sessionsDB.cancelSession(current.session.id);
     setState(null);
+    void cancelRestEndNotification();
   }, []);
 
   const value = useMemo<ContextValue>(
