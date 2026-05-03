@@ -293,7 +293,6 @@ function LiveBody({
   }, [state.restDurationSec, ex]);
 
   const [reps, setReps] = useState<string>('');
-  const [weight, setWeight] = useState<string>('');
   const [duration, setDuration] = useState<string>('');
   const [rpe, setRpe] = useState<number | null>(null);
 
@@ -302,11 +301,6 @@ function LiveBody({
   // direttamente "Set completato").
   useEffect(() => {
     setReps(ex?.reps !== null && ex?.reps !== undefined ? String(ex.reps) : '');
-    setWeight(
-      ex?.weightKg !== null && ex?.weightKg !== undefined
-        ? String(ex.weightKg)
-        : '',
-    );
     setDuration(
       ex?.durationSec !== null && ex?.durationSec !== undefined
         ? String(ex.durationSec)
@@ -347,8 +341,6 @@ function LiveBody({
       const r = Number(reps);
       if (Number.isFinite(r) && r > 0) data.repsDone = r;
       else if (ex.reps !== null) data.repsDone = ex.reps;
-      const w = Number(weight);
-      if (Number.isFinite(w) && w > 0) data.weightKg = w;
     }
     if (rpe !== null) data.rpe = rpe;
 
@@ -447,21 +439,12 @@ function LiveBody({
                 placeholder={ex.durationSec ? String(ex.durationSec) : ''}
               />
             ) : (
-              <>
-                <RepsPicker
-                  reps={reps}
-                  prescribed={ex.reps}
-                  onChange={(n) => setReps(String(n))}
-                  accent={accent}
-                />
-                <Input
-                  label="Peso (kg) — opzionale"
-                  keyboardType="numeric"
-                  value={weight}
-                  onChangeText={setWeight}
-                  placeholder={ex.weightKg !== null ? String(ex.weightKg) : ''}
-                />
-              </>
+              <RepsPicker
+                reps={reps}
+                prescribed={ex.reps}
+                onChange={(n) => setReps(String(n))}
+                accent={accent}
+              />
             )}
             <Text style={[typography.label, { marginTop: spacing.md }]}>
               Com&apos;è andato? — opzionale
@@ -728,9 +711,7 @@ function formatPrescription(
     return `Durata: ${ex.durationSec}s`;
   }
   if (ex.reps !== null) {
-    return `${currentSet} / ${totalSets} set · ${ex.reps} reps${
-      ex.weightKg ? ` · ${ex.weightKg}kg` : ''
-    }`;
+    return `${currentSet} / ${totalSets} set · ${ex.reps} reps`;
   }
   return `${currentSet} / ${totalSets} set`;
 }

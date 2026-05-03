@@ -8,9 +8,12 @@ import type { Exercise, Session, SessionSet } from '@/database';
 import { colors, radii, spacing, sportPalette, typography } from '@/theme';
 
 // Riepilogo sessione (Fase 4): nome scheda, data, badge categoria, stats
-// (durata/calorie/set), elenco esercizi con i set registrati. RPE è
-// salvato in `session_sets` ma intenzionalmente non mostrato in UI per
-// ora (possibile aggiunta futura).
+// (durata/calorie/set), elenco esercizi con i set registrati. Il feedback
+// `rpe` (mappato da Poco/Troppo) è salvato in `session_sets` ma
+// intenzionalmente non mostrato in UI per ora (possibile aggiunta futura).
+// Anche `weight_kg` è preservato a livello di schema ma non visualizzato:
+// l'app è pensata per allenamento in casa senza pesi, e mostrare un
+// "× null kg" sarebbe rumore — re-introducibile in futuro senza migrazione.
 
 type Props = {
   visible: boolean;
@@ -47,9 +50,6 @@ function formatSet(set: SessionSet): string {
     return `${set.durationSec}s`;
   }
   const reps = set.repsDone ?? 0;
-  if (set.weightKg !== null && set.weightKg !== undefined) {
-    return `${reps} reps × ${set.weightKg} kg`;
-  }
   return `${reps} reps`;
 }
 
