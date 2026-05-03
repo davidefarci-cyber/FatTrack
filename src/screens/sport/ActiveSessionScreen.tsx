@@ -565,7 +565,8 @@ function RepsPicker({ reps, prescribed, onChange, accent }: RepsPickerProps) {
         min={0}
         max={max}
         step={1}
-        suffix="reps"
+        orientation="horizontal"
+        width={280}
         prescribedValue={prescribed ?? undefined}
         accent={accent}
       />
@@ -817,7 +818,7 @@ const styles = StyleSheet.create({
   },
   repsBlock: {
     gap: spacing.xs,
-    marginBottom: spacing.xl,
+    alignItems: 'center',
   },
   repsDelta: {
     textAlign: 'center',
