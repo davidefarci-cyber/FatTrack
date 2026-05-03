@@ -4,10 +4,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
-import { Input } from '@/components/Input';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { useToast } from '@/components/Toast';
+import { WheelPicker } from '@/components/WheelPicker';
 import { colors, spacing, typography } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
 
@@ -235,13 +235,16 @@ export default function TimerScreen() {
               <Card style={styles.card}>
                 <Text style={typography.label}>Tabata</Text>
                 <Text style={typography.caption}>
-                  Preset 20s lavoro / 10s recupero / 8 round
+                  Preset 20s lavoro / 10s recupero / 8 round (modificabili)
                 </Text>
-                <Input
-                  label="Round"
-                  keyboardType="numeric"
-                  value={rounds}
-                  onChangeText={setRounds}
+                <ConfigPickers
+                  workSec={workSec}
+                  restSec={restSec}
+                  rounds={rounds}
+                  setWorkSec={setWorkSec}
+                  setRestSec={setRestSec}
+                  setRounds={setRounds}
+                  accent={theme.accent}
                 />
                 {totalMinutesPreview() ? (
                   <Text style={typography.caption}>
@@ -254,25 +257,14 @@ export default function TimerScreen() {
             {mode === 'intervalli' ? (
               <Card style={styles.card}>
                 <Text style={typography.label}>Intervalli</Text>
-                <Input
-                  label="Lavoro"
-                  unit="sec"
-                  keyboardType="numeric"
-                  value={workSec}
-                  onChangeText={setWorkSec}
-                />
-                <Input
-                  label="Recupero"
-                  unit="sec"
-                  keyboardType="numeric"
-                  value={restSec}
-                  onChangeText={setRestSec}
-                />
-                <Input
-                  label="Round"
-                  keyboardType="numeric"
-                  value={rounds}
-                  onChangeText={setRounds}
+                <ConfigPickers
+                  workSec={workSec}
+                  restSec={restSec}
+                  rounds={rounds}
+                  setWorkSec={setWorkSec}
+                  setRestSec={setRestSec}
+                  setRounds={setRounds}
+                  accent={theme.accent}
                 />
                 {totalMinutesPreview() ? (
                   <Text style={typography.caption}>
@@ -312,6 +304,67 @@ export default function TimerScreen() {
           />
         )}
       </ScrollView>
+    </View>
+  );
+}
+
+type ConfigPickersProps = {
+  workSec: string;
+  restSec: string;
+  rounds: string;
+  setWorkSec: (s: string) => void;
+  setRestSec: (s: string) => void;
+  setRounds: (s: string) => void;
+  accent: string;
+};
+
+function ConfigPickers({
+  workSec,
+  restSec,
+  rounds,
+  setWorkSec,
+  setRestSec,
+  setRounds,
+  accent,
+}: ConfigPickersProps) {
+  return (
+    <View style={styles.pickerRow}>
+      <View style={styles.pickerCol}>
+        <Text style={typography.label}>Lavoro</Text>
+        <WheelPicker
+          value={Number(workSec) || TABATA_DEFAULT.workSec}
+          onChange={(n) => setWorkSec(String(n))}
+          min={5}
+          max={300}
+          step={5}
+          suffix="sec"
+          accent={accent}
+        />
+      </View>
+      <View style={styles.pickerCol}>
+        <Text style={typography.label}>Recupero</Text>
+        <WheelPicker
+          value={Number(restSec) || TABATA_DEFAULT.restSec}
+          onChange={(n) => setRestSec(String(n))}
+          min={5}
+          max={300}
+          step={5}
+          suffix="sec"
+          accent={accent}
+        />
+      </View>
+      <View style={styles.pickerCol}>
+        <Text style={typography.label}>Round</Text>
+        <WheelPicker
+          value={Number(rounds) || TABATA_DEFAULT.rounds}
+          onChange={(n) => setRounds(String(n))}
+          min={1}
+          max={30}
+          step={1}
+          suffix="round"
+          accent={accent}
+        />
+      </View>
     </View>
   );
 }
@@ -424,5 +477,15 @@ const styles = StyleSheet.create({
   },
   runningActions: {
     gap: spacing.md,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    justifyContent: 'space-around',
+  },
+  pickerCol: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
   },
 });

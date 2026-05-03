@@ -18,6 +18,7 @@ import { Icon } from '@/components/Icon';
 import { Input } from '@/components/Input';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
+import { WheelPicker } from '@/components/WheelPicker';
 import { RestTimer } from '@/components/sport/RestTimer';
 import {
   getElapsedSec,
@@ -435,12 +436,11 @@ function LiveBody({
               />
             ) : (
               <>
-                <Input
-                  label="Reps fatte"
-                  keyboardType="numeric"
-                  value={reps}
-                  onChangeText={setReps}
-                  placeholder={ex.reps !== null ? String(ex.reps) : ''}
+                <RepsPicker
+                  reps={reps}
+                  prescribed={ex.reps}
+                  onChange={(n) => setReps(String(n))}
+                  accent={accent}
                 />
                 <Input
                   label="Peso (kg) — opzionale"
@@ -519,6 +519,53 @@ function LiveBody({
         )}
       </ScrollView>
     </>
+  );
+}
+
+type RepsPickerProps = {
+  reps: string;
+  prescribed: number | null;
+  onChange: (n: number) => void;
+  accent: string;
+};
+
+function RepsPicker({ reps, prescribed, onChange, accent }: RepsPickerProps) {
+  const parsed = parseInt(reps, 10);
+  const repsNumber = Number.isFinite(parsed) ? parsed : prescribed ?? 0;
+  const max = Math.max(50, (prescribed ?? 12) + 20);
+
+  let deltaLabel: string | null = null;
+  let deltaColor: string = colors.textSec;
+  if (prescribed !== null) {
+    if (repsNumber === prescribed) {
+      deltaLabel = 'Come prescritto';
+    } else if (repsNumber > prescribed) {
+      deltaLabel = `+${repsNumber - prescribed} rispetto a ${prescribed} prescritte`;
+      deltaColor = accent;
+    } else {
+      deltaLabel = `−${prescribed - repsNumber} rispetto a ${prescribed} prescritte`;
+    }
+  }
+
+  return (
+    <View style={styles.repsBlock}>
+      <Text style={typography.label}>Reps fatte</Text>
+      <WheelPicker
+        value={repsNumber}
+        onChange={onChange}
+        min={0}
+        max={max}
+        step={1}
+        suffix="reps"
+        prescribedValue={prescribed ?? undefined}
+        accent={accent}
+      />
+      {deltaLabel ? (
+        <Text style={[typography.caption, styles.repsDelta, { color: deltaColor }]}>
+          {deltaLabel}
+        </Text>
+      ) : null}
+    </View>
   );
 }
 
@@ -758,5 +805,12 @@ const styles = StyleSheet.create({
   },
   summaryActions: {
     gap: spacing.md,
+  },
+  repsBlock: {
+    gap: spacing.xs,
+    marginBottom: spacing.xl,
+  },
+  repsDelta: {
+    textAlign: 'center',
   },
 });
