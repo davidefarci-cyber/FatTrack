@@ -50,10 +50,13 @@ type Props = {
 
 type Phase = 'live' | 'summary';
 
-const RPE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => ({
-  value: n,
-  label: String(n),
-}));
+// Feedback set: due valori mutuamente esclusivi mappati sullo storage
+// `rpe` numerico già esistente. 3 = "Poco" (sforzo basso), 9 = "Troppo"
+// (sforzo alto). null = nessun feedback. Lo schema DB resta intatto: la
+// scala 1-10 era ridondante per l'utente reale, ma teniamo la colonna
+// numerica per non dover migrare e per analisi future.
+const FEEDBACK_LOW = 3;
+const FEEDBACK_HIGH = 9;
 
 export default function ActiveSessionScreen({ visible, onClose }: Props) {
   const insets = useSafeAreaInsets();
@@ -290,7 +293,6 @@ function LiveBody({
   }, [state.restDurationSec, ex]);
 
   const [reps, setReps] = useState<string>('');
-  const [weight, setWeight] = useState<string>('');
   const [duration, setDuration] = useState<string>('');
   const [rpe, setRpe] = useState<number | null>(null);
 
@@ -299,11 +301,6 @@ function LiveBody({
   // direttamente "Set completato").
   useEffect(() => {
     setReps(ex?.reps !== null && ex?.reps !== undefined ? String(ex.reps) : '');
-    setWeight(
-      ex?.weightKg !== null && ex?.weightKg !== undefined
-        ? String(ex.weightKg)
-        : '',
-    );
     setDuration(
       ex?.durationSec !== null && ex?.durationSec !== undefined
         ? String(ex.durationSec)
@@ -344,8 +341,6 @@ function LiveBody({
       const r = Number(reps);
       if (Number.isFinite(r) && r > 0) data.repsDone = r;
       else if (ex.reps !== null) data.repsDone = ex.reps;
-      const w = Number(weight);
-      if (Number.isFinite(w) && w > 0) data.weightKg = w;
     }
     if (rpe !== null) data.rpe = rpe;
 
@@ -444,53 +439,39 @@ function LiveBody({
                 placeholder={ex.durationSec ? String(ex.durationSec) : ''}
               />
             ) : (
-              <>
-                <RepsPicker
-                  reps={reps}
-                  prescribed={ex.reps}
-                  onChange={(n) => setReps(String(n))}
-                  accent={accent}
-                />
-                <Input
-                  label="Peso (kg) — opzionale"
-                  keyboardType="numeric"
-                  value={weight}
-                  onChangeText={setWeight}
-                  placeholder={ex.weightKg !== null ? String(ex.weightKg) : ''}
-                />
-              </>
+              <RepsPicker
+                reps={reps}
+                prescribed={ex.reps}
+                onChange={(n) => setReps(String(n))}
+                accent={accent}
+              />
             )}
             <Text style={[typography.label, { marginTop: spacing.md }]}>
-              RPE — opzionale
+              Com&apos;è andato? — opzionale
             </Text>
-            <View style={styles.rpeRow}>
-              {RPE_OPTIONS.map((opt) => {
-                const active = rpe === opt.value;
-                return (
-                  <Pressable
-                    key={opt.value}
-                    onPress={() => setRpe(active ? null : opt.value)}
-                    style={[
-                      styles.rpeChip,
-                      active && {
-                        backgroundColor: accent,
-                        borderColor: accent,
-                      },
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                  >
-                    <Text
-                      style={[
-                        typography.bodyBold,
-                        { color: active ? colors.card : colors.textSec },
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+            <View style={styles.feedbackRow}>
+              <FeedbackPill
+                label="Poco"
+                active={rpe === FEEDBACK_LOW}
+                activeBg={colors.green}
+                onPress={() => {
+                  void lightHaptic();
+                  setRpe((prev) =>
+                    prev === FEEDBACK_LOW ? null : FEEDBACK_LOW,
+                  );
+                }}
+              />
+              <FeedbackPill
+                label="Troppo"
+                active={rpe === FEEDBACK_HIGH}
+                activeBg={colors.red}
+                onPress={() => {
+                  void lightHaptic();
+                  setRpe((prev) =>
+                    prev === FEEDBACK_HIGH ? null : FEEDBACK_HIGH,
+                  );
+                }}
+              />
             </View>
           </Card>
         ) : null}
@@ -531,6 +512,39 @@ function LiveBody({
   );
 }
 
+type FeedbackPillProps = {
+  label: string;
+  active: boolean;
+  activeBg: string;
+  onPress: () => void;
+};
+
+function FeedbackPill({ label, active, activeBg, onPress }: FeedbackPillProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.feedbackPill,
+        active
+          ? { backgroundColor: activeBg, borderColor: activeBg }
+          : { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={label}
+    >
+      <Text
+        style={[
+          typography.bodyBold,
+          { color: active ? colors.card : colors.textSec },
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 type RepsPickerProps = {
   reps: string;
   prescribed: number | null;
@@ -565,7 +579,8 @@ function RepsPicker({ reps, prescribed, onChange, accent }: RepsPickerProps) {
         min={0}
         max={max}
         step={1}
-        suffix="reps"
+        orientation="horizontal"
+        width={280}
         prescribedValue={prescribed ?? undefined}
         accent={accent}
       />
@@ -696,9 +711,7 @@ function formatPrescription(
     return `Durata: ${ex.durationSec}s`;
   }
   if (ex.reps !== null) {
-    return `${currentSet} / ${totalSets} set · ${ex.reps} reps${
-      ex.weightKg ? ` · ${ex.weightKg}kg` : ''
-    }`;
+    return `${currentSet} / ${totalSets} set · ${ex.reps} reps`;
   }
   return `${currentSet} / ${totalSets} set`;
 }
@@ -765,20 +778,20 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
   },
-  rpeRow: {
+  feedbackRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
+    gap: spacing.sm,
+    marginTop: spacing.sm,
   },
-  rpeChip: {
+  feedbackPill: {
+    flex: 1,
+    flexDirection: 'row',
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radii.round,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.bg,
-    minWidth: 38,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.md,
+    borderWidth: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   actions: {
     gap: spacing.md,
@@ -817,7 +830,7 @@ const styles = StyleSheet.create({
   },
   repsBlock: {
     gap: spacing.xs,
-    marginBottom: spacing.xl,
+    alignItems: 'center',
   },
   repsDelta: {
     textAlign: 'center',

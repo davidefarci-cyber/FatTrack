@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
@@ -16,14 +17,16 @@ import { colors, radii, shadows, spacing, typography } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
 import { lightHaptic } from '@/utils/haptics';
 import { playCountdownTick } from '@/utils/countdownSound';
+import { describeArc } from '@/utils/svgArc';
 
 // Schermata Tabata: brochure premium del protocollo HIIT.
 // Pre-workout: hero copy + stat-card (4 min / +28% / +14%) + riepilogo
 // config corrente + HoldToStartButton centrale. Cog header → config
 // modal, info header → sheet divulgativo. Hold-to-start → countdown
 // fullscreen 5→1 con audio+haptic per ogni tick → parte la fase
-// "lavoro" del primo round e mostriamo la RunningView (logica copiata
-// invariata dal vecchio TimerScreen — il restyle è scope di TODO [37]).
+// "lavoro" del primo round e mostriamo la RunningView: titolo "Round X/Y",
+// pie chart SVG attorno al countdown (accent saturo in lavoro, accent soft
+// + bgTint overlay in recupero), label "LAVORO" / "RECUPERO" sotto.
 
 type Phase = 'work' | 'rest' | 'done';
 
@@ -266,7 +269,9 @@ export default function TabataScreen() {
             intervalState={intervalState}
             onPauseToggle={pauseToggle}
             onReset={reset}
-            accent={theme.accent}
+            workSec={tabataWorkSec}
+            restSec={tabataRestSec}
+            totalRounds={tabataRounds}
           />
         )}
       </ScrollView>
@@ -314,49 +319,116 @@ type RunningViewProps = {
   intervalState: IntervalState | null;
   onPauseToggle: () => void;
   onReset: () => void;
-  accent: string;
+  workSec: number;
+  restSec: number;
+  totalRounds: number;
 };
+
+const RUNNING_RING_SIZE = 240;
+const RUNNING_RING_RADIUS = 108;
+const RUNNING_RING_STROKE = 12;
 
 function RunningView({
   paused,
   intervalState,
   onPauseToggle,
   onReset,
-  accent,
+  workSec,
+  restSec,
+  totalRounds,
 }: RunningViewProps) {
+  const theme = useAppTheme();
   const now = Date.now();
 
-  let bigText = '00:00';
-  let phaseLabel = 'Tabata';
-  if (intervalState) {
-    const remainingMs = Math.max(0, intervalState.endsAt - now);
-    bigText = formatSeconds(Math.ceil(remainingMs / 1000));
-    if (intervalState.phase === 'work') phaseLabel = 'Lavoro';
-    else if (intervalState.phase === 'rest') phaseLabel = 'Recupero';
-    else phaseLabel = 'Completato';
-  }
+  const phase = intervalState?.phase;
+  const isRest = phase === 'rest';
+  const isDone = phase === 'done';
+
+  const phaseDurationSec = isRest ? restSec : isDone ? 0 : workSec;
+  const remainingMs = intervalState
+    ? Math.max(0, intervalState.endsAt - now)
+    : 0;
+  const remainingSec = Math.ceil(remainingMs / 1000);
+  const totalMs = Math.max(1, phaseDurationSec * 1000);
+  const progress = isDone
+    ? 1
+    : Math.min(1, Math.max(0, 1 - remainingMs / totalMs));
+
+  const phaseLabel = isRest ? 'Recupero' : isDone ? 'Completato' : 'Lavoro';
+  // In fase Recupero usiamo l'accent "soft" per il ring (più morbido,
+  // visibile contro il bgTint chiaro). I testi restano sull'accent saturo
+  // per leggibilità: l'accent soft come testo sarebbe troppo pallido.
+  const ringStroke = isRest ? theme.accentSoft : theme.accent;
+  const bigText =
+    remainingSec < 60 ? String(remainingSec) : formatSeconds(remainingSec);
+
+  const cx = RUNNING_RING_SIZE / 2;
+  const cy = RUNNING_RING_SIZE / 2;
+  const sweep = progress * 360;
+  const arcPath = describeArc(cx, cy, RUNNING_RING_RADIUS, -90, -90 + sweep);
 
   return (
     <View style={styles.runningWrap}>
-      <Card style={styles.runningCard}>
-        <Text style={typography.label}>{phaseLabel}</Text>
-        <Text style={[styles.bigCountdown, { color: accent }]}>{bigText}</Text>
-        {intervalState ? (
-          <Text style={typography.caption}>{`Round ${intervalState.round}`}</Text>
+      <Text style={[styles.roundTitle, { color: theme.accent }]}>
+        {`Round ${intervalState?.round ?? 1} / ${totalRounds}`}
+      </Text>
+
+      <View
+        style={[
+          styles.runningCard,
+          isRest && {
+            backgroundColor: theme.bgTint,
+            borderColor: theme.accentSoft,
+          },
+        ]}
+      >
+        <View style={styles.ringWrap}>
+          <Svg width={RUNNING_RING_SIZE} height={RUNNING_RING_SIZE}>
+            <Circle
+              cx={cx}
+              cy={cy}
+              r={RUNNING_RING_RADIUS}
+              fill="none"
+              stroke={colors.border}
+              strokeWidth={RUNNING_RING_STROKE}
+              opacity={0.6}
+            />
+            {sweep > 0 ? (
+              <Path
+                d={arcPath}
+                fill="none"
+                stroke={ringStroke}
+                strokeWidth={RUNNING_RING_STROKE}
+                strokeLinecap="round"
+              />
+            ) : null}
+          </Svg>
+          <View style={styles.ringCenter} pointerEvents="none">
+            <Text style={[styles.bigCountdown, { color: theme.accent }]}>
+              {bigText}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={[styles.phaseLabel, { color: theme.accent }]}>
+          {phaseLabel.toUpperCase()}
+        </Text>
+        {paused ? (
+          <Text style={typography.caption}>In pausa</Text>
         ) : null}
-        {paused ? <Text style={typography.caption}>In pausa</Text> : null}
-      </Card>
+      </View>
 
       <View style={styles.runningActions}>
         <Button
           label={paused ? 'Riprendi' : 'Pausa'}
           variant="secondary"
           onPress={onPauseToggle}
+          style={styles.runningBtn}
         />
         <Button
           label="Reset"
           onPress={onReset}
-          style={{ backgroundColor: accent }}
+          style={[styles.runningBtn, { backgroundColor: theme.accent }]}
         />
       </View>
     </View>
@@ -436,18 +508,46 @@ const styles = StyleSheet.create({
   },
   runningWrap: {
     gap: spacing.screen,
+    alignItems: 'stretch',
+  },
+  roundTitle: {
+    ...typography.h1,
+    textAlign: 'center',
   },
   runningCard: {
-    padding: spacing.screen,
+    backgroundColor: colors.card,
+    borderRadius: radii.xxl,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    paddingVertical: spacing.screen + spacing.md,
+    paddingHorizontal: spacing.screen,
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.lg,
+  },
+  ringWrap: {
+    width: 240,
+    height: 240,
+    position: 'relative',
+  },
+  ringCenter: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bigCountdown: {
     fontFamily: typography.display.fontFamily,
-    fontSize: 72,
-    lineHeight: 78,
+    fontSize: 80,
+    lineHeight: 86,
+  },
+  phaseLabel: {
+    ...typography.value,
+    letterSpacing: 1.5,
   },
   runningActions: {
+    flexDirection: 'row',
     gap: spacing.md,
+  },
+  runningBtn: {
+    flex: 1,
   },
 });

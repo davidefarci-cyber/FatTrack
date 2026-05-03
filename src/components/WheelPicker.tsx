@@ -9,10 +9,19 @@ import { FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radii, spacing, typography } from '@/theme';
 
-// Selettore numerico verticale snap-to-interval. Riusabile in qualsiasi
-// schermata che debba raccogliere un numero ranged (reps, sec, kg, …).
-// FlatList built-in, niente lib esterne. Il valore selezionato si centra
-// nella finestra; sopra/sotto sfumano in opacity decrescente.
+// Selettore numerico snap-to-interval. Riusabile in qualsiasi schermata che
+// debba raccogliere un numero ranged (reps, sec, kg, …). FlatList built-in,
+// niente lib esterne. Il valore selezionato si centra nella finestra; gli
+// item adiacenti sfumano in opacity decrescente.
+//
+// Due orientamenti:
+// - 'vertical' (default, retrocompat con i caller esistenti): wheel a colonna,
+//   altezza `height`, scroll verticale, fade in alto/basso.
+// - 'horizontal': wheel a riga sottile e larga, larghezza `width`, scroll
+//   orizzontale, fade a sinistra/destra. Il suffix NON è renderizzato
+//   internamente (è responsabilità del caller mettere una label sotto la wheel).
+
+type Orientation = 'vertical' | 'horizontal';
 
 type WheelPickerProps = {
   value: number;
@@ -20,13 +29,20 @@ type WheelPickerProps = {
   min: number;
   max: number;
   step?: number;
+  // Renderizzato solo in vertical mode (overlay sotto lo slot centrale).
+  // In horizontal il caller deve gestire la label esterna alla wheel.
   suffix?: string;
-  // Marker tenue (opacity 0.5) sull'item corrispondente al valore
-  // prescritto. Pensato per indicare "qui c'è il default" in pickers
-  // che editano una scelta personalizzata (es. reps fatte vs prescritte).
+  // Marker tenue (opacity 0.5) sull'item corrispondente al valore prescritto.
+  // In vertical: pallino a destra del numero. In horizontal: pallino sopra
+  // il numero (più visibile in una wheel a riga).
   prescribedValue?: number;
+  orientation?: Orientation;
+  // Vertical-only: altezza totale e altezza item.
   height?: number;
   itemHeight?: number;
+  // Horizontal-only: larghezza totale e larghezza item.
+  width?: number;
+  itemWidth?: number;
   // Tinta dell'item selezionato. Default colors.text; in modalità sport
   // i caller passano l'accent del theme.
   accent?: string;
@@ -40,10 +56,14 @@ export function WheelPicker({
   step = 1,
   suffix,
   prescribedValue,
+  orientation = 'vertical',
   height = 180,
   itemHeight = 44,
+  width = 240,
+  itemWidth = 64,
   accent = colors.text,
 }: WheelPickerProps) {
+  const isHorizontal = orientation === 'horizontal';
   const data = useMemo(() => {
     const arr: number[] = [];
     for (let v = min; v <= max; v += step) arr.push(v);
@@ -58,10 +78,14 @@ export function WheelPicker({
     return Math.max(0, Math.min(data.length - 1, raw));
   };
   const selectedIndex = indexFromValue(value);
-  const verticalPadding = (height - itemHeight) / 2;
 
-  // Pre-calcoliamo le opacity per evitare di ricalcolare su ogni
-  // renderItem. Re-memoizzata solo quando il valore selezionato cambia.
+  // In horizontal il "main axis" è la X: dimensioni e padding ruotano.
+  const itemMain = isHorizontal ? itemWidth : itemHeight;
+  const totalMain = isHorizontal ? width : height;
+  const padding = (totalMain - itemMain) / 2;
+
+  // Pre-calcoliamo le opacity per evitare di ricalcolare su ogni renderItem.
+  // Re-memoizzata solo quando il valore selezionato cambia.
   const opacities = useMemo(() => {
     return data.map((_, idx) => {
       const dist = Math.abs(idx - selectedIndex);
@@ -78,10 +102,10 @@ export function WheelPicker({
   useEffect(() => {
     if (isUserScrollingRef.current) return;
     listRef.current?.scrollToOffset({
-      offset: selectedIndex * itemHeight,
+      offset: selectedIndex * itemMain,
       animated: false,
     });
-  }, [selectedIndex, itemHeight]);
+  }, [selectedIndex, itemMain]);
 
   const onScrollBeginDrag = () => {
     isUserScrollingRef.current = true;
@@ -89,10 +113,12 @@ export function WheelPicker({
 
   const onMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     isUserScrollingRef.current = false;
-    const offsetY = e.nativeEvent.contentOffset.y;
+    const offset = isHorizontal
+      ? e.nativeEvent.contentOffset.x
+      : e.nativeEvent.contentOffset.y;
     const idx = Math.max(
       0,
-      Math.min(data.length - 1, Math.round(offsetY / itemHeight)),
+      Math.min(data.length - 1, Math.round(offset / itemMain)),
     );
     const next = min + idx * step;
     if (next !== value) onChange(next);
@@ -102,8 +128,11 @@ export function WheelPicker({
     const isSelected = index === selectedIndex;
     const isPrescribed =
       prescribedValue !== undefined && item === prescribedValue;
+    const cellStyle = isHorizontal
+      ? { width: itemWidth, height: itemHeight }
+      : { height: itemHeight };
     return (
-      <View style={[styles.row, { height: itemHeight }]}>
+      <View style={[styles.row, cellStyle]}>
         <Text
           style={
             isSelected
@@ -114,7 +143,14 @@ export function WheelPicker({
           {item}
         </Text>
         {isPrescribed && !isSelected ? (
-          <View pointerEvents="none" style={styles.prescribedMarker} />
+          <View
+            pointerEvents="none"
+            style={
+              isHorizontal
+                ? styles.prescribedMarkerHorizontal
+                : styles.prescribedMarker
+            }
+          />
         ) : null}
       </View>
     );
@@ -132,9 +168,13 @@ export function WheelPicker({
     }
   };
 
+  const containerStyle = isHorizontal
+    ? { width, height: itemHeight }
+    : { height };
+
   return (
     <View
-      style={[styles.container, { height }]}
+      style={[styles.container, containerStyle]}
       accessibilityRole="adjustable"
       accessibilityValue={{
         min,
@@ -150,44 +190,84 @@ export function WheelPicker({
         data={data}
         keyExtractor={(item) => String(item)}
         renderItem={renderItem}
+        horizontal={isHorizontal}
         showsVerticalScrollIndicator={false}
-        snapToInterval={itemHeight}
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={itemMain}
         decelerationRate="fast"
-        contentContainerStyle={{ paddingVertical: verticalPadding }}
+        contentContainerStyle={
+          isHorizontal
+            ? { paddingHorizontal: padding }
+            : { paddingVertical: padding }
+        }
         getItemLayout={(_, idx) => ({
-          length: itemHeight,
-          offset: itemHeight * idx,
+          length: itemMain,
+          offset: itemMain * idx,
           index: idx,
         })}
         initialScrollIndex={selectedIndex}
         onScrollBeginDrag={onScrollBeginDrag}
         onMomentumScrollEnd={onMomentumScrollEnd}
       />
-      {/* Fade overlays — leggera vignetta verso colors.bg sopra/sotto. */}
-      <View
-        pointerEvents="none"
-        style={[styles.fadeTop, { height: verticalPadding }]}
-      />
-      <View
-        pointerEvents="none"
-        style={[styles.fadeBottom, { height: verticalPadding }]}
-      />
-      {/* Linee sottili sopra/sotto la slot del valore selezionato. */}
-      <View
-        pointerEvents="none"
-        style={[styles.centerLine, { top: verticalPadding }]}
-      />
-      <View
-        pointerEvents="none"
-        style={[styles.centerLine, { top: verticalPadding + itemHeight }]}
-      />
-      {/* Suffix subito sotto il centro, sopra il fade. */}
-      {suffix ? (
+      {/* Fade overlays — vignetta verso colors.bg sui bordi della wheel. */}
+      {isHorizontal ? (
+        <>
+          <View
+            pointerEvents="none"
+            style={[styles.fadeLeft, { width: padding }]}
+          />
+          <View
+            pointerEvents="none"
+            style={[styles.fadeRight, { width: padding }]}
+          />
+        </>
+      ) : (
+        <>
+          <View
+            pointerEvents="none"
+            style={[styles.fadeTop, { height: padding }]}
+          />
+          <View
+            pointerEvents="none"
+            style={[styles.fadeBottom, { height: padding }]}
+          />
+        </>
+      )}
+      {/* Linee di slot del valore selezionato. */}
+      {isHorizontal ? (
+        <>
+          <View
+            pointerEvents="none"
+            style={[styles.centerLineVertical, { left: padding }]}
+          />
+          <View
+            pointerEvents="none"
+            style={[styles.centerLineVertical, { left: padding + itemWidth }]}
+          />
+        </>
+      ) : (
+        <>
+          <View
+            pointerEvents="none"
+            style={[styles.centerLineHorizontal, { top: padding }]}
+          />
+          <View
+            pointerEvents="none"
+            style={[
+              styles.centerLineHorizontal,
+              { top: padding + itemHeight },
+            ]}
+          />
+        </>
+      )}
+      {/* Suffix solo in vertical: overlay sotto lo slot centrale. In horizontal
+          il caller renderizza la label esternamente alla wheel. */}
+      {!isHorizontal && suffix ? (
         <View
           pointerEvents="none"
           style={[
             styles.suffixOverlay,
-            { top: verticalPadding + itemHeight + spacing.xxs },
+            { top: padding + itemHeight + spacing.xxs },
           ]}
         >
           <Text style={[typography.caption, { color: accent }]}>{suffix}</Text>
@@ -225,11 +305,29 @@ const styles = StyleSheet.create({
     backgroundColor: colors.textSec,
     opacity: 0.5,
   },
-  centerLine: {
+  prescribedMarkerHorizontal: {
+    position: 'absolute',
+    top: spacing.xxs,
+    left: '50%',
+    marginLeft: -3,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.textSec,
+    opacity: 0.5,
+  },
+  centerLineHorizontal: {
     position: 'absolute',
     left: 0,
     right: 0,
     height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+  },
+  centerLineVertical: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
   },
   suffixOverlay: {
@@ -250,6 +348,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     left: 0,
+    right: 0,
+    backgroundColor: colors.bg,
+    opacity: 0.45,
+  },
+  fadeLeft: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: colors.bg,
+    opacity: 0.45,
+  },
+  fadeRight: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
     right: 0,
     backgroundColor: colors.bg,
     opacity: 0.45,
