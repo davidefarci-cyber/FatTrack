@@ -885,6 +885,96 @@ sport copertura come iterazione successiva o bonus se semplice.
 
 ## ✅ Fatto
 
+### [chiusa] [33] Permessi: rimuovere RECORD_AUDIO + verificare prompt camera
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-03
+
+Aggiunto `"microphonePermission": false` alla config del plugin
+`expo-camera` in `app.json` (commit `2f89547`, PR #58 sessione UX
+Polish A). expo-camera v15 non inietta più `RECORD_AUDIO` nel
+manifest finale. Il flow camera in `ScannerView.tsx:51-56` (auto-prompt
++ bottone esplicito + `Linking.openSettings()`) preservato senza
+modifiche, già robusto. QA manuale del manifest a carico dell'utente
+al prossimo build APK locale.
+
+---
+
+### [chiusa] [17] Haptic feedback / suoni su completamento set e fine recupero
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-03
+
+Introdotta dipendenza `expo-haptics` con helper centralizzato
+`src/utils/haptics.ts` che rispetta il flag `hapticEnabled` (default
+true) salvato in `app_settings` (PR #58 sessione UX Polish A,
+commits `7d35c49` + `842b528`). Punti di chiamata: tap "Set
+completato" (light), fine countdown RestTimer (success), long-press
+tab Home per switch modalità (success), toggle modalità in
+Settings/SportSettings (success). Espansione di scope ragionevole
+dell'operaia: haptic anche su add-food / preferito / quick-addon /
+"Inizia ora" — bonus apprezzato. Toggle "Vibrazione" disponibile in
+entrambe le Settings, disabilita tutti i feedback con una sola riga
+grazie alla cache invalidata.
+
+---
+
+### [chiusa] [29] Feedback tattile al cambio modalità (fit↔fat)
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-03
+
+Coperta dalla stessa PR #58 (commit `7d35c49`): `successHaptic()` su
+long-press tab Home + toggle "Modalità app" in Settings e
+SportSettings. Stesso flag `hapticEnabled` di [17] (toggle unico per
+tutti i feedback dell'app, scelta UX dell'orchestratore per evitare
+proliferazione di setting).
+
+---
+
+### [chiusa] [20] Spotify integration (deep-link MVP, OAuth Web API v2)
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-03 (versione MVP)
+
+PR #58 commit `7540792`. Tasto "Apri Spotify" in `SportHomeScreen`
++ campo URI playlist configurabile in `SportSettings`. Apre l'app
+Spotify nativa via `Linking.openURL`: se URI configurato (es.
+`spotify:playlist:xyz`) parte direttamente da lì, altrimenti URI
+generico `spotify:`. Fallback con Toast "Installa Spotify per
+usare questa scorciatoia" se l'app non è installata. Aggiunta icona
+`music` al set Icon. Versione V2 (Spotify Web API + OAuth PKCE)
+NON inclusa, va riaperta come voce dedicata se richiesta in futuro.
+
+---
+
+### [chiusa] [26] Categorizzare elenco esercizi
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-03
+
+PR #59 commit `0024131`. `ExercisesScreen` passa da `ScrollView`
+lineare a `SectionList` con headers sticky raggruppati per
+`muscleGroup`. Migliora la scansionabilità dei 40 esercizi seedati
+(nomi simili tipo "Push-up / Wide push-up / Diamond push-up" ora
+distinguibili a colpo d'occhio). I filtri esistenti (gruppo /
+livello / attrezzo) funzionano intra-sezione, sezioni vuote
+nascoste. Helper di raggruppamento estratto in
+`src/utils/exerciseGrouping.ts`.
+
+---
+
+### [chiusa] [23] Scroll orizzontale per cambiare giorno nella home diet
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-03
+
+PR #59 commit `60aef81`. Aggiunto `Gesture.Pan()` orizzontale su
+`HomeScreen`: swipe sx avanza al giorno successivo, swipe dx torna
+al precedente. Threshold conservativi (60px + velocityX 200) +
+`activeOffsetX([-15, 15])` / `failOffsetY([-25, 25])` per non
+interferire con lo scroll verticale. Le frecce
+`chevron-left`/`chevron-right` nell'header data restano come
+affordance esplicito. Riuso dei callback `goPrevDay`/`goNextDay`
+già esistenti.
+
+---
+
+
 ### [chiusa] [28] Aumentare durata `ModeTransitionOverlay`
 
 **Aperta**: 2026-05-02 — **Chiusa**: 2026-05-02

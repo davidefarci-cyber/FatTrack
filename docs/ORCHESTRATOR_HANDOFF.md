@@ -245,10 +245,12 @@ all'utente per dare il via.
 | # | Titolo | Effort | Dipendenze | Pronto a partire? |
 | --- | --- | --- | --- | --- |
 | [14] | Backup/restore include tabelle sport | M (~2h) | — | ✅ sì |
-| [33] | Permessi: rimuovere RECORD_AUDIO + QA prompt camera | S (~1h) | — | ✅ sì — pianificata in Sessione A UX Polish |
 | [15] | Asset wordmark "FitTrack" definitivi | M | Asset dell'utente | ⏳ trattare SEPARATAMENTE quando arrivano asset |
 | [11] | Backup / restore del database utente | L (~4-6h) | — (già base esistente?) | da verificare |
 | [24] | Selettore reps a scorrimento (fit) | M (~3-4h) | — | ✅ sì — alta UX impact |
+
+> Aggiornamento 2026-05-03: voci [33] [17] [29] [20] [26] [23] chiuse
+> dal batch UX Polish (PR #58 + #59). Restano in 🟡 le 4 voci sopra.
 
 **Voce [14] (consigliata come primo prossimo lavoro)**:
 - Cosa serve all'utente: niente, è autocontenuta.
@@ -395,6 +397,8 @@ git history.
 
 | Data | PR | Branch | Cosa | Note |
 | --- | --- | --- | --- | --- |
+| 2026-05-03 | #59 | `claude/ux-polish-layout-gestures-WutQB` | UX Polish B (SectionList esercizi + swipe diet) | 2 commit. Chiude [26] [23]. Helper nuovo `src/utils/exerciseGrouping.ts`. |
+| 2026-05-03 | #58 | `claude/ux-polish-haptic-permissions-kKTLh` | UX Polish A (haptic + permessi camera + Spotify) | 4 commit. Chiude [17] [29] [33] [20]. Bonus operaia: haptic esteso a add-food/preferito/quick-addon/"Inizia ora". |
 | 2026-05-02 | — (direct) | main | UX [28] timing transizione mode | Bump 700ms → 1500ms (commit `e462a1d`). Fix orchestratore diretto. |
 | 2026-05-02 | #57 | `claude/review-orchestrator-workflow-zzPaV` | Fix loop SportHomeScreen | `stats` → `stats.reload` in useFocusEffect dep. Risolve scaldamento + freeze + "Inizia ora" bloccato. |
 | 2026-05-02 | #56 | `claude/sport-mode-polish` | Sport Fase 5 | Last sport phase |
