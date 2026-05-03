@@ -16,7 +16,7 @@ import ExercisesScreen from '@/screens/sport/ExercisesScreen';
 import SportHistoryScreen from '@/screens/sport/SportHistoryScreen';
 import SportHomeScreen from '@/screens/sport/SportHomeScreen';
 import SportSettingsScreen from '@/screens/sport/SportSettingsScreen';
-import TimerScreen from '@/screens/sport/TimerScreen';
+import TabataScreen from '@/screens/sport/TabataScreen';
 import WorkoutsScreen from '@/screens/sport/WorkoutsScreen';
 import { spacing } from '@/theme';
 import type { SportTabParamList } from '@/types';
@@ -111,7 +111,7 @@ export function SportTabNavigator() {
         )}
         screenOptions={{ headerShown: false }}
       >
-        <Tab.Screen name="Timer" component={TimerScreen} />
+        <Tab.Screen name="Timer" component={TabataScreen} />
         <Tab.Screen name="Workouts" component={WorkoutsScreen} />
         <Tab.Screen name="Home" component={SportHomeScreen} />
         <Tab.Screen name="History" component={SportHistoryScreen} />
