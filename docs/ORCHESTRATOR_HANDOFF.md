@@ -523,7 +523,7 @@ Aggiornata 2026-05-03 post-merge sessione D (PR #67).
 | Sessione | Stato | Voce | Effort | Cosa |
 | --- | --- | --- | --- | --- |
 | **D** | ✅ chiusa | [37] | M | Restyle RunningView Tabata + ActiveSession overhaul (WheelPicker horizontal, RPE→Poco/Troppo, rimozione UI Peso). PR #67. |
-| **D2** | 🔜 prossima | — (no TODO dedicato) | S (~1-2h) | Fix Tabata: bug auto-advance fase work↔rest (deps `useEffect` riga 72 di `TabataScreen.tsx` non includono il tick) + integrazione 3 nuovi suoni: `8bit.wav` sostituisce `countdown-tick.wav` SOLO per il countdown 5→1 di start Tabata; `gogogo.wav` a inizio allenamento (post-countdown, prima di Round 1); `cool.wav` a inizio ogni fase di recupero; `countdown-tick.wav` (vecchio) suona negli ultimi 5s di entrambe le fasi work+rest. File audio già in `assets/sounds/` (commit `e826611`). |
+| **D2** | 🔜 prossima | — (no TODO dedicato) | S (~1-2h) | Fix Tabata: bug auto-advance fase work↔rest (deps `useEffect` riga 72 di `TabataScreen.tsx` non includono il tick, fix con check dentro setInterval di tick) + integrazione 4 suoni: `8bit.wav` su tutti i tick Tabata (countdown 5→1 di start + ultimi 5s di work + ultimi 5s di rest); `gogogo.wav` a inizio ogni fase Lavoro; `cool.wav` a inizio ogni fase Recupero; `countdown-tick.wav` riusato negli ultimi 5s dei due RestTimer di pausa (sessione live + standalone home), accanto al `lightHaptic()` esistente. File audio già in `assets/sounds/` (commit `e826611`). |
 | **E** | ⏳ in coda | [14] (+ [11]) | S-M (~1-2h) | Estende `TABLES` di `dbBackup.ts` con le 7 tabelle sport (`active_session` esclusa). Bumpa `BACKUP_SCHEMA_VERSION` a 2. Round-trip export → reset → import preserva schede personali, sessioni storiche, modalità corrente, weekly target, config Tabata, settings haptic/Spotify. Al merge si chiude anche [11]. |
 | **F** | ⏳ in coda | [32] | M (~2-3h) | Aggiunge 20-30 esercizi curati al seed (`src/database/seedExercises.ts`). Top-up idempotente. Singola sessione. |
 
@@ -540,10 +540,11 @@ Aggiornata 2026-05-03 post-merge sessione D (PR #67).
   (riga 61), invece che in un `useEffect` separato. Meno
   re-render, semantica più diretta.
 - `playCountdownTick()` in `src/utils/countdownSound.ts` carica
-  hardcoded `countdown-tick.wav`. Va generalizzato a una factory
-  `getSoundLoader(filename)` con cache per file, oppure a un
-  modulo `sportSounds.ts` con 4 funzioni esposte (start tick /
-  countdown tick / gogogo / cool).
+  hardcoded `countdown-tick.wav`. Va generalizzato in
+  `src/utils/sportSounds.ts` con 4 funzioni esposte: `playTick()`
+  (8bit), `playWorkStart()` (gogogo), `playRestStart()` (cool),
+  `playPauseTick()` (countdown-tick — usato dai due RestTimer di
+  pausa, NON dal Tabata).
 
 **Pre-requisiti per E**: nessuno. Lista TABLES in
 `src/utils/dbBackup.ts:22-30`; CREATE TABLE delle 7 tabelle sport

@@ -13,7 +13,8 @@
 
 ## Scope
 
-Sessione piccola di fix + integrazione audio sul Tabata. Tre interventi:
+Sessione piccola di fix + integrazione audio sul Tabata e sui due
+RestTimer (sessione live + standalone home). Quattro interventi:
 
 1. **Fix bug auto-advance work↔rest**: a fine fase, il Tabata non
    passa automaticamente alla fase successiva. Bisogna premere
@@ -26,13 +27,23 @@ Sessione piccola di fix + integrazione audio sul Tabata. Tre interventi:
 2. **Refactor `countdownSound.ts` → `sportSounds.ts`**: il modulo
    attuale carica hardcoded `countdown-tick.wav` ed espone solo
    `playCountdownTick()`. Va generalizzato a una factory che
-   cachi più sound per file e a esporre 3 funzioni dedicate:
-   `playTick()` (8bit), `playWorkStart()` (gogogo), `playRestStart()` (cool).
+   cachi più sound per file e a esporre 4 funzioni dedicate:
+   `playTick()` (8bit, Tabata), `playWorkStart()` (gogogo),
+   `playRestStart()` (cool), `playPauseTick()` (countdown-tick,
+   per i RestTimer di pausa).
 3. **Integrazione audio in `TabataScreen.tsx`**:
    - Countdown 5→1 di start (post Hold) → `playTick()` (8bit)
    - Inizio ogni fase Lavoro → `playWorkStart()` (gogogo)
    - Inizio ogni fase Recupero → `playRestStart()` (cool)
    - Ultimi 5s di ogni fase (lavoro + recupero) → `playTick()` (8bit)
+4. **Audio ultimi 5s nei RestTimer di pausa**:
+   - `RestTimer.tsx` (pausa tra serie nella sessione live):
+     accanto al `lightHaptic()` esistente al riga 73, chiama
+     anche `playPauseTick()`. Il pattern Set `fired` esistente
+     dedupe già — basta aggiungere la riga audio.
+   - `RestTimerStandaloneModal.tsx` (timer pausa dalla home):
+     accanto al `lightHaptic()` esistente al riga 106, chiama
+     anche `playPauseTick()`. Stesso pattern.
 
 Effort stimato: S (~1-2h).
 
@@ -146,12 +157,13 @@ import { Audio } from 'expo-av';
 // la durata dell'app e riprodotto via replayAsync. Pattern già
 // rodato per countdown-tick in C3.1.
 
-type SoundKey = 'tick' | 'workStart' | 'restStart';
+type SoundKey = 'tick' | 'workStart' | 'restStart' | 'pauseTick';
 
 const SOUND_FILES: Record<SoundKey, number> = {
   tick: require('../../assets/sounds/8bit.wav'),
   workStart: require('../../assets/sounds/gogogo.wav'),
   restStart: require('../../assets/sounds/cool.wav'),
+  pauseTick: require('../../assets/sounds/countdown-tick.wav'),
 };
 
 const cache: Partial<Record<SoundKey, Audio.Sound>> = {};
@@ -188,6 +200,7 @@ async function play(key: SoundKey): Promise<void> {
 export const playTick = () => play('tick');
 export const playWorkStart = () => play('workStart');
 export const playRestStart = () => play('restStart');
+export const playPauseTick = () => play('pauseTick');
 
 export async function unloadAllSounds(): Promise<void> {
   for (const key of Object.keys(cache) as SoundKey[]) {
@@ -201,8 +214,8 @@ Verifica:
 - Cancella `src/utils/countdownSound.ts` (file vecchio).
 - Aggiorna l'import in `TabataScreen.tsx` (`playCountdownTick`
   → `playTick` e `playWorkStart` / `playRestStart` come nuovi).
-- `countdown-tick.wav` resta in `assets/sounds/` (non usato per
-  ora dal Tabata, riservato per usi futuri — non cancellarlo).
+- `countdown-tick.wav` resta in `assets/sounds/` (non usato dal
+  Tabata, ma usato dai due RestTimer di pausa — vedi Step D2.4).
 - Verifica con `grep -rn "countdownSound\|playCountdownTick" src/`
   che non rimangano referenze al vecchio modulo.
 
@@ -290,6 +303,33 @@ Commit suggerito:
 
 ---
 
+## Step D2.4 — Audio negli ultimi 5s dei RestTimer di pausa
+
+Due file. Pattern identico in entrambi: il `lightHaptic()`
+esistente già usa un `Set<number> fired` per dedupe degli ultimi 5
+secondi. Basta aggiungere la riga `void playPauseTick()`
+immediatamente dopo `void lightHaptic()`. Niente altri cambi.
+
+File 1: `src/components/sport/RestTimer.tsx`
+- Linea 7: aggiungi import `playPauseTick` da `@/utils/sportSounds`.
+- Linea 73: dopo `void lightHaptic();` aggiungi `void playPauseTick();`.
+
+File 2: `src/components/sport/RestTimerStandaloneModal.tsx`
+- Linea 10: aggiungi import `playPauseTick` da `@/utils/sportSounds`.
+- Linea 106: dopo `void lightHaptic();` aggiungi `void playPauseTick();`.
+
+NIENTE altri cambi: il pattern dedup `fired.has(remainingSec)` /
+`fired.add(remainingSec)` esistente garantisce che ogni tick
+suoni una sola volta. Lo step `successHaptic()` di completamento
+(linea 119 di RestTimer e altre) NON va toccato — quello resta
+haptic-only come oggi (è il "fine recupero", non un tick di
+countdown).
+
+Commit suggerito:
+`feat(sport): countdown-tick audio negli ultimi 5s dei RestTimer di pausa`
+
+---
+
 ## Vincoli operativi
 
 - **Italiano** in tutti i testi UI nuovi (nessuno previsto qui,
@@ -297,12 +337,14 @@ Commit suggerito:
 - **No nuove librerie**. Usa solo `expo-av` già in deps.
 - **No PR**. Push del branch + stop.
 - **No git push --force**, no hook-skip.
-- **No touch a `countdown-tick.wav`**: resta in repo, non più usato
-  dal Tabata ma preservato per usi futuri (es. RestTimer della
-  sessione live).
-- **No touch ad altri timer / RestTimer / RestTimerStandaloneModal**:
-  scope solo Tabata. Gli haptic-only del RestTimer sessione live
-  restano invariati (vedi C2).
+- **No touch a `countdown-tick.wav`**: resta in repo (file fisico),
+  e viene riusato dai due RestTimer di pausa via `playPauseTick()`.
+- **Tocca SOLO** `RestTimer.tsx` e `RestTimerStandaloneModal.tsx`
+  per aggiungere la chiamata audio negli ultimi 5s. Niente altri
+  cambi a quei due file (`successHaptic()` di completamento
+  invariato, layout invariato, props invariati).
+- **No touch a `ActiveSessionContext.tsx`** né alle notifiche
+  push (`restNotifications.ts`) — invariati.
 
 ## Smoke test (verifica manuale dopo l'implementazione)
 
@@ -334,6 +376,19 @@ Commit suggerito:
 9. **Termina + restart**: termina l'allenamento (reset), riavvia:
    tutti i suoni ripartono correttamente (cache audio
    funzionante, niente errori in console).
+10. **Audio RestTimer sessione live**: avvia una scheda con
+    esercizi a reps (es. "Full Body Casa"), completa un set →
+    parte il RestTimer → negli ultimi 5 secondi del recupero
+    suona `countdown-tick.wav` (non `8bit.wav`!) accompagnato
+    dall'haptic. A fine recupero `successHaptic()` come oggi
+    (no audio aggiuntivo).
+11. **Audio RestTimerStandaloneModal**: home sport → quick action
+    "Pausa" → configura 30s → avvio → negli ultimi 5s suona
+    `countdown-tick.wav` con haptic. A fine timer behavior
+    invariato.
+12. **No cross-contaminazione audio**: il Tabata NON deve mai
+    suonare `countdown-tick.wav`. I due RestTimer NON devono mai
+    suonare `8bit.wav` / `gogogo.wav` / `cool.wav`.
 
 ## Note finali per la sessione operaia
 
@@ -361,16 +416,17 @@ Procedi.
 
 ## Cosa NON includere (scope creep prevention)
 
-- ❌ Touch a `countdown-tick.wav` (resta in repo).
-- ❌ Touch a `RestTimer` o `RestTimerStandaloneModal` o
-  `ActiveSessionContext` (gli audio haptic-only di quei moduli
-  restano invariati).
+- ❌ Touch a `ActiveSessionContext` o `restNotifications.ts` (le
+  notifiche push e il flow stato sessione restano invariati).
+- ❌ Refactor del successHaptic() finale dei RestTimer (resta
+  haptic-only — voluto).
 - ❌ Aggiungere altri suoni o personalizzazione (volume, mute,
-  ecc.). Il toggle `hapticEnabled` esistente disabilita SOLO
-  l'haptic, non l'audio — voluto, l'audio è essenziale per il
-  Tabata "circuito a occhi chiusi".
-- ❌ Estensione del refactor sportSounds.ts ad altri domini
-  (RestTimer della sessione live, ecc.) — scope futuro.
+  toggle audio separato, ecc.). Il toggle `hapticEnabled`
+  esistente disabilita SOLO l'haptic, non l'audio — voluto,
+  l'audio è essenziale per il Tabata "circuito a occhi chiusi"
+  e per i RestTimer di pausa.
+- ❌ Audio in altri eventuali timer (TimerScreen libero se
+  esistesse, Hold-to-start countdown — invariati).
 - ❌ Aggiungere voci TODO nuove (questa sessione non chiude voci
   formali, è un fix + feature minore — riferimento nei commit
   message basta).
