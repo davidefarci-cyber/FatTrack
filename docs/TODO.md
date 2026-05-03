@@ -796,7 +796,7 @@ trattamento brochure premium. Decisioni di prodotto già prese
   5→1 con animazione scale/fade + audio + haptic per ogni tick →
   apre `RunningView` corrente (workout vero e proprio).
 - **Audio è REQUISITO**: aggiunge `expo-av`. Serve asset
-  `assets/sounds/countdown-tick.mp3` (~100-200ms, beep/tick) —
+  `assets/sounds/countdown-tick.wav` (~100-200ms, beep/tick) —
   da fornire dall'utente o creare con file CC0 prima del lancio.
 
 NON in scope per questa voce: restyle del `RunningView`

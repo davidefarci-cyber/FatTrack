@@ -7,7 +7,7 @@
 > Effort stimato: ~5-7h.
 >
 > **Pre-requisito esterno proprietario**: file
-> `assets/sounds/countdown-tick.mp3` deve esistere PRIMA del lancio
+> `assets/sounds/countdown-tick.wav` deve esistere PRIMA del lancio
 > (durata ~100-200ms, suono "tick"/"beep" sintetico CC0). L'audio è
 > requisito hard del countdown 5→1 (decisione di prodotto già presa,
 > niente fallback solo-haptic). Se il file manca al lancio, la
@@ -31,7 +31,7 @@ Timer → Tabata. Sette commit logici, in ordine.
 
 PRIMA DI INIZIARE:
 
-a) Verifica che `assets/sounds/countdown-tick.mp3` esista. Se
+a) Verifica che `assets/sounds/countdown-tick.wav` esista. Se
    manca → STOP, segnala all'utente che è prerequisito hard e
    che la sessione si ferma. NON tentare di crearlo o cercare
    alternative (audio è requisito esplicito del proprietario,
@@ -317,12 +317,12 @@ async function getSound(): Promise<Audio.Sound | null> {
   if (cachedSound) return cachedSound;
   try {
     const { sound } = await Audio.Sound.createAsync(
-      require('../../assets/sounds/countdown-tick.mp3'),
+      require('../../assets/sounds/countdown-tick.wav'),
     );
     cachedSound = sound;
     return sound;
   } catch (err) {
-    console.warn('countdown-tick.mp3 not found or unplayable', err);
+    console.warn('countdown-tick.wav not found or unplayable', err);
     return null;
   }
 }
@@ -360,7 +360,7 @@ Commit:
 
   Nuova dipendenza expo-av per riproduzione audio. Helper
   src/utils/countdownSound.ts che carica
-  assets/sounds/countdown-tick.mp3 con cache globale e espone
+  assets/sounds/countdown-tick.wav con cache globale e espone
   playCountdownTick (riproducibile in serie veloce). Audio è
   requisito esplicito del proprietario per il countdown 5→1
   (decisione di prodotto, niente fallback solo-haptic).
@@ -663,7 +663,7 @@ Procedi.
 - Dipendenze nuove introdotte: `expo-av`. Niente lib UI.
 - Modifiche allo schema DB: 3 colonne aggiunte a `app_settings`.
   Idempotenti, non rompono backup esistenti.
-- Asset richiesto: `assets/sounds/countdown-tick.mp3` (~100-200ms,
+- Asset richiesto: `assets/sounds/countdown-tick.wav` (~100-200ms,
   beep). Se manca, la sessione si ferma allo step preliminare.
 - Niente provider nuovi in App.tsx.
 
