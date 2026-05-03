@@ -27,7 +27,7 @@ const Tab = createBottomTabNavigator<SportTabParamList>();
 
 const EXIT_DOUBLE_TAP_MS = 2000;
 
-// Bottom tab a 5 voci visibili (mode='sport'): Timer · Schede · Home (FAB) ·
+// Bottom tab a 5 voci visibili (mode='sport'): Tabata · Schede · Home (FAB) ·
 // Storico · Esercizi. SportSettings resta registrata come Tab.Screen
 // (raggiungibile dal cog di SportHomeScreen) ma non appare nella bar perché
 // il TAB_CONFIG sport non la include — il renderer skippa le rotte non
@@ -111,7 +111,7 @@ export function SportTabNavigator() {
         )}
         screenOptions={{ headerShown: false }}
       >
-        <Tab.Screen name="Timer" component={TabataScreen} />
+        <Tab.Screen name="Tabata" component={TabataScreen} />
         <Tab.Screen name="Workouts" component={WorkoutsScreen} />
         <Tab.Screen name="Home" component={SportHomeScreen} />
         <Tab.Screen name="History" component={SportHistoryScreen} />

@@ -327,7 +327,7 @@ function RunningView({
   const now = Date.now();
 
   let bigText = '00:00';
-  let phaseLabel = 'Timer';
+  let phaseLabel = 'Tabata';
   if (intervalState) {
     const remainingMs = Math.max(0, intervalState.endsAt - now);
     bigText = formatSeconds(Math.ceil(remainingMs / 1000));
