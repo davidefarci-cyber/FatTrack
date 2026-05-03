@@ -770,6 +770,110 @@ sport copertura come iterazione successiva o bonus se semplice.
 
 ---
 
+### [35] Redesign tab Timer → Tabata (esperienza brochure dedicata)
+
+**Aperta**: 2026-05-03
+**Priorità**: 🟡 media
+**Area**: UX (fit) / codice
+**Effort**: M-L (~5-7h, sessione operaia C3.1)
+
+Trasformare il tab `Timer` in **Tabata**: da utility generica
+multi-modalità a esperienza dedicata al protocollo HIIT,
+trattamento brochure premium. Decisioni di prodotto già prese
+(brainstorm in `docs/ux-polish/BRAINSTORM_C3_TABATA.md`):
+
+- Renaming tab `Timer` → `Tabata` (icona invariata).
+- Modalità "Libero" esce → diventa voce [36].
+- Modalità "Intervalli" non è più un segmented option → diventa
+  schermata di config persistita.
+- Home Tabata: hero copy + 3 stat card (4 min / +28% capacità
+  anaerobica / +14% VO₂max), icona `info` per spiegazione
+  scientifica, icona `cog` per personalizzazione, pulsante hero
+  "Avvia" tondo centrale **hold-to-start ~2s** con glow animato.
+- Schema DB: nuove colonne `tabata_work_sec/rest_sec/rounds` in
+  `app_settings` (default 20/10/8) — pattern `weekly_target_days`.
+- Flow avvio: hold-to-confirm → overlay fullscreen countdown
+  5→1 con animazione scale/fade + audio + haptic per ogni tick →
+  apre `RunningView` corrente (workout vero e proprio).
+- **Audio è REQUISITO**: aggiunge `expo-av`. Serve asset
+  `assets/sounds/countdown-tick.mp3` (~100-200ms, beep/tick) —
+  da fornire dall'utente o creare con file CC0 prima del lancio.
+
+NON in scope per questa voce: restyle del `RunningView`
+post-countdown (vedi voce [37]).
+
+**Done quando**: il tab si chiama "Tabata", la home ha brochure +
+stat card + InfoSheet + hold-to-start; la config è in modal/sheet
+dedicato e i valori personalizzati sopravvivono al riavvio
+dell'app; al "Avvia" parte countdown 5→1 con audio+haptic e poi
+inizia il workout.
+
+---
+
+### [36] Timer pausa standalone in SportHomeScreen
+
+**Aperta**: 2026-05-03
+**Priorità**: 🟡 media
+**Area**: UX (fit) / codice
+**Effort**: S-M (~2-3h, sessione operaia C3.2)
+
+Spin-off della modalità "Libero" di TimerScreen che esce dal tab
+Tabata (vedi [35]). Use case del proprietario: «una cosa fuori
+dall'allenamento guidato, da usare se voglio solo farmi seguire
+in una sessione mia non intensiva — un timer di riposo per non
+perdermi e rimanere fermo più del dovuto».
+
+Implementazione:
+
+- Nuovo pulsante "Timer pausa" in `SportHomeScreen`, affiancato
+  al pulsante "Apri Spotify" già esistente.
+- Layout: oggi `<SpotifyCard>` occupa una riga intera
+  (`SportHomeScreen.tsx:236`). Va ridotto a metà larghezza e
+  affiancato dal nuovo pulsante "Timer pausa", su una sola riga
+  (due chip/card 50/50).
+- Forma del timer: timer di riposo configurabile al volo
+  (count-down). Forma libera (modal, BottomSheet, schermata
+  dedicata) — l'orchestratrice decide. Funzione semplice, niente
+  protocollo.
+- Niente persistenza necessaria (è "libero", al volo).
+
+**Done quando**: dalla SportHome, in 1 tap, l'utente può aprire
+un timer di riposo, configurarne la durata e farlo partire; la
+riga Spotify è ridotta a metà larghezza per fare spazio.
+
+---
+
+### [37] Restyle RunningView post-countdown (Tabata)
+
+**Aperta**: 2026-05-03
+**Priorità**: 🟢 bassa
+**Area**: UX (fit)
+**Effort**: M (iterazione futura)
+
+`TimerScreen` ha oggi un `RunningView` generico per la fase
+"in esecuzione" (label "Lavoro" / "Recupero" / "Round X" + numero
+countdown). Quando arriva la voce [35] (redesign tab Tabata) la
+home + countdown overlay saranno premium, ma la RunningView resta
+generica — stride visivo tra brochure e workout.
+
+Idea: ridisegnare la RunningView per allinearla al treatment
+Tabata (palette accent, tipografia bold, pie chart progress per
+il round corrente, indicatore "round X di Y" prominente, magari
+arco intorno al numero del countdown corrente).
+
+Tenuta come voce separata da [35] perché:
+- in [35] l'MVP è "il flow funziona end-to-end con la home nuova"
+- restyle RunningView può aspettare un'iterazione, non blocca
+  l'esperienza Tabata
+- chi scrive [35] può lasciarla invariata e segnalare nel commit
+  che [37] resta da fare
+
+**Done quando**: la fase di workout (durante il Tabata) ha lo
+stesso treatment visivo della home + countdown, niente stride
+tra brochure e azione.
+
+---
+
 ## ✅ Fatto
 
 ### [chiusa] [16] Notifiche locali per fine recupero (sessione attiva)
