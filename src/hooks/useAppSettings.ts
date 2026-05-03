@@ -21,6 +21,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   weeklyTargetDays: 4,
   hapticEnabled: true,
   spotifyPlaylistUri: null,
+  tabataWorkSec: 20,
+  tabataRestSec: 10,
+  tabataRounds: 8,
   updatedAt: '',
 };
 
@@ -90,12 +93,25 @@ async function setSpotifyPlaylistUri(uri: string | null): Promise<AppSettings> {
   return updated;
 }
 
+async function setTabataConfig(config: {
+  workSec: number;
+  restSec: number;
+  rounds: number;
+}): Promise<AppSettings> {
+  const updated = await appSettingsDB.setTabataConfig(config);
+  setSnapshot({ settings: updated, loading: false, error: null });
+  return updated;
+}
+
 export type UseAppSettingsResult = {
   appMode: AppMode;
   sportModeSeen: boolean;
   weeklyTargetDays: number;
   hapticEnabled: boolean;
   spotifyPlaylistUri: string | null;
+  tabataWorkSec: number;
+  tabataRestSec: number;
+  tabataRounds: number;
   loading: boolean;
   error: Error | null;
   setAppMode: (mode: AppMode) => Promise<AppSettings>;
@@ -103,6 +119,11 @@ export type UseAppSettingsResult = {
   setWeeklyTarget: (days: number) => Promise<AppSettings>;
   setHapticEnabled: (enabled: boolean) => Promise<AppSettings>;
   setSpotifyPlaylistUri: (uri: string | null) => Promise<AppSettings>;
+  setTabataConfig: (config: {
+    workSec: number;
+    restSec: number;
+    rounds: number;
+  }) => Promise<AppSettings>;
   reload: () => Promise<void>;
 };
 
@@ -119,6 +140,11 @@ export function useAppSettings(): UseAppSettingsResult {
     (u: string | null) => setSpotifyPlaylistUri(u),
     [],
   );
+  const setTabataFn = useCallback(
+    (c: { workSec: number; restSec: number; rounds: number }) =>
+      setTabataConfig(c),
+    [],
+  );
 
   const settings = state.settings ?? DEFAULT_SETTINGS;
 
@@ -128,6 +154,9 @@ export function useAppSettings(): UseAppSettingsResult {
     weeklyTargetDays: settings.weeklyTargetDays,
     hapticEnabled: settings.hapticEnabled,
     spotifyPlaylistUri: settings.spotifyPlaylistUri,
+    tabataWorkSec: settings.tabataWorkSec,
+    tabataRestSec: settings.tabataRestSec,
+    tabataRounds: settings.tabataRounds,
     loading: state.loading,
     error: state.error,
     setAppMode: setModeFn,
@@ -135,6 +164,7 @@ export function useAppSettings(): UseAppSettingsResult {
     setWeeklyTarget: setWeeklyTargetFn,
     setHapticEnabled: setHapticFn,
     setSpotifyPlaylistUri: setSpotifyFn,
+    setTabataConfig: setTabataFn,
     reload: reloadFn,
   };
 }
