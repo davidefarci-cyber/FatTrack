@@ -8,6 +8,7 @@ import { Icon } from '@/components/Icon';
 import { colors, radii, spacing, typography } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
 import { lightHaptic, successHaptic } from '@/utils/haptics';
+import { playPauseTick } from '@/utils/sportSounds';
 import { describeArc } from '@/utils/svgArc';
 
 // Modal "Timer di pausa" standalone aperto da SportHomeScreen ([36] / C3.2).
@@ -104,6 +105,7 @@ export function RestTimerStandaloneModal({ visible, onClose }: Props) {
       if (!fired.has(remainingSec)) {
         fired.add(remainingSec);
         void lightHaptic();
+        void playPauseTick();
       }
     }
   }, [liveRemainingMs, remainingSec, phase]);
