@@ -1,6 +1,6 @@
 {
-  "version": "1.1.3",
+  "version": "2.0.0",
   "apk_url": "https://github.com/davidefarci-cyber/fattrack/releases/latest/download/fattrack.apk",
   "min_supported_version": "1.0.0",
-  "notes": "rimosso completamente aggiornamento ota prima di prossimi aggiornamenti di funzionalità"
+  "notes": "Il più grande aggiornamento di sempre\n- diamo il benvenuto alla modalità fitness, ora è possibile tenere traccia dei tuoi allenamenti a casa\n- corposo elenco di esercizi da fare a casa\n- timer manuale per le pause tra esercizi\n- accesso diretto a Spotify\n- modalità tabata, un allenamento intensivo in poco tempo\n\n- diverse correzioni nella modalità cibo e miglioramenti Ux"
 }
