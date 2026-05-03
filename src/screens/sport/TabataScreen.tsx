@@ -16,7 +16,7 @@ import { useAppSettings } from '@/hooks/useAppSettings';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
 import { lightHaptic } from '@/utils/haptics';
-import { playTick } from '@/utils/sportSounds';
+import { playRestStart, playTick, playWorkStart } from '@/utils/sportSounds';
 import { describeArc } from '@/utils/svgArc';
 
 // Schermata Tabata: brochure premium del protocollo HIIT.
@@ -64,6 +64,10 @@ export default function TabataScreen() {
   // countdown visivo.
   const [, setTick] = useState(0);
   const intervalStateRef = useRef(intervalState);
+  // Set di secondi già "ticchettati" negli ultimi 5 della fase corrente:
+  // evita che il polling 200ms emetta due volte audio+haptic sullo stesso
+  // secondo intero. Reset a ogni cambio fase.
+  const tickedSecondsRef = useRef<Set<number>>(new Set());
   useEffect(() => {
     intervalStateRef.current = intervalState;
   }, [intervalState]);
@@ -73,8 +77,19 @@ export default function TabataScreen() {
       setTick((t) => t + 1);
       const current = intervalStateRef.current;
       if (!current || current.phase === 'done') return;
-      if (Date.now() >= current.endsAt) {
+      const remainingMs = current.endsAt - Date.now();
+      if (remainingMs <= 0) {
         advanceInterval();
+        return;
+      }
+      const remainingSec = Math.ceil(remainingMs / 1000);
+      if (remainingSec >= 1 && remainingSec <= 5) {
+        const fired = tickedSecondsRef.current;
+        if (!fired.has(remainingSec)) {
+          fired.add(remainingSec);
+          void playTick();
+          void lightHaptic();
+        }
       }
     }, 200);
     return () => clearInterval(id);
@@ -85,6 +100,7 @@ export default function TabataScreen() {
     const current = intervalStateRef.current;
     if (!current) return;
     const now = Date.now();
+    tickedSecondsRef.current.clear();
     if (current.phase === 'work') {
       if (tabataRestSec > 0) {
         setIntervalState({
@@ -92,6 +108,7 @@ export default function TabataScreen() {
           round: current.round,
           endsAt: now + tabataRestSec * 1000,
         });
+        void playRestStart();
         return;
       }
       // Recupero a 0 → vai al prossimo round o termina.
@@ -109,6 +126,7 @@ export default function TabataScreen() {
       round: current.round + 1,
       endsAt: now + tabataWorkSec * 1000,
     });
+    void playWorkStart();
   }
 
   const handleConfirmStart = () => {
@@ -117,6 +135,7 @@ export default function TabataScreen() {
 
   const handleCountdownComplete = () => {
     setOverlayVisible(false);
+    tickedSecondsRef.current.clear();
     setIntervalState({
       phase: 'work',
       round: 1,
@@ -126,6 +145,7 @@ export default function TabataScreen() {
     setPausedAt(null);
     setRunning(true);
     setPaused(false);
+    void playWorkStart();
   };
 
   const handleTick = () => {
