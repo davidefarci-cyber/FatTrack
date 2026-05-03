@@ -770,38 +770,36 @@ sport copertura come iterazione successiva o bonus se semplice.
 
 ---
 
-### [37] Restyle RunningView post-countdown (Tabata)
+## ✅ Fatto
 
-**Aperta**: 2026-05-03
-**Priorità**: 🟢 bassa
-**Area**: UX (fit)
-**Effort**: M (iterazione futura)
+### [chiusa] [37] Restyle RunningView post-countdown (Tabata)
 
-`TimerScreen` ha oggi un `RunningView` generico per la fase
-"in esecuzione" (label "Lavoro" / "Recupero" / "Round X" + numero
-countdown). Quando arriva la voce [35] (redesign tab Tabata) la
-home + countdown overlay saranno premium, ma la RunningView resta
-generica — stride visivo tra brochure e workout.
+**Aperta**: 2026-05-03 — **Chiusa**: 2026-05-03
 
-Idea: ridisegnare la RunningView per allinearla al treatment
-Tabata (palette accent, tipografia bold, pie chart progress per
-il round corrente, indicatore "round X di Y" prominente, magari
-arco intorno al numero del countdown corrente).
+PR #67 (sessione UX Polish D unificata, 5 commit). `RunningView`
+in `TabataScreen.tsx` ora ha treatment premium allineato alla
+brochure home Tabata: titolo "Round X / Y" prominente in
+typography.h1 color accent, pie chart SVG (`describeArc` da
+`@/utils/svgArc`) attorno al numero del countdown che si riempie
+durante la fase, label "Lavoro" / "Recupero" sotto in
+typography.value, palette differenziata per fase (`accent` saturo
+in lavoro, `accentSoft` in recupero). Niente stride visivo tra
+brochure e azione.
 
-Tenuta come voce separata da [35] perché:
-- in [35] l'MVP è "il flow funziona end-to-end con la home nuova"
-- restyle RunningView può aspettare un'iterazione, non blocca
-  l'esperienza Tabata
-- chi scrive [35] può lasciarla invariata e segnalare nel commit
-  che [37] resta da fare
-
-**Done quando**: la fase di workout (durante il Tabata) ha lo
-stesso treatment visivo della home + countdown, niente stride
-tra brochure e azione.
+La sessione D ha unificato anche tre interventi correlati su
+`ActiveSessionScreen`:
+- `WheelPicker` con prop `orientation: 'vertical' | 'horizontal'`
+  (default vertical, retrocompat — i 3 picker di
+  TabataConfigModal restano verticali). Commit `68fec7c`.
+- `RepsPicker` passa a wheel orizzontale, fix gesture conflict
+  con `<ScrollView>` padre. Commit `4e732f1`.
+- Sostituzione RPE 1-10 con due pill "Poco" (verde) / "Troppo"
+  (rosso), header "Com'è andato? — opzionale". Storage `rpe`
+  invariato, mappato 3/9/null. Commit `4aac520`.
+- Rimozione campo Peso dalla UI sport (DB `session_sets.weight_kg`
+  invariato per forward-compat). Commit `176f984`.
 
 ---
-
-## ✅ Fatto
 
 ### [chiusa] [35] Redesign tab Timer → Tabata (esperienza brochure dedicata)
 

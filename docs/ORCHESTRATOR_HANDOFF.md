@@ -429,6 +429,7 @@ git history.
 
 | Data | PR | Branch | Cosa | Note |
 | --- | --- | --- | --- | --- |
+| 2026-05-03 | #67 | `claude/ux-polish-tabata-running-feedback-zbaT2` | UX Polish D (RunningView Tabata + ActiveSession overhaul) | 5 commit. Chiude [37]. RunningView restyle con pie chart accent + "Round X/Y" prominente + palette work/rest. `WheelPicker` prop `orientation` horizontal (retrocompat). `RepsPicker` orizzontale (fix gesture conflict ScrollView). RPE 1-10 → pill Poco/Troppo (mappato 3/9/null). Rimossa UI Peso da sport (DB invariato per forward-compat). |
 | 2026-05-03 | #65 | `claude/ux-polish-rest-timer-standalone-S4IRN` | UX Polish C3.2 (timer pausa standalone in SportHome) | 3 commit. Chiude [36]. Nuovo `RestTimerStandaloneModal`, riga 50/50 quick action SportHome, helper `src/utils/svgArc.ts` estratto. |
 | 2026-05-03 | #64 | `claude/ux-polish-tabata-redesign-h2hGZ` | UX Polish C3.1 (redesign tab Timer → Tabata) | 7 commit. Chiude [35]. Aggiunta dep `expo-av`. Nuovi `TabataScreen`, `TabataConfigModal`, `TabataInfoSheet`, `HoldToStartButton`, `CountdownOverlay`, `src/utils/countdownSound.ts`. 3 colonne nuove `app_settings.tabata_*`. |
 | 2026-05-03 | #63 | `claude/ux-polish-resttimer-notifications-uziCT` | UX Polish C2 (RestTimer pie chart + notifiche) | 2 commit. Chiude [25] [16]. Aggiunta dep `expo-notifications`. Nuovo `src/utils/restNotifications.ts` + action `extendRest` in ActiveSessionContext. |
@@ -515,58 +516,70 @@ come fonte di verità storica.
 
 ---
 
-## 9. Roadmap concordata (consegna 2026-05-03 → nuovo orchestratore)
+## 9. Roadmap
 
-**Contesto**: l'orchestratrice precedente (sessione lunga, batch UX
-Polish A→C3 completato) ha concordato col proprietario il prossimo
-filone di lavoro prima di passare la mano. Il nuovo orchestratore
-parte da qui senza dover rifare la chiacchierata di pianificazione.
-Si è deciso di proseguire con 3 sessioni operaie autonome in serie
-**D / E / F**:
+Aggiornata 2026-05-03 post-merge sessione D (PR #67).
 
-| Sessione | Voce | Effort | Cosa | Ordine |
+| Sessione | Stato | Voce | Effort | Cosa |
 | --- | --- | --- | --- | --- |
-| **D** | [37] | M (~3-4h) | Restyle `RunningView` post-countdown Tabata: allinea il treatment visivo del workout in esecuzione alla brochure premium della home Tabata (palette accent, pie chart progress per il round, "round X di Y" prominente). | Prima — chiude il loop visivo Tabata mentre il contesto C3 è fresco. |
-| **E** | [14] (+ [11]) | S-M (~1-2h) | Estende `TABLES` di `dbBackup.ts` con le 7 tabelle sport (`active_session` esclusa). Bumpa `BACKUP_SCHEMA_VERSION` a 2. Round-trip export → reset → import preserva schede personali, sessioni storiche, modalità corrente, weekly target, config Tabata, settings haptic/Spotify. Al merge si chiude anche [11] (la base era già implementata, vedi §4.1 nota di scoperta). | Dopo D — autonoma, chiude il debito tecnico. |
-| **F** | [32] | M (~2-3h) | Aggiunge 20-30 esercizi curati al seed (`src/database/seedExercises.ts`) — stacchi/varianti, trazioni assistite, esercizi con manubri leggeri, esercizi seduti. Top-up idempotente preserva eventuali esercizi custom futuri. Singola sessione — non serve splittare (è un seed update, non lavoro architetturale). | Dopo E — lavoro contenutistico. |
+| **D** | ✅ chiusa | [37] | M | Restyle RunningView Tabata + ActiveSession overhaul (WheelPicker horizontal, RPE→Poco/Troppo, rimozione UI Peso). PR #67. |
+| **D2** | 🔜 prossima | — (no TODO dedicato) | S (~1-2h) | Fix Tabata: bug auto-advance fase work↔rest (deps `useEffect` riga 72 di `TabataScreen.tsx` non includono il tick, fix con check dentro setInterval di tick) + integrazione 4 suoni: `8bit.wav` su tutti i tick Tabata (countdown 5→1 di start + ultimi 5s di work + ultimi 5s di rest); `gogogo.wav` a inizio ogni fase Lavoro; `cool.wav` a inizio ogni fase Recupero; `countdown-tick.wav` riusato negli ultimi 5s dei due RestTimer di pausa (sessione live + standalone home), accanto al `lightHaptic()` esistente. File audio già in `assets/sounds/` (commit `e826611`). |
+| **E** | ⏳ in coda | [14] (+ [11]) | S-M (~1-2h) | Estende `TABLES` di `dbBackup.ts` con le 7 tabelle sport (`active_session` esclusa). Bumpa `BACKUP_SCHEMA_VERSION` a 2. Round-trip export → reset → import preserva schede personali, sessioni storiche, modalità corrente, weekly target, config Tabata, settings haptic/Spotify. Al merge si chiude anche [11]. |
+| **F** | ⏳ in coda | [32] | M (~2-3h) | Aggiunge 20-30 esercizi curati al seed (`src/database/seedExercises.ts`). Top-up idempotente. Singola sessione. |
 
-**Pre-requisiti già verificati**:
-- [37]: nessuno. `RunningView` vive dentro `src/screens/sport/TabataScreen.tsx` (post-C3.1 commit `1666561`); pattern `describeArc` disponibile in `src/utils/svgArc.ts`; haptic + audio già configurati.
-- [14]: nessuno. Lista TABLES in `src/utils/dbBackup.ts:22-30`; CREATE TABLE delle 7 tabelle sport in `src/database/db.ts` (cerca `app_settings`, `exercises`, ecc.); ordine FK per restore (parents prima dei children: `exercises` → `workouts` → `workout_exercises` → `sessions` → `session_sets`; `app_settings` standalone).
-- [32]: nessuno. Pattern di seed già rodato in `src/database/seedExercises.ts`. Possibile fonte: Free Exercise DB su GitHub (CC0 / MIT) o `wger.de` per ispirazione, ma per [32] basta scegliere a mano i ~25 più sensati senza fetch esterno.
+**Pre-requisiti per D2** (verificati):
+- File audio caricati e committati su main in `assets/sounds/`:
+  `8bit.wav`, `cool.wav`, `gogogo.wav`, `countdown-tick.wav`.
+- Diagnosi bug auto-advance: `TabataScreen.tsx:72-78` ha
+  `useEffect` con dep `[intervalState?.endsAt, running, paused]`.
+  `endsAt` cambia solo all'inizio di una nuova fase, mai durante.
+  Quindi `Date.now() < endsAt` viene controllato una sola volta,
+  poi mai più. Premere Pausa/Riprendi ritrigggera l'effect e
+  l'avanzamento si sblocca per coincidenza. Fix consigliato:
+  spostare il check dentro il callback del `setInterval` di tick
+  (riga 61), invece che in un `useEffect` separato. Meno
+  re-render, semantica più diretta.
+- `playCountdownTick()` in `src/utils/countdownSound.ts` carica
+  hardcoded `countdown-tick.wav`. Va generalizzato in
+  `src/utils/sportSounds.ts` con 4 funzioni esposte: `playTick()`
+  (8bit), `playWorkStart()` (gogogo), `playRestStart()` (cool),
+  `playPauseTick()` (countdown-tick — usato dai due RestTimer di
+  pausa, NON dal Tabata).
 
-**Sequenza suggerita per il nuovo orchestratore**:
+**Pre-requisiti per E**: nessuno. Lista TABLES in
+`src/utils/dbBackup.ts:22-30`; CREATE TABLE delle 7 tabelle sport
+in `src/database/db.ts`; ordine FK per restore (`exercises` →
+`workouts` → `workout_exercises` → `sessions` → `session_sets`;
+`app_settings` standalone).
 
-1. Saluta + recap stato (post-C3 batch UX Polish chiuso, 12 voci
-   chiuse, typecheck verde, repo pulito).
-2. Quando il proprietario dice "ok parti con D" → leggi
-   `src/screens/sport/TabataScreen.tsx` e in particolare la
-   `RunningView` per capire cosa ridisegnare. Verifica se il
-   restyle ha bisogno di brainstorming di prodotto (proposta:
-   pie chart attorno al numero del countdown corrente, indicatore
-   "round X / Y" grande, palette accent saturo) o se può andare
-   diretto a prompt operaio. Se serve brainstorming, propone una
-   tabella di tradeoff e chiede conferma — **NON inventare
-   decisioni di prodotto**.
-3. Scrivi `docs/ux-polish/PROMPT_SESSION_D.md` (stesso pattern di
-   C3.1/C3.2 visti nei commit recenti — vedi §3.2 di questo file).
-4. Stesso pattern per E e F dopo i merge rispettivi.
-5. Al merge di E ricordati di chiudere ANCHE [11] in TODO (vedi
-   nota §4.1). Al merge di F valuta se [19] (DB esterno completo)
-   è ancora rilevante o si può chiudere come "rimandata
-   indefinitamente".
+**Pre-requisiti per F**: nessuno. Pattern di seed in
+`src/database/seedExercises.ts`. Per [32] basta scegliere a mano
+~25 esercizi sensati senza fetch esterno.
 
-**Cosa il proprietario non ha ancora deciso**:
-- Per [37]: forma esatta del restyle (testo libero o brainstorming
-  guidato).
-- Per [32]: lista esatta dei 20-30 esercizi (può venire da
-  ricerca dell'orchestratore, da proposta del proprietario, o
-  delegata alla worker — decidere prima del prompt).
+**Sequenza per l'orchestratore**:
 
-**Cosa è già stato deciso e NON va rimesso in discussione**:
-- Naming serie sessioni: D, E, F (continuazione naturale dopo
-  C3.1/C3.2).
-- Singola sessione operaia per ognuna (no split).
-- Ordine D → E → F.
-- [11] si chiude formalmente al merge di [14] senza prompt
-  dedicato.
+1. Quando il proprietario dice "parti con D2": scrivi
+   `docs/ux-polish/PROMPT_SESSION_D2_TABATA_FIX.md`. Conferma
+   prima i 5 dettagli ancora aperti (vedi sotto).
+2. Stesso pattern per E e F dopo i merge rispettivi.
+3. Al merge di E chiudi ANCHE [11] in TODO.
+4. Al merge di F valuta se [19] (DB esterno completo) è ancora
+   rilevante o si può chiudere come "rimandata indefinitamente".
+
+**Decisioni ancora aperte per D2** (chiedere al proprietario
+prima di scrivere il prompt):
+- "Cool" all'inizio di **ogni** fase recupero o solo prima?
+  Default: ogni fase recupero.
+- "Go go go" a inizio **allenamento** una sola volta o a inizio
+  **ogni** fase Lavoro? Default: una sola volta a inizio
+  allenamento (post-countdown 5→1, prima di Round 1).
+- Tick countdown (`countdown-tick.wav`) negli ultimi 5s di
+  **entrambe** le fasi (lavoro + recupero) o solo lavoro?
+  Default: entrambe.
+- Conferma: `8bit.wav` sostituisce `countdown-tick.wav` SOLO nel
+  countdown 5→1 di start Tabata; non in altri timer.
+
+**Decisioni ancora aperte per F**:
+- Lista esatta dei 20-30 esercizi (può venire da ricerca
+  dell'orchestratore, da proposta del proprietario, o delegata
+  alla worker — decidere prima del prompt).
