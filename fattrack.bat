@@ -429,6 +429,27 @@ if errorlevel 1 (
     exit /b 1
 )
 
+rem --- 9b. RIMUOVO android\ PER FORZARE PREBUILD --CLEAN ---
+rem  expo prebuild senza --clean NON aggiorna versionName/versionCode in
+rem  android\app\build.gradle ne' i metadati di Constants.expoConfig
+rem  bundlati se la cartella android\ esiste gia'. Risultato: l'APK
+rem  finisce con la VECCHIA versione anche se app.json e' stato bumpato,
+rem  l'app installata pensa di essere indietro vs GitHub Release e
+rem  riscarica in loop.
+rem  Cancellando android\ qui forziamo prebuild a rigenerare tutto da
+rem  zero leggendo il nuovo app.json. La keystore stabile vive in
+rem  keystore\debug.keystore (root, non dentro android\) e viene
+rem  ripristinata da build-android-local.bat dopo il prebuild.
+if exist "android" (
+    echo [ ] Rimuovo android\ per forzare prebuild rigenerato col nuovo app.json...
+    rmdir /s /q "android"
+    if exist "android" (
+        echo [!] Impossibile rimuovere android\. Chiudi eventuali editor/Gradle aperti.
+        pause
+        exit /b 1
+    )
+)
+
 rem --- 10. BUILD ---
 set "APK_PATH="
 if "!BUILD_CHOICE!"=="1" goto :rel_build_local
