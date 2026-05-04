@@ -111,3 +111,11 @@ export async function deleteFavorite(id: number): Promise<void> {
 export function totalCalories(favorite: Favorite): number {
   return favorite.items.reduce((sum, item) => sum + item.calories, 0);
 }
+
+export async function countFavorites(): Promise<number> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) AS count FROM favorites`,
+  );
+  return row?.count ?? 0;
+}

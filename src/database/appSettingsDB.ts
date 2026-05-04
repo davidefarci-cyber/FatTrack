@@ -6,6 +6,8 @@ import { getDatabase } from './db';
 
 export type AppMode = 'diet' | 'sport';
 
+export type CoachMarksSeen = Record<string, boolean>;
+
 export type AppSettings = {
   appMode: AppMode;
   sportModeSeen: boolean;
@@ -15,6 +17,10 @@ export type AppSettings = {
   tabataWorkSec: number;
   tabataRestSec: number;
   tabataRounds: number;
+  // Mappa "id coach mark → seen". Persistita come JSON in `coach_marks_seen`.
+  // Espandibile senza nuove colonne: aggiungere un mark = aggiungere un id
+  // al registry in `utils/coachMarks.ts`. Reset coaching = svuotamento mappa.
+  coachMarksSeen: CoachMarksSeen;
   updatedAt: string;
 };
 
@@ -27,6 +33,7 @@ const COLUMNS = `
   tabata_work_sec AS tabataWorkSec,
   tabata_rest_sec AS tabataRestSec,
   tabata_rounds AS tabataRounds,
+  coach_marks_seen AS coachMarksSeen,
   updated_at AS updatedAt
 `;
 
@@ -39,8 +46,26 @@ type Row = {
   tabataWorkSec: number;
   tabataRestSec: number;
   tabataRounds: number;
+  coachMarksSeen: string;
   updatedAt: string;
 };
+
+function parseCoachMarks(raw: string | null | undefined): CoachMarksSeen {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const out: CoachMarksSeen = {};
+      for (const [k, v] of Object.entries(parsed)) {
+        if (typeof v === 'boolean') out[k] = v;
+      }
+      return out;
+    }
+  } catch {
+    // JSON corrotto: si riparte vuoti.
+  }
+  return {};
+}
 
 function rowToSettings(row: Row): AppSettings {
   return {
@@ -52,6 +77,7 @@ function rowToSettings(row: Row): AppSettings {
     tabataWorkSec: row.tabataWorkSec,
     tabataRestSec: row.tabataRestSec,
     tabataRounds: row.tabataRounds,
+    coachMarksSeen: parseCoachMarks(row.coachMarksSeen),
     updatedAt: row.updatedAt,
   };
 }
@@ -142,6 +168,30 @@ export async function setTabataConfig(config: {
     config.workSec,
     config.restSec,
     config.rounds,
+  );
+  return getAppSettings();
+}
+
+// Coach marks: marca un singolo id come visto. Read-modify-write per non
+// perdere altri flag già impostati. La parsificazione è tollerante (vedi
+// `parseCoachMarks`); in caso di JSON corrotto si riparte da `{}`.
+export async function markCoachMarkSeen(id: string): Promise<AppSettings> {
+  const current = await getAppSettings();
+  const next: CoachMarksSeen = { ...current.coachMarksSeen, [id]: true };
+  return writeCoachMarks(next);
+}
+
+// Reset coaching: svuota la mappa, così il prossimo passaggio in HomeScreen
+// fa ricomparire il banner della prima coach mark applicabile.
+export async function resetCoachMarks(): Promise<AppSettings> {
+  return writeCoachMarks({});
+}
+
+async function writeCoachMarks(map: CoachMarksSeen): Promise<AppSettings> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `UPDATE app_settings SET coach_marks_seen = ?, updated_at = datetime('now') WHERE id = 1`,
+    JSON.stringify(map),
   );
   return getAppSettings();
 }

@@ -23,7 +23,7 @@ export type { Favorite, FavoriteItem, NewFavorite } from './favoritesDB';
 export type { QuickAddon, NewQuickAddon } from './quickAddonsDB';
 export type { DailySettings, DailySettingsPatch } from './settingsDB';
 export type { UserProfile, Gender, ActivityLevel } from './profileDB';
-export type { AppMode, AppSettings } from './appSettingsDB';
+export type { AppMode, AppSettings, CoachMarksSeen } from './appSettingsDB';
 export type { Exercise, ExerciseLevel } from './exercisesDB';
 export type {
   Workout,

@@ -27,8 +27,10 @@ export default function SettingsScreen() {
   const toast = useToast();
   const navigation = useNavigation<BottomTabNavigationProp<TabParamList>>();
   const { profile, deleteProfile, reload: reloadProfile, loading: profileLoading } = useProfile();
+  const { resetCoachMarks } = useAppSettings();
   const [resetting, setResetting] = useState(false);
   const [resettingDb, setResettingDb] = useState(false);
+  const [resettingCoaching, setResettingCoaching] = useState(false);
 
   const handleReset = () => {
     Alert.alert(
@@ -46,6 +48,28 @@ export default function SettingsScreen() {
               toast.show('App resettata');
             } finally {
               setResetting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleResetCoaching = () => {
+    Alert.alert(
+      'Reset suggerimenti',
+      'Verranno mostrati di nuovo tutti i suggerimenti iniziali (cuore preferiti, scorciatoie sulle righe, modalità Sport, …) la prossima volta che torni in Home. Vuoi procedere?',
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Reset suggerimenti',
+          onPress: async () => {
+            setResettingCoaching(true);
+            try {
+              await resetCoachMarks();
+              toast.show('Suggerimenti riattivati');
+            } finally {
+              setResettingCoaching(false);
             }
           },
         },
@@ -113,6 +137,22 @@ export default function SettingsScreen() {
             <VersionCard />
 
             <BackupCard onAfterImport={reloadProfile} />
+
+            <Card style={styles.card}>
+              <Text style={typography.label}>Suggerimenti iniziali</Text>
+              <Text style={typography.caption}>
+                Riattiva i suggerimenti progressivi mostrati la prima volta
+                (registrazione del primo pasto, scorciatoie sulle righe,
+                salva-come-preferito, modalità Sport, …). Utili se vuoi
+                rivederli o se ti capita di mostrare l'app a qualcuno.
+              </Text>
+              <Button
+                label="Reset suggerimenti"
+                variant="secondary"
+                onPress={handleResetCoaching}
+                loading={resettingCoaching}
+              />
+            </Card>
 
             <Card style={styles.card}>
               <Text style={typography.label}>Test</Text>
