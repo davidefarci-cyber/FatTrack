@@ -199,6 +199,34 @@ export async function sumCaloriesByMealType(
   return result;
 }
 
+// Conteggi leggeri usati dal coach mark engine: COUNT(*) puro su `meals`,
+// senza join ai food. Pesa zero anche con un anno di dati.
+
+export async function countAllMeals(): Promise<number> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) AS count FROM meals`,
+  );
+  return row?.count ?? 0;
+}
+
+export async function countMealsByDate(date: string): Promise<number> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) AS count FROM meals WHERE date = ?`,
+    date,
+  );
+  return row?.count ?? 0;
+}
+
+export async function countDistinctDays(): Promise<number> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(DISTINCT date) AS count FROM meals`,
+  );
+  return row?.count ?? 0;
+}
+
 export async function sumMacrosByDate(date: string): Promise<{
   protein: number;
   carbs: number;

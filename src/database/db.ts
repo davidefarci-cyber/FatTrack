@@ -125,6 +125,7 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       tabata_work_sec INTEGER NOT NULL DEFAULT 20,
       tabata_rest_sec INTEGER NOT NULL DEFAULT 10,
       tabata_rounds INTEGER NOT NULL DEFAULT 8,
+      coach_marks_seen TEXT NOT NULL DEFAULT '{}',
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -253,6 +254,7 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     `ALTER TABLE app_settings ADD COLUMN tabata_work_sec INTEGER NOT NULL DEFAULT 20`,
     `ALTER TABLE app_settings ADD COLUMN tabata_rest_sec INTEGER NOT NULL DEFAULT 10`,
     `ALTER TABLE app_settings ADD COLUMN tabata_rounds INTEGER NOT NULL DEFAULT 8`,
+    `ALTER TABLE app_settings ADD COLUMN coach_marks_seen TEXT NOT NULL DEFAULT '{}'`,
     `ALTER TABLE active_session ADD COLUMN rest_duration_sec INTEGER`,
   ]) {
     try {

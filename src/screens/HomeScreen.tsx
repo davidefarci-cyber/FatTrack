@@ -15,20 +15,25 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AddFoodSheet } from '@/components/AddFoodSheet';
+import { CoachMarkHost } from '@/components/CoachMarkHost';
 import { EditMealModal } from '@/components/EditMealModal';
 import { FavoritesModal } from '@/components/FavoritesModal';
 import { HomeSummaryCard } from '@/components/HomeSummaryCard';
 import { Icon } from '@/components/Icon';
 import { MealSection } from '@/components/MealSection';
 import { MEAL_ORDER } from '@/components/mealMeta';
+import { SaveAsQuickAddonModal } from '@/components/SaveAsQuickAddonModal';
+import { SaveMealAsFavoriteModal } from '@/components/SaveMealAsFavoriteModal';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { mealsStore, quickAddonsDB } from '@/database';
+import { useToast } from '@/components/Toast';
+import { favoritesDB, mealsStore, quickAddonsDB } from '@/database';
 import type { Favorite, Meal, MealType, QuickAddon } from '@/database';
 import { useAppSettings } from '@/hooks/useAppSettings';
+import { useCoachMarks } from '@/hooks/useCoachMarks';
 import { useDailyLog } from '@/hooks/useDailyLog';
 import type { NewMealInput } from '@/hooks/useDailyLog';
 import { useProfile } from '@/hooks/useProfile';
-import { colors, radii, spacing, sportColors, typography } from '@/theme';
+import { colors, radii, spacing, typography } from '@/theme';
 import type { TabParamList } from '@/types';
 import { DEFAULT_TARGET_KCAL } from '@/utils/calorieCalculator';
 import { lightHaptic } from '@/utils/haptics';
@@ -39,14 +44,17 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// HomeScreen: diario del giorno. Host del bottom-sheet AddFood e del modal
-// dei preferiti. Non dipende più da un HomeStackNavigator: entrambe le
-// interazioni sono gestite con state locale e renderizzate qui.
+// HomeScreen: diario del giorno. Host del bottom-sheet AddFood, dei modal
+// di preferiti / save-as-favorite / save-as-quick-addon e del banner
+// del coach mark corrente. Le interazioni delle righe (edit/elimina/quick
+// addon) sono gestite tramite props da MealSection: il modal corrispondente
+// si apre qui sopra.
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<BottomTabNavigationProp<TabParamList>>();
+  const toast = useToast();
   const { targetCalories } = useProfile();
-  const { appMode, sportModeSeen, setAppMode, markSportModeSeen } = useAppSettings();
+  const { setAppMode, markSportModeSeen } = useAppSettings();
   const {
     date,
     dateLabel,
@@ -62,9 +70,25 @@ export default function HomeScreen() {
     goToToday,
   } = useDailyLog();
 
+  const todayMealsCount = useMemo(
+    () =>
+      mealsByType.colazione.length +
+      mealsByType.pranzo.length +
+      mealsByType.cena.length +
+      mealsByType.spuntino.length,
+    [mealsByType],
+  );
+  const coachMarks = useCoachMarks({ todayMealsCount });
+
   const [addFoodMeal, setAddFoodMeal] = useState<MealType | null>(null);
   const [favoritesMeal, setFavoritesMeal] = useState<MealType | null>(null);
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
+  const [saveAsFavoriteMeal, setSaveAsFavoriteMeal] = useState<MealType | null>(
+    null,
+  );
+  const [saveAsQuickAddonMeal, setSaveAsQuickAddonMeal] = useState<Meal | null>(
+    null,
+  );
   const [quickAddons, setQuickAddons] = useState<QuickAddon[]>([]);
   const [collapsed, setCollapsed] = useState<Record<MealType, boolean>>({
     colazione: false,
@@ -77,10 +101,12 @@ export default function HomeScreen() {
   // scorciatoie nella riga azioni di ogni pasto. Ricarichiamo quando si chiude
   // il sheet di aggiunta cibo (mediato da addFoodMeal) per riflettere subito
   // eventuali modifiche da SettingsScreen senza dover ricaricare l'app.
+  // Idem alla chiusura del modal di salva-come-aggiunta-rapida.
   useEffect(() => {
     if (addFoodMeal !== null) return;
+    if (saveAsQuickAddonMeal !== null) return;
     quickAddonsDB.listAddons().then(setQuickAddons).catch(() => undefined);
-  }, [addFoodMeal]);
+  }, [addFoodMeal, saveAsQuickAddonMeal]);
 
   const toggleCollapse = useCallback((mealType: MealType) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -161,6 +187,29 @@ export default function HomeScreen() {
     [addMeals],
   );
 
+  const handleConfirmSaveAsFavorite = useCallback(
+    async (input: { name: string; items: Favorite['items'] }) => {
+      await favoritesDB.createFavorite({ name: input.name, items: input.items });
+      setSaveAsFavoriteMeal(null);
+      coachMarks.refresh();
+      toast.show('Preferito creato');
+      void lightHaptic();
+    },
+    [coachMarks, toast],
+  );
+
+  const handleConfirmSaveAsQuickAddon = useCallback(
+    async (input: { label: string; calories: number }) => {
+      await quickAddonsDB.createAddon(input);
+      setSaveAsQuickAddonMeal(null);
+      // Il useEffect su quickAddons si aggiorna alla chiusura del modal
+      // (saveAsQuickAddonMeal !== null → null), che ricarica la lista da DB.
+      toast.show('Aggiunta rapida creata');
+      void lightHaptic();
+    },
+    [toast],
+  );
+
   // Swipe orizzontale per cambio giorno: stessa semantica delle frecce
   // nel DayNavigator (chevron-left → giorno precedente, quindi swipe
   // verso destra = `goToPreviousDay`). `activeOffsetX` ritarda l'attivazione
@@ -181,6 +230,10 @@ export default function HomeScreen() {
         }),
     [goToPreviousDay, goToNextDay],
   );
+
+  const saveAsFavoriteMeals = saveAsFavoriteMeal
+    ? mealsByType[saveAsFavoriteMeal]
+    : [];
 
   return (
     <View style={styles.container}>
@@ -218,17 +271,16 @@ export default function HomeScreen() {
           ]}
           showsVerticalScrollIndicator={false}
         >
-          {appMode === 'diet' && !sportModeSeen ? (
-            <SportModeHintBanner
-              onTry={async () => {
-                await setAppMode('sport');
-                await markSportModeSeen();
-              }}
-              onDismiss={() => {
-                void markSportModeSeen();
-              }}
-            />
-          ) : null}
+          <CoachMarkHost
+            currentId={coachMarks.currentId}
+            onDismiss={(id) => {
+              void coachMarks.dismiss(id);
+            }}
+            onSwitchToSport={async () => {
+              await setAppMode('sport');
+              await markSportModeSeen();
+            }}
+          />
 
           <DayNavigator
             dateLabel={dateLabel}
@@ -253,12 +305,15 @@ export default function HomeScreen() {
               loading={loading}
               collapsed={collapsed[mealType]}
               quickAddons={quickAddons}
+              bouncePeek={coachMarks.currentId === 'rowActions'}
               onToggleCollapse={() => toggleCollapse(mealType)}
               onAdd={() => setAddFoodMeal(mealType)}
               onAddFavorite={() => setFavoritesMeal(mealType)}
               onAddAddon={(addon) => handleAddAddon(mealType, addon)}
               onDelete={handleDelete}
               onEdit={handleEdit}
+              onSaveMealAsFavorite={() => setSaveAsFavoriteMeal(mealType)}
+              onSaveRowAsQuickAddon={(meal) => setSaveAsQuickAddonMeal(meal)}
             />
           ))}
         </ScrollView>
@@ -285,6 +340,23 @@ export default function HomeScreen() {
         meal={editingMeal}
         onClose={() => setEditingMeal(null)}
         onSave={handleSaveEdit}
+      />
+
+      <SaveMealAsFavoriteModal
+        visible={saveAsFavoriteMeal !== null}
+        mealType={saveAsFavoriteMeal ?? 'colazione'}
+        dateLabel={dateLabel}
+        meals={saveAsFavoriteMeals}
+        onClose={() => setSaveAsFavoriteMeal(null)}
+        onConfirm={handleConfirmSaveAsFavorite}
+      />
+
+      <SaveAsQuickAddonModal
+        visible={saveAsQuickAddonMeal !== null}
+        defaultLabel={saveAsQuickAddonMeal?.foodName ?? ''}
+        defaultCalories={saveAsQuickAddonMeal?.caloriesTotal ?? 0}
+        onClose={() => setSaveAsQuickAddonMeal(null)}
+        onConfirm={handleConfirmSaveAsQuickAddon}
       />
     </View>
   );
@@ -335,55 +407,6 @@ function DayNavigator({
   );
 }
 
-// Banner di onboarding alla modalità Sport: visibile solo finché
-// `sportModeSeen` è false. CTA "Provala" attiva la modalità sport e
-// marca il flag; la X marca soltanto il flag (l'utente "ha visto"
-// la novità). Si ferma in entrambi i casi al primo `markSportModeSeen()`.
-function SportModeHintBanner({
-  onTry,
-  onDismiss,
-}: {
-  onTry: () => void | Promise<void>;
-  onDismiss: () => void;
-}) {
-  return (
-    <View style={styles.hintBanner}>
-      <View style={styles.hintIcon}>
-        <Icon name="dumbbell" size={18} color="#FFFFFF" />
-      </View>
-      <View style={styles.hintTextWrap}>
-        <Text style={[typography.bodyBold, styles.hintTitle]}>
-          Nuova: modalità Sport
-        </Text>
-        <Text style={[typography.caption, styles.hintSubtitle]}>
-          Tieni premuto Home per provarla.
-        </Text>
-        <Pressable
-          onPress={() => {
-            void onTry();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Prova la modalità Sport"
-          style={styles.hintCta}
-        >
-          <Text style={[typography.bodyBold, styles.hintCtaLabel]}>
-            Provala
-          </Text>
-        </Pressable>
-      </View>
-      <Pressable
-        onPress={onDismiss}
-        hitSlop={12}
-        accessibilityRole="button"
-        accessibilityLabel="Chiudi suggerimento modalità Sport"
-        style={styles.hintClose}
-      >
-        <Icon name="close" size={18} color="#FFFFFF" />
-      </Pressable>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -421,50 +444,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xl,
-  },
-  hintBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.xl,
-    backgroundColor: sportColors.accent,
-    borderRadius: radii.xxl,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.xl,
-  },
-  hintIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: radii.round,
-    backgroundColor: sportColors.accentDark,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hintTextWrap: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  hintTitle: {
-    color: '#FFFFFF',
-  },
-  hintSubtitle: {
-    color: '#FFFFFF',
-    opacity: 0.92,
-  },
-  hintCta: {
-    alignSelf: 'flex-start',
-    marginTop: spacing.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    backgroundColor: '#FFFFFF',
-    borderRadius: radii.round,
-  },
-  hintCtaLabel: {
-    color: sportColors.accentDark,
-  },
-  hintClose: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

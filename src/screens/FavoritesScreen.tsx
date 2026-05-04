@@ -1,3 +1,4 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -40,10 +41,21 @@ export default function FavoritesScreen() {
     createFavorite,
     updateFavorite,
     deleteFavorite,
+    reload: reloadFavorites,
   } = useFavorites();
 
   const [editing, setEditing] = useState<Favorite | 'new' | null>(null);
   const [quickAddons, setQuickAddons] = useState<QuickAddon[]>([]);
+
+  // Ricarica i preferiti quando torniamo su questa tab: l'utente potrebbe
+  // averne creato uno dal cuore in Home (SaveMealAsFavoriteModal), e in quel
+  // caso lo state locale di useFavorites resterebbe stale finché un'azione
+  // qui non innesca reload.
+  useFocusEffect(
+    useCallback(() => {
+      reloadFavorites();
+    }, [reloadFavorites]),
+  );
 
   // Carichiamo gli addon configurati in Settings: l'utente li userà come
   // scorciatoie per aggiungere calorie fisse al preferito (contorno, olio,

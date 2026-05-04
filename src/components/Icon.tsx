@@ -39,7 +39,8 @@ export type IconName =
   | 'muscle-glutes'
   | 'muscle-fullbody'
   | 'muscle-cardio'
-  | 'muscle-mobility';
+  | 'muscle-mobility'
+  | 'more';
 
 export type IconProps = {
   name: IconName;
@@ -625,6 +626,14 @@ export function Icon({ name, size = 22, color = colors.textSec, filled = false }
             strokeWidth={1.8}
             strokeLinecap="round"
           />
+        </Svg>
+      );
+    case 'more':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+          <Circle cx={3} cy={8} r={1.4} fill={color} />
+          <Circle cx={8} cy={8} r={1.4} fill={color} />
+          <Circle cx={13} cy={8} r={1.4} fill={color} />
         </Svg>
       );
     default: {

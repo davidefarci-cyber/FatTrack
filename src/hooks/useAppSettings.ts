@@ -1,7 +1,7 @@
 import { useCallback, useSyncExternalStore } from 'react';
 
 import { appSettingsDB } from '@/database';
-import type { AppMode, AppSettings } from '@/database';
+import type { AppMode, AppSettings, CoachMarksSeen } from '@/database';
 
 // Stato condiviso a livello di modulo (stesso pattern di `useProfile`):
 // tutti i consumer leggono lo stesso oggetto. Sottoscrizione via
@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   tabataWorkSec: 20,
   tabataRestSec: 10,
   tabataRounds: 8,
+  coachMarksSeen: {},
   updatedAt: '',
 };
 
@@ -103,6 +104,18 @@ async function setTabataConfig(config: {
   return updated;
 }
 
+async function markCoachMarkSeen(id: string): Promise<AppSettings> {
+  const updated = await appSettingsDB.markCoachMarkSeen(id);
+  setSnapshot({ settings: updated, loading: false, error: null });
+  return updated;
+}
+
+async function resetCoachMarks(): Promise<AppSettings> {
+  const updated = await appSettingsDB.resetCoachMarks();
+  setSnapshot({ settings: updated, loading: false, error: null });
+  return updated;
+}
+
 export type UseAppSettingsResult = {
   appMode: AppMode;
   sportModeSeen: boolean;
@@ -112,6 +125,7 @@ export type UseAppSettingsResult = {
   tabataWorkSec: number;
   tabataRestSec: number;
   tabataRounds: number;
+  coachMarksSeen: CoachMarksSeen;
   loading: boolean;
   error: Error | null;
   setAppMode: (mode: AppMode) => Promise<AppSettings>;
@@ -124,6 +138,8 @@ export type UseAppSettingsResult = {
     restSec: number;
     rounds: number;
   }) => Promise<AppSettings>;
+  markCoachMarkSeen: (id: string) => Promise<AppSettings>;
+  resetCoachMarks: () => Promise<AppSettings>;
   reload: () => Promise<void>;
 };
 
@@ -145,6 +161,8 @@ export function useAppSettings(): UseAppSettingsResult {
       setTabataConfig(c),
     [],
   );
+  const markCoachFn = useCallback((id: string) => markCoachMarkSeen(id), []);
+  const resetCoachFn = useCallback(() => resetCoachMarks(), []);
 
   const settings = state.settings ?? DEFAULT_SETTINGS;
 
@@ -157,6 +175,7 @@ export function useAppSettings(): UseAppSettingsResult {
     tabataWorkSec: settings.tabataWorkSec,
     tabataRestSec: settings.tabataRestSec,
     tabataRounds: settings.tabataRounds,
+    coachMarksSeen: settings.coachMarksSeen,
     loading: state.loading,
     error: state.error,
     setAppMode: setModeFn,
@@ -165,6 +184,8 @@ export function useAppSettings(): UseAppSettingsResult {
     setHapticEnabled: setHapticFn,
     setSpotifyPlaylistUri: setSpotifyFn,
     setTabataConfig: setTabataFn,
+    markCoachMarkSeen: markCoachFn,
+    resetCoachMarks: resetCoachFn,
     reload: reloadFn,
   };
 }
