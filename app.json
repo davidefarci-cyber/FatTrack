@@ -2,7 +2,7 @@
   "expo": {
     "name": "FatTrack",
     "slug": "fattrack",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -32,7 +32,7 @@
         "android.permission.CAMERA",
         "android.permission.REQUEST_INSTALL_PACKAGES"
       ],
-      "versionCode": 11
+      "versionCode": 12
     },
     "plugins": [
       [
