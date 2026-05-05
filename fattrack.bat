@@ -580,6 +580,7 @@ echo  [2] Reinstalla node_modules (npm install)
 echo  [3] Installa toolchain Android (JDK17 + SDK)
 echo  [4] Configura auth git push (gh credential helper)
 echo  [5] Pulisci cache build Android (gradlew clean + opz. android\app\build\)
+echo  [6] Reset ambiente totale (cancella node_modules + android + cache + reinstalla)
 echo  [0] Indietro
 echo.
 set "_D="
@@ -590,6 +591,7 @@ if "!_D!"=="2" goto :deps_npm
 if "!_D!"=="3" goto :deps_android
 if "!_D!"=="4" goto :deps_gh
 if "!_D!"=="5" goto :deps_clean_build
+if "!_D!"=="6" goto :deps_full_reset
 echo [!] Scelta non valida.
 timeout /t 1 >nul
 goto :menu_deps
@@ -658,6 +660,188 @@ if /i "!_RM!"=="s" (
     )
 )
 echo.
+pause
+goto :menu_deps
+
+
+rem ============================================================
+rem  Reset ambiente totale: pulizia "ultima ratio".
+rem
+rem  COSA FA:
+rem   1. Mostra `git status` per controllare se ci sono modifiche locali
+rem      non committate (ti d? l'occasione di abortire).
+rem   2. Verifica che keystore\debug.keystore esista (se manca, aborta:
+rem      perderla = utenti devono disinstallare per aggiornare APK).
+rem   3. Ripristina package.json e package-lock.json dal repo, sovrascrivendo
+rem      eventuali edit locali (di solito sono il problema da fixare).
+rem   4. Cancella node_modules, android, ios, .expo, dist, web-build,
+rem      *.apk, *.aab. Tutti gitignored, sono rigenerati dal prossimo
+rem      build/prebuild.
+rem   5. Pulisce la cache npm globale (`npm cache clean --force`).
+rem   6. Esegue `npm install` per reinstallare tutto da zero.
+rem
+rem  QUANDO USARLO:
+rem   - "Could not read script ... autolinking.gradle" o errori Gradle
+rem     che citano file mancanti in node_modules.
+rem   - npm install che fallisce con "ERESOLVE" su versioni di react/RN.
+rem   - package.json mostra versioni strane (es. ^0.85.x di RN su SDK 51).
+rem   - Build APK che riesce ma l'app crasha al boot subito dopo un pull.
+rem   - Generale "non capisco perche' non funzioni piu" dopo update lunghi.
+rem
+rem  NON USARLO:
+rem   - Per problemi banali risolvibili con "Reinstalla node_modules" [2].
+rem   - Se hai modifiche locali importanti non committate (perdi
+rem     package.json/lock locali, ma non il resto - cmq fai backup).
+rem
+rem  TEMPI: 5-15 min (cleanup ~30s + npm install 2-10 min).
+rem ============================================================
+:deps_full_reset
+echo.
+echo === Reset ambiente totale ===
+echo.
+echo  Questa operazione cancella:
+echo    - node_modules\          (rigenerato da npm install)
+echo    - android\               (rigenerato da expo prebuild al prossimo build)
+echo    - ios\                   (non lo usi, rigenerato se serve)
+echo    - .expo\                 (cache CLI, ricreata da sola)
+echo    - dist\, web-build\      (output build)
+echo    - *.apk, *.aab           (output build)
+echo    - cache npm globale
+echo    - package.json + package-lock.json  ^(ripristinati dal repo HEAD!^)
+echo.
+echo  Cosa NON tocca:
+echo    - keystore\              (chiave firma APK - se mancasse, aborta)
+echo    - assets\                (icone, immagini esercizio)
+echo    - src\, docs\, scripts\  (codice e documentazione)
+echo    - .env                   (variabili ambiente locali)
+echo.
+where git >nul 2>nul || (echo [!] git non trovato. Lancia setup.bat. & pause & goto :menu_deps)
+where node >nul 2>nul || (echo [!] node non trovato. Lancia setup.bat. & pause & goto :menu_deps)
+
+rem --- 1. Mostra git status ---
+echo  --- git status (modifiche locali non committate) ---
+call git status --short
+echo  ----------------------------------------------------
+echo.
+echo  Se sopra vedi file .ts/.tsx/.json modificati che NON riconosci,
+echo  abortisci ora (rispondi N) e prima salvali con `git stash` o
+echo  `git commit`. Il reset NON cancella i tuoi file in src\ ma
+echo  RIPRISTINA package.json e package-lock.json dal repo.
+echo.
+
+rem --- 2. Sanity check keystore ---
+if not exist "keystore\debug.keystore" (
+    echo.
+    echo [!] keystore\debug.keystore NON TROVATA.
+    echo     Senza keystore non puoi firmare APK release.
+    echo     Recuperala dal backup e rilancia, OPPURE prosegui solo se
+    echo     stai per generarne una nuova ^(perdendo update agli APK gia'
+    echo     installati: gli utenti dovranno disinstallare^).
+    echo.
+    set "_NOK="
+    set /p "_NOK=Procedo COMUNQUE senza keystore? [s/N]: "
+    if /i not "!_NOK!"=="s" (
+        echo Annullato.
+        pause
+        goto :menu_deps
+    )
+) else (
+    echo [OK] keystore\debug.keystore presente.
+)
+
+rem --- 3. Conferma esplicita ---
+echo.
+set "_GO="
+set /p "_GO=Procedo con il reset? [s/N]: "
+if /i not "!_GO!"=="s" (
+    echo Annullato.
+    pause
+    goto :menu_deps
+)
+
+rem --- 4. Ripristino package.json e lock dal repo ---
+echo.
+echo [ ] Ripristino package.json e package-lock.json dal repo HEAD...
+call git checkout HEAD -- package.json package-lock.json
+if errorlevel 1 (
+    echo [!] git checkout fallito. Verifica lo stato del repo e riprova.
+    pause
+    goto :menu_deps
+)
+
+rem --- 5. Cancellazione cartelle gitignored ---
+echo [ ] Cancello cartelle rigenerabili...
+if exist "node_modules" (
+    rmdir /s /q "node_modules"
+    if exist "node_modules" (
+        echo [!] Impossibile rimuovere node_modules\. Chiudi editor/processi che lo bloccano.
+        pause
+        goto :menu_deps
+    )
+    echo     - node_modules\ cancellata
+)
+if exist "android" (
+    rmdir /s /q "android"
+    if exist "android" (
+        echo [!] Impossibile rimuovere android\. Chiudi Android Studio se aperto.
+        pause
+        goto :menu_deps
+    )
+    echo     - android\ cancellata
+)
+if exist "ios" (
+    rmdir /s /q "ios"
+    echo     - ios\ cancellata
+)
+if exist ".expo" (
+    rmdir /s /q ".expo"
+    echo     - .expo\ cancellata
+)
+if exist "dist" (
+    rmdir /s /q "dist"
+    echo     - dist\ cancellata
+)
+if exist "web-build" (
+    rmdir /s /q "web-build"
+    echo     - web-build\ cancellata
+)
+del /q "*.apk" >nul 2>nul
+del /q "*.aab" >nul 2>nul
+echo     - *.apk e *.aab cancellati ^(se presenti^)
+
+rem --- 6. Pulizia cache npm ---
+echo.
+echo [ ] npm cache clean --force...
+call npm cache clean --force
+if errorlevel 1 (
+    echo [!] npm cache clean fallito ^(non bloccante^), proseguo.
+)
+
+rem --- 7. Reinstallazione dipendenze ---
+echo.
+echo [ ] npm install ^(2-10 min, scarica ~400MB^)...
+call npm install
+if errorlevel 1 (
+    echo.
+    echo [!] npm install fallito. Possibili cause:
+    echo     - Connessione internet instabile ^(riprova^).
+    echo     - Conflitti residui in package.json ^(controlla diff: git diff HEAD~1 -- package.json^).
+    echo     - Mirror npm bloccato dietro VPN/firewall.
+    pause
+    goto :menu_deps
+)
+
+rem --- 8. Verifica finale ---
+echo.
+echo [ ] Verifica versione react-native installata...
+type "package.json" | findstr "\"react-native\""
+echo.
+echo ============================================================
+echo  Reset completato.
+echo  Ora puoi lanciare un build APK ^(voce 3^) o avviare il dev
+echo  server ^(voce 2^). Il primo build sara' lento perche' deve
+echo  rigenerare android\ e scaricare il Gradle wrapper.
+echo ============================================================
 pause
 goto :menu_deps
 
