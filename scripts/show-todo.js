@@ -118,17 +118,19 @@ function main() {
   const groups = parseTodo(raw);
 
   console.log('============================================================');
-  console.log('  FatTrack — Backlog operativo (docs/TODO.md)');
+  console.log('  FatTrack — Cose da fare (docs/TODO.md)');
   console.log('============================================================');
 
   printGroup('🔴 Priorità alta', groups.alta || []);
   printGroup('🟡 Priorità media', groups.media || []);
   printGroup('🟢 Priorità bassa', groups.bassa || []);
-  printGroup('✅ Fatto', groups.fatto || [], { compactDone: true });
 
+  const doneCount = (groups.fatto || []).length;
   console.log('');
   console.log('============================================================');
-  console.log('  Per dettagli completi, leggi docs/TODO.md.');
+  if (doneCount > 0) {
+    console.log(`  Storico voci chiuse: ${doneCount}. Vedi docs/TODO.md per i dettagli.`);
+  }
   console.log('  Per aggiungere voci: chiedilo a Claude in sessione');
   console.log('  ("aggiungi al TODO che ...").');
   console.log('============================================================');
