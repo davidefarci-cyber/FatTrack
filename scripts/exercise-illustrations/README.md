@@ -11,6 +11,8 @@ Voce TODO collegata: `[27] Immagini illustrate per esercizi` in `docs/TODO.md`.
 - `generate-batches.js` — script Node che genera i file batch nella cartella `batches/`.
 - `batches/batch-NN.md` — output: 10 file markdown, ciascuno con istruzioni per GPT + prompt di N esercizi + richiesta finale di ZIP con filename corretti.
 - `optimize.js` — converte i PNG verificati in WebP (qualità 85, max 1080 px sul lato lungo) e cancella i PNG originali. Saving tipico ~98% (17.5 MB di PNG → ~0.4 MB di WebP).
+- `da-rifare.md` — lista cumulativa degli esercizi scartati in fase di verifica, con severità e note per il prompt rinforzato. Fonte di verità per la rigenerazione.
+- `generate-rifare.js` — script Node che genera i file batch di rigenerazione (`batches/rifare-NN.md`) con prompt rinforzati per ogni esercizio in `da-rifare.md`.
 
 ## Flusso operativo
 
