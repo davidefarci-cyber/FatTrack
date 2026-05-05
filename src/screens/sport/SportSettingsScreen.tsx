@@ -31,6 +31,8 @@ export default function SportSettingsScreen() {
     setWeeklyTarget,
     hapticEnabled,
     setHapticEnabled,
+    exerciseGuidesEnabled,
+    setExerciseGuidesEnabled,
     spotifyPlaylistUri,
     setSpotifyPlaylistUri,
   } = useAppSettings();
@@ -65,6 +67,12 @@ export default function SportSettingsScreen() {
     const next = !hapticEnabled;
     await setHapticEnabled(next);
     invalidateHapticCache();
+    if (next) void successHaptic();
+  }
+
+  async function handleToggleGuides() {
+    const next = !exerciseGuidesEnabled;
+    await setExerciseGuidesEnabled(next);
     if (next) void successHaptic();
   }
 
@@ -169,6 +177,44 @@ export default function SportSettingsScreen() {
                 ]}
               >
                 {hapticEnabled ? 'ON' : 'OFF'}
+              </Text>
+            </View>
+          </Pressable>
+        </Card>
+
+        <Card style={styles.card}>
+          <Text style={typography.label}>Allenamento</Text>
+          <Pressable
+            onPress={handleToggleGuides}
+            accessibilityRole="switch"
+            accessibilityLabel="Mostra guida esercizio prima della prima serie"
+            accessibilityState={{ checked: exerciseGuidesEnabled }}
+            style={styles.toggleRow}
+          >
+            <View style={styles.toggleText}>
+              <Text style={typography.bodyBold}>
+                Guida esercizio prima della prima serie
+              </Text>
+              <Text style={typography.caption}>
+                Prima del set #1 di ogni esercizio mostra l&apos;illustrazione
+                e i passi tecnici. Tap per passare al tracking.
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.toggleChip,
+                exerciseGuidesEnabled
+                  ? { backgroundColor: theme.accent, borderColor: theme.accent }
+                  : { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.toggleChipText,
+                  { color: exerciseGuidesEnabled ? '#FFFFFF' : colors.textSec },
+                ]}
+              >
+                {exerciseGuidesEnabled ? 'ON' : 'OFF'}
               </Text>
             </View>
           </Pressable>

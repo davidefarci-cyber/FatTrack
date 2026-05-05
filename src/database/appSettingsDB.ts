@@ -21,6 +21,10 @@ export type AppSettings = {
   // Espandibile senza nuove colonne: aggiungere un mark = aggiungere un id
   // al registry in `utils/coachMarks.ts`. Reset coaching = svuotamento mappa.
   coachMarksSeen: CoachMarksSeen;
+  // Se true, durante una sessione attiva la prima serie di ogni esercizio
+  // mostra una "guida" overlay (immagine + step) prima del tracking input.
+  // Default true. Disattivabile da SportSettings o dalla guida stessa.
+  exerciseGuidesEnabled: boolean;
   updatedAt: string;
 };
 
@@ -34,6 +38,7 @@ const COLUMNS = `
   tabata_rest_sec AS tabataRestSec,
   tabata_rounds AS tabataRounds,
   coach_marks_seen AS coachMarksSeen,
+  exercise_guides_enabled AS exerciseGuidesEnabled,
   updated_at AS updatedAt
 `;
 
@@ -47,6 +52,7 @@ type Row = {
   tabataRestSec: number;
   tabataRounds: number;
   coachMarksSeen: string;
+  exerciseGuidesEnabled: number;
   updatedAt: string;
 };
 
@@ -78,6 +84,7 @@ function rowToSettings(row: Row): AppSettings {
     tabataRestSec: row.tabataRestSec,
     tabataRounds: row.tabataRounds,
     coachMarksSeen: parseCoachMarks(row.coachMarksSeen),
+    exerciseGuidesEnabled: row.exerciseGuidesEnabled === 1,
     updatedAt: row.updatedAt,
   };
 }
@@ -134,6 +141,17 @@ export async function setHapticEnabled(enabled: boolean): Promise<AppSettings> {
   const db = await getDatabase();
   await db.runAsync(
     `UPDATE app_settings SET haptic_enabled = ?, updated_at = datetime('now') WHERE id = 1`,
+    enabled ? 1 : 0,
+  );
+  return getAppSettings();
+}
+
+export async function setExerciseGuidesEnabled(
+  enabled: boolean,
+): Promise<AppSettings> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `UPDATE app_settings SET exercise_guides_enabled = ?, updated_at = datetime('now') WHERE id = 1`,
     enabled ? 1 : 0,
   );
   return getAppSettings();

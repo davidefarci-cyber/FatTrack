@@ -537,32 +537,6 @@ header chiari; i nomi simili sono più facili da distinguere; lo scroll
 
 ---
 
-### [27] Immagini illustrate per esercizi
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟢 bassa
-**Area**: contenuti / UX (fit)
-
-L'utente intende far disegnare esternamente illustrazioni per gli
-esercizi e droppare gli asset in una cartella tipo
-`assets/exercises/<slug>.png`. Il sistema dovrebbe pescarli in
-automatico e mostrarli nel `ExerciseDetailModal` (oggi mostra solo
-testo + guideSteps).
-
-Implementazione lato codice:
-- Mappa statica `EXERCISE_IMAGES` generata a build time (require
-  statici per ogni asset) — RN Metro non supporta require dinamici.
-- Lookup `slug = exerciseName.toLowerCase().replace(/\W/g, '-')`.
-- Fallback graceful: se non c'è asset, niente Image, solo testo (come
-  oggi).
-
-Scope iniziale: solo i 40 esercizi seedati. Quando arriverà la
-voce [19] (libreria espansa) si valuterà di nuovo.
-
-**Done quando**: dropping di un PNG in `assets/exercises/` con il
-giusto slug fa apparire l'illustrazione nel modal dettaglio esercizio
-senza modifiche al codice; gli asset mancanti non rompono nulla.
-
 ---
 
 ### [29] Feedback tattile al cambio modalità (fit↔fat)
@@ -676,6 +650,50 @@ sport copertura come iterazione successiva o bonus se semplice.
 ---
 
 ## ✅ Fatto
+
+### [chiusa] [27] Immagini illustrate per esercizi + guida pre-primo-set
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-05
+
+Scope esteso rispetto all'idea iniziale: oltre alle illustrazioni nel
+modal dettaglio della libreria, mostrate anche durante la sessione
+attiva come guida pre-primo-set di ogni esercizio.
+
+Pipeline asset:
+- 67 illustrazioni vettoriali generate via GPT image (10 batch + 3
+  round di rifacimento — 84% promosse al primo colpo, 12% al secondo,
+  4% al terzo grazie a override geometrico — vista laterale invece
+  di top-down per spinal-twist e y-t-w-prone, descrizione
+  diagrammatica per curl-isometrico-asciugamano).
+- Convertite in WebP qualità 85, max 1080px (saving ~98%, da ~55 MB
+  ipotetici a ~1.7 MB reali).
+- Materiale generativo in `scripts/exercise-illustrations/`:
+  manifest, template, generatori prompt+rifare, ottimizzatore,
+  mappa autogenerata.
+
+Render in app:
+- `src/utils/exerciseImages.ts` (autogenerato): mappa
+  name→slug→require statico + helper `getExerciseImage(name)` con
+  fallback graceful e `getExerciseAspectRatio(name)` per dimensionare
+  i box.
+- `ExerciseDetailModal.tsx`: `<Image>` sopra header con aspectRatio
+  dinamico, maxHeight 240 per evitare modali troppo lunghe su
+  mobile.
+- `ActiveSessionScreen.tsx` componente `ExerciseGuide`: mostrato
+  prima del set #1 di ogni esercizio quando
+  `app_settings.exercise_guides_enabled` è ON e il guide non è già
+  stato visto in questa sessione (state in-memory `viewedGuides:
+  Set<number>`, reset a cambio di session.id). Bottone "Inizia il
+  set" + tap sull'area contenuto → passa al tracking input. "Non
+  mostrarle più" → disattiva il flag globalmente.
+- `SportSettingsScreen.tsx`: nuovo toggle "Guida esercizio prima
+  della prima serie" (default ON), pattern haptic enabled.
+- DB: aggiunta colonna `app_settings.exercise_guides_enabled INTEGER
+  NOT NULL DEFAULT 1` via ALTER TABLE idempotente in `db.ts`.
+  Backup automatico via introspection PRAGMA, niente cambio
+  `BACKUP_SCHEMA_VERSION`.
+
+---
 
 ### [chiusa] [14] Backup/restore include tabelle sport mode
 

@@ -27,13 +27,13 @@ Tempo stimato: ~3-5 min di generazione per batch + scaricamento. Totale ~45-60 m
 ## Promozione e ottimizzazione
 
 Dopo lo spot-check di un batch:
-1. Sposta i PNG promossi in `assets/exercises/verificate/`.
+1. Sposta i PNG promossi in `assets/exercises/`.
 2. Lancia l'ottimizzazione: `node scripts/exercise-illustrations/optimize.js`.
-   - Converte tutti i PNG di `verificate/` in WebP (~98% di saving).
+   - Converte tutti i PNG di `assets/exercises/` in WebP (~98% di saving).
    - Cancella i PNG originali una volta convertiti.
 3. Commit dei `.webp` risultanti.
 
-I PNG NON vanno committati nella branch finale: l'app legge i WebP. Il render userà `require('@/assets/exercises/verificate/<slug>.webp')`.
+I PNG NON vanno committati nella branch finale: l'app legge i WebP. Il render userà `require('@/assets/exercises/<slug>.webp')`.
 
 ## Quality check per batch
 
