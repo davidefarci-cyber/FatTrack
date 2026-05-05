@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Image,
   Linking,
   Modal,
   Pressable,
@@ -36,6 +37,10 @@ import {
 } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
 import type { SportCategory } from '@/theme';
+import {
+  getExerciseAspectRatio,
+  getExerciseImage,
+} from '@/utils/exerciseImages';
 import { lightHaptic } from '@/utils/haptics';
 
 // Modal full-screen della sessione live. Montata in SportTabNavigator
@@ -273,7 +278,11 @@ function LiveBody({
   accent,
 }: LiveBodyProps) {
   const toast = useToast();
-  const { spotifyPlaylistUri } = useAppSettings();
+  const {
+    spotifyPlaylistUri,
+    exerciseGuidesEnabled,
+    setExerciseGuidesEnabled,
+  } = useAppSettings();
   const totalExercises = state.workout.exercises.length;
   const exIdx = state.currentExerciseIndex;
   const ex = state.workout.exercises[exIdx];
@@ -295,6 +304,25 @@ function LiveBody({
   const [reps, setReps] = useState<string>('');
   const [duration, setDuration] = useState<string>('');
   const [rpe, setRpe] = useState<number | null>(null);
+
+  // Set di exerciseIndex per cui la guida è già stata "vista" in questa
+  // sessione. Solo locale (in-memory): si resetta a sessione conclusa /
+  // riavvio app, perché la guida è didattica e non c'è bisogno di
+  // persistenza. Resettato anche al cambio di sessione (nuovo session.id)
+  // per evitare leak di state tra workout consecutivi.
+  const [viewedGuides, setViewedGuides] = useState<Set<number>>(new Set());
+  const sessionId = state.session.id;
+  useEffect(() => {
+    setViewedGuides(new Set());
+  }, [sessionId]);
+
+  // Guida visibile solo: setting attivo + set #1 + non già vista per questo
+  // esercizio + non in fase di recupero (così non occulta il timer di rest).
+  const showGuide =
+    exerciseGuidesEnabled &&
+    state.currentSetNumber === 1 &&
+    !viewedGuides.has(exIdx) &&
+    !(state.restEndsAt !== null);
 
   // Reset degli input quando cambia esercizio o set: i default sono
   // i valori prescritti (placeholder che l'utente può accettare premendo
@@ -383,6 +411,28 @@ function LiveBody({
         </Pressable>
       </View>
 
+      {showGuide && exMeta ? (
+        <ExerciseGuide
+          exerciseName={exMeta.name}
+          description={exMeta.description}
+          guideSteps={exMeta.guideSteps}
+          exerciseIndex={exIdx}
+          totalExercises={totalExercises}
+          accent={accent}
+          insetBottom={insetBottom}
+          onContinue={() => {
+            setViewedGuides((prev) => {
+              const next = new Set(prev);
+              next.add(exIdx);
+              return next;
+            });
+          }}
+          onDisableGuides={async () => {
+            await setExerciseGuidesEnabled(false);
+            toast.show('Guide esercizio disattivate. Riattivabili dalle Impostazioni Sport.');
+          }}
+        />
+      ) : (
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
@@ -508,7 +558,128 @@ function LiveBody({
           </View>
         )}
       </ScrollView>
+      )}
     </>
+  );
+}
+
+// Overlay didattico mostrato prima del set #1 di ogni esercizio quando il
+// flag exerciseGuidesEnabled è ON. Tap sul body principale chiude la guida
+// e mostra il tracking input. Dal link in fondo si può disattivare per
+// sempre il sistema delle guide.
+type ExerciseGuideProps = {
+  exerciseName: string;
+  description: string | null;
+  guideSteps: string[] | null;
+  exerciseIndex: number;
+  totalExercises: number;
+  accent: string;
+  insetBottom: number;
+  onContinue: () => void;
+  onDisableGuides: () => void;
+};
+
+function ExerciseGuide({
+  exerciseName,
+  description,
+  guideSteps,
+  exerciseIndex,
+  totalExercises,
+  accent,
+  insetBottom,
+  onContinue,
+  onDisableGuides,
+}: ExerciseGuideProps) {
+  const image = getExerciseImage(exerciseName);
+  const aspectRatio = getExerciseAspectRatio(exerciseName);
+
+  return (
+    <View
+      style={[
+        styles.guideContainer,
+        { paddingBottom: insetBottom + spacing.screen },
+      ]}
+    >
+      <ScrollView
+        contentContainerStyle={styles.guideScroll}
+        showsVerticalScrollIndicator={false}
+      >
+        <Pressable
+          onPress={onContinue}
+          accessibilityRole="button"
+          accessibilityLabel="Inizia il set, tocca per chiudere la guida"
+          style={styles.guideTapZone}
+        >
+          <Text style={[typography.label, { color: accent }]}>
+            Esercizio {exerciseIndex + 1} / {totalExercises}
+          </Text>
+          <Text style={typography.h1} numberOfLines={2}>
+            {exerciseName}
+          </Text>
+          {description ? (
+            <Text style={[typography.body, { color: colors.textSec }]}>
+              {description}
+            </Text>
+          ) : null}
+
+          {image ? (
+            <View style={[styles.guideImageBox, { aspectRatio }]}>
+              <Image
+                source={image}
+                style={styles.guideImage}
+                resizeMode="contain"
+                accessibilityLabel={`Illustrazione esercizio ${exerciseName}`}
+              />
+            </View>
+          ) : null}
+
+          {guideSteps && guideSteps.length > 0 ? (
+            <View style={styles.guideSteps}>
+              {guideSteps.map((step, idx) => (
+                <View key={idx} style={styles.guideStepRow}>
+                  <View
+                    style={[
+                      styles.guideStepIndex,
+                      { backgroundColor: accent },
+                    ]}
+                  >
+                    <Text style={[typography.bodyBold, { color: '#FFFFFF' }]}>
+                      {idx + 1}
+                    </Text>
+                  </View>
+                  <Text style={[typography.body, styles.guideStepText]}>
+                    {step}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </Pressable>
+      </ScrollView>
+
+      <View style={styles.guideFooter}>
+        <Pressable
+          onPress={onContinue}
+          accessibilityRole="button"
+          accessibilityLabel="Inizia il set"
+          style={[styles.guideStartBtn, { backgroundColor: accent }]}
+        >
+          <Text style={[typography.bodyBold, { color: '#FFFFFF' }]}>
+            Inizia il set
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={onDisableGuides}
+          accessibilityRole="button"
+          accessibilityLabel="Non mostrare più le guide esercizio"
+          style={styles.guideDisableBtn}
+        >
+          <Text style={[typography.caption, { color: colors.textSec }]}>
+            Non mostrarle più
+          </Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -834,5 +1005,63 @@ const styles = StyleSheet.create({
   },
   repsDelta: {
     textAlign: 'center',
+  },
+  guideContainer: {
+    flex: 1,
+    paddingHorizontal: spacing.screen,
+    paddingTop: spacing.lg,
+  },
+  guideScroll: {
+    paddingBottom: spacing.screen,
+  },
+  guideTapZone: {
+    gap: spacing.xl,
+  },
+  guideImageBox: {
+    width: '100%',
+    maxHeight: 280,
+    backgroundColor: colors.bg,
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+  },
+  guideImage: {
+    width: '100%',
+    height: '100%',
+  },
+  guideSteps: {
+    gap: spacing.lg,
+  },
+  guideStepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.lg,
+  },
+  guideStepIndex: {
+    width: 26,
+    height: 26,
+    borderRadius: radii.round,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  guideStepText: {
+    flex: 1,
+  },
+  guideFooter: {
+    gap: spacing.md,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  guideStartBtn: {
+    paddingVertical: spacing.xxl,
+    borderRadius: radii.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guideDisableBtn: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    alignSelf: 'center',
   },
 });

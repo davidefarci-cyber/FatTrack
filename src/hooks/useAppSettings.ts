@@ -25,6 +25,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   tabataRestSec: 10,
   tabataRounds: 8,
   coachMarksSeen: {},
+  exerciseGuidesEnabled: true,
   updatedAt: '',
 };
 
@@ -88,6 +89,14 @@ async function setHapticEnabled(enabled: boolean): Promise<AppSettings> {
   return updated;
 }
 
+async function setExerciseGuidesEnabled(
+  enabled: boolean,
+): Promise<AppSettings> {
+  const updated = await appSettingsDB.setExerciseGuidesEnabled(enabled);
+  setSnapshot({ settings: updated, loading: false, error: null });
+  return updated;
+}
+
 async function setSpotifyPlaylistUri(uri: string | null): Promise<AppSettings> {
   const updated = await appSettingsDB.setSpotifyPlaylistUri(uri);
   setSnapshot({ settings: updated, loading: false, error: null });
@@ -126,12 +135,14 @@ export type UseAppSettingsResult = {
   tabataRestSec: number;
   tabataRounds: number;
   coachMarksSeen: CoachMarksSeen;
+  exerciseGuidesEnabled: boolean;
   loading: boolean;
   error: Error | null;
   setAppMode: (mode: AppMode) => Promise<AppSettings>;
   markSportModeSeen: () => Promise<AppSettings>;
   setWeeklyTarget: (days: number) => Promise<AppSettings>;
   setHapticEnabled: (enabled: boolean) => Promise<AppSettings>;
+  setExerciseGuidesEnabled: (enabled: boolean) => Promise<AppSettings>;
   setSpotifyPlaylistUri: (uri: string | null) => Promise<AppSettings>;
   setTabataConfig: (config: {
     workSec: number;
@@ -152,6 +163,10 @@ export function useAppSettings(): UseAppSettingsResult {
   const markSeenFn = useCallback(() => markSportModeSeen(), []);
   const setWeeklyTargetFn = useCallback((d: number) => setWeeklyTarget(d), []);
   const setHapticFn = useCallback((e: boolean) => setHapticEnabled(e), []);
+  const setExerciseGuidesFn = useCallback(
+    (e: boolean) => setExerciseGuidesEnabled(e),
+    [],
+  );
   const setSpotifyFn = useCallback(
     (u: string | null) => setSpotifyPlaylistUri(u),
     [],
@@ -176,12 +191,14 @@ export function useAppSettings(): UseAppSettingsResult {
     tabataRestSec: settings.tabataRestSec,
     tabataRounds: settings.tabataRounds,
     coachMarksSeen: settings.coachMarksSeen,
+    exerciseGuidesEnabled: settings.exerciseGuidesEnabled,
     loading: state.loading,
     error: state.error,
     setAppMode: setModeFn,
     markSportModeSeen: markSeenFn,
     setWeeklyTarget: setWeeklyTargetFn,
     setHapticEnabled: setHapticFn,
+    setExerciseGuidesEnabled: setExerciseGuidesFn,
     setSpotifyPlaylistUri: setSpotifyFn,
     setTabataConfig: setTabataFn,
     markCoachMarkSeen: markCoachFn,

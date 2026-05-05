@@ -1,4 +1,12 @@
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
@@ -6,6 +14,10 @@ import { useToast } from '@/components/Toast';
 import type { Exercise } from '@/database';
 import { colors, radii, spacing, typography } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
+import {
+  getExerciseAspectRatio,
+  getExerciseImage,
+} from '@/utils/exerciseImages';
 
 // Dettaglio esercizio: header (nome + badge muscleGroup) + caption con
 // equipment/level/MET, descrizione, guida step-by-step e — se disponibile —
@@ -51,12 +63,26 @@ export function ExerciseDetailModal({ visible, exercise, onClose }: Props) {
     }
   };
 
+  const image = getExerciseImage(exercise.name);
+  const aspectRatio = getExerciseAspectRatio(exercise.name);
+
   return (
     <BottomSheet visible={visible} onClose={onClose} maxHeightPercent={85}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
+        {image ? (
+          <View style={[styles.imageBox, { aspectRatio }]}>
+            <Image
+              source={image}
+              style={styles.image}
+              resizeMode="contain"
+              accessibilityLabel={`Illustrazione esercizio ${exercise.name}`}
+            />
+          </View>
+        ) : null}
+
         <View style={styles.header}>
           <Text style={typography.h1}>{exercise.name}</Text>
           <View style={styles.headerMeta}>
@@ -140,6 +166,17 @@ const styles = StyleSheet.create({
   scroll: {
     paddingBottom: spacing.screen,
     gap: spacing.xl,
+  },
+  imageBox: {
+    width: '100%',
+    maxHeight: 240,
+    backgroundColor: colors.bg,
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
   },
   header: {
     gap: spacing.md,
