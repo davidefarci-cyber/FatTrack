@@ -10,6 +10,7 @@ Voce TODO collegata: `[27] Immagini illustrate per esercizi` in `docs/TODO.md`.
 - `template.js` — funzione che costruisce il prompt auto-contenuto da una entry del manifest.
 - `generate-batches.js` — script Node che genera i file batch nella cartella `batches/`.
 - `batches/batch-NN.md` — output: 10 file markdown, ciascuno con istruzioni per GPT + prompt di N esercizi + richiesta finale di ZIP con filename corretti.
+- `optimize.js` — converte i PNG verificati in WebP (qualità 85, max 1080 px sul lato lungo) e cancella i PNG originali. Saving tipico ~98% (17.5 MB di PNG → ~0.4 MB di WebP).
 
 ## Flusso operativo
 
@@ -20,6 +21,17 @@ Voce TODO collegata: `[27] Immagini illustrate per esercizi` in `docs/TODO.md`.
 5. Ripeti per `batch-02.md`, `batch-03.md`, …, `batch-10.md`.
 
 Tempo stimato: ~3-5 min di generazione per batch + scaricamento. Totale ~45-60 min spalmabili nel tempo.
+
+## Promozione e ottimizzazione
+
+Dopo lo spot-check di un batch:
+1. Sposta i PNG promossi in `assets/exercises/verificate/`.
+2. Lancia l'ottimizzazione: `node scripts/exercise-illustrations/optimize.js`.
+   - Converte tutti i PNG di `verificate/` in WebP (~98% di saving).
+   - Cancella i PNG originali una volta convertiti.
+3. Commit dei `.webp` risultanti.
+
+I PNG NON vanno committati nella branch finale: l'app legge i WebP. Il render userà `require('@/assets/exercises/verificate/<slug>.webp')`.
 
 ## Quality check per batch
 
