@@ -649,6 +649,108 @@ sport copertura come iterazione successiva o bonus se semplice.
 
 ---
 
+### [38] Popup "in arrivo" — teaser per feature future
+
+**Aperta**: 2026-05-05
+**Priorità**: 🟢 bassa
+**Area**: feature / codice / UX
+
+Idea: un file remoto nel repo (es. `upcoming.json` accanto a
+`version.json`, oppure una sezione dedicata nel body delle GitHub
+Releases) elenca le feature in arrivo con voci tipo:
+
+```
+{
+  "id": "spotify-oauth",
+  "title": "Controllo musica in-app",
+  "description": "Play/pause/next senza uscire dall'allenamento",
+  "eta_human": "prossime settimane",
+  "target_version": "2.1.0"
+}
+```
+
+All'avvio l'app fa fetch (riusando pattern + throttle di
+`updateChecker.ts`) e confronta con `seenUpcomingIds` salvati in
+AsyncStorage. Se trova voci nuove, mostra un popup informativo
+("Sta arrivando: <title> — <description>. Torna a trovarci tra
+<eta_human>!"). Stesso slot UI del messaggio "Novità" post-update,
+ma triggherato PRIMA del rilascio invece che dopo.
+
+Da decidere:
+- file dedicato vs sezione del body Releases (se sezione, va parsata
+  con un marker tipo `<!-- upcoming-start -->` ... `<!-- upcoming-end -->`)
+- frequenza fetch (allineata al throttle 1h di updateChecker o
+  rilassata a ogni cold-start)
+- vita dell'avviso: visto una volta basta? "non mostrare più"?
+  auto-dismiss quando `target_version` è stata rilasciata davvero
+  (così non si duplica con il messaggio Novità del post-update)?
+- design popup (riuso `Card` + bottone "Ho capito", o BottomSheet
+  per voci più ricche)
+
+**Done quando**: aggiornando un file remoto con una voce nuova,
+entro ~1h tutti gli utenti vedono un popup teaser; ogni voce viene
+mostrata una volta sola per device; quando la feature esce davvero
+il teaser non duplica il messaggio "Novità" post-aggiornamento.
+
+---
+
+### [39] Raccolta suggerimenti utente anonima
+
+**Aperta**: 2026-05-05
+**Priorità**: 🟢 bassa
+**Area**: feature / infra
+
+Idea: dare agli utenti un canale per inviare suggerimenti / richieste
+/ segnalazioni dall'app. I testi finiscono — anonimi — in un file
+o storage che il proprietario consulta ogni tanto per decidere nuove
+implementazioni. Da valutare prima dell'implementazione l'approccio
+giusto.
+
+Approcci candidati:
+
+- **A — Issue GitHub via proxy serverless**: app fa POST a un
+  Worker/Function (Cloudflare / Vercel) che, con un token segreto
+  lato server, apre una issue su `davidefarci-cyber/fattrack` con
+  label `feedback-utente` e body del messaggio. Niente token nell'APK
+  (decompilabile = spam garantito). Più controllo + zero costi se
+  Worker free tier basta.
+- **B — Google Form / Tally**: link esterno aperto in browser. Zero
+  backend, UX peggiore (esce dall'app), risposte raccolte nel form.
+- **C — backend leggero proprio**: API + DB minimal (Supabase /
+  Cloudflare D1) con endpoint `POST /feedback`. Massimo controllo,
+  più lavoro iniziale.
+- **D — mailto**: `Linking.openURL('mailto:...?subject=...&body=...')`.
+  Zero backend ma rivela l'indirizzo destinatario e l'email del
+  mittente (non più anonimo).
+
+UX in app (indipendente dall'approccio):
+- voce "Scrivi un suggerimento" in `SettingsScreen` e
+  `SportSettingsScreen`
+- TextArea + bottone "Invia anonimo"
+- privacy notice esplicita ("non raccogliamo nulla che ti
+  identifichi — niente nome, email, ID device")
+- conferma post-invio con Toast
+- rate-limit lato client (es. max 1 invio ogni 5 min) per ridurre
+  spam accidentale
+
+Da decidere prima di iniziare:
+- approccio (probabilmente A se vogliamo zero infra dedicata, oppure
+  C se vogliamo dashboard ricca)
+- come il proprietario consulta (issues GitHub filtrate per label?
+  dashboard custom? export CSV mensile?)
+- moderazione spam (rate-limit per device-id hashato? captcha
+  invisible? bloccare URL/email nei testi?)
+- categorie opzionali ("idea funzionalità" / "bug" / "altro") per
+  facilitare il triage
+
+**Done quando**: dall'app l'utente apre un form, scrive un messaggio,
+lo invia, riceve conferma; il proprietario riceve il messaggio in un
+canale unico (issue GitHub o dashboard) SENZA informazioni che
+identifichino il mittente; il flow regge un minimo di rate-limiting
+contro spam.
+
+---
+
 ## ✅ Fatto
 
 ### [chiusa] [27] Immagini illustrate per esercizi + guida pre-primo-set
