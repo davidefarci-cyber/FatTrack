@@ -1,29 +1,30 @@
 # Esercizi da rifare
 
 Lista cumulativa degli slug le cui illustrazioni sono state scartate
-in fase di verifica. Quando un esercizio viene rigenerato e supera lo
-spot-check, va **rimosso** da questa lista (e il WebP committato in
-`assets/exercises/verificate/`) — la sua riga si sposta in "Storico
-delle promozioni" sotto.
+in fase di verifica.
 
-A fine processo, da questa lista verrà generato `batches/rifare-NN.md`
-via `node scripts/exercise-illustrations/generate-rifare.js`.
+## In sospeso
 
-## In sospeso (round 3)
-
-| Slug | Severità | Round | Storia | Note per prompt rinforzato |
-|---|---|---|---|---|
-| `spinal-twist` | 🔴 grave | round 3 | Round 1: GPT ha disegnato eagle/tree pose in piedi. Round 2: ancora pose in piedi (variante con gamba sollevata in equilibrio). | Cambio di vista: passare da top-down a LATERALE per rendere geometricamente impossibile confondere con una pose in piedi. Body must be HORIZONTAL on the floor. Rinominare mentalmente come "supine spinal twist". |
-| `curl-isometrico-asciugamano` | 🔴 grave | round 3 | Round 1: uomo con asciugamano verticale a due mani davanti al corpo. Round 2: asciugamano laterale lungo il corpo, gomiti dritti. | Vista frontale ravvicinata, descrizione "diagrammatica" passo-passo: piede SU asciugamano + estremità che salgono ai due lati + gomiti a 90° + tensione visibile. Riferimento mentale tipo "boat shape" con asciugamano. |
-| `y-t-w-prone` | 🔴 grave | round 3 | Round 1: ordine sbagliato delle 3 forme (W-T-W invece di Y-T-W). Round 2: forme corrette ma persona IN PIEDI vista da dietro, non prone. | Cambio di vista da top-down a LATERALE di profilo. Persona deve essere ORIZZONTALE sul pavimento (a pancia in giù), gambe distese a terra all'indietro, fronte appoggiata. Riferimento mentale: "Superman exercise" come body position, ma con braccia in 3 forme Y/T/W. |
+🎉 **NESSUNO!** Tutti e 67 gli esercizi del manifest hanno il loro
+WebP verificato in `assets/exercises/verificate/`.
 
 ## Storico delle promozioni
 
-### Round 1 (rifare batch del 2026-05-05) — 8 promossi su 11
+### Round 3 (2026-05-05) — 3 ostinati promossi
 
-Round 2 (rifare-01.md di 6 gravi + rifare-02.md di 5) ha promosso:
+Cambiando vista da `top-down` a `lateral` per spinal-twist e y-t-w-prone,
+e con descrizione "diagrammatica" passo-passo per curl-isometrico-asciugamano,
+sono stati superati i pattern resistenti di GPT.
 
-| Slug | Round superato | Cosa è cambiato vs primo tentativo |
+| Slug | Round superato | Cosa è cambiato |
+|---|---|---|
+| `spinal-twist` | round 3 ✓ | Vista laterale invece di top-down: persona orizzontale sul pavimento, geometria impossibile da confondere con pose in piedi. |
+| `curl-isometrico-asciugamano` | round 3 ✓ | Vista frontale ravvicinata + descrizione passo-passo (piede SU asciugamano, mani che salgono ai lati, gomiti a 90°). Tensione finalmente visibile. |
+| `y-t-w-prone` | round 3 ✓ | Vista laterale invece di top-down: persona prona orizzontale sul pavimento, le 3 forme Y/T/W lette di profilo (T leggermente ambigua di profilo ma accettabile). |
+
+### Round 2 (2026-05-05) — 8 promossi su 11
+
+| Slug | Round superato | Cosa è cambiato |
 |---|---|---|
 | `pull-apart-elastico` | round 2 ✓ | L'elastico ora è disegnato come linea curva arancio (#FF7A1A) ben visibile tra le due mani in entrambi i frame. |
 | `twist-seduti` | round 2 ✓ | Rotazione del busto ora marcata 60-70°, spalle visibilmente girate, mani giunte spostate verso il fianco. |
@@ -33,3 +34,11 @@ Round 2 (rifare-01.md di 6 gravi + rifare-02.md di 5) ha promosso:
 | `shoulder-rolls` | round 2 ✓ | Differenza tra spalle basse (frame 1) e alzate verso le orecchie (frame 2) ora leggibile, anche se non drammatica. |
 | `skater-jumps` | round 2 ✓ | Atterraggio laterale con gamba dietro incrociata leggibile, anche se la posizione non è drammaticamente diversa da una corsa. |
 | `diamond-push-up` | round 2 ✓ | Mani sotto il petto ravvicinate, anche se il rombo geometrico potrebbe essere più nitido. |
+
+## Statistiche finali
+
+- **Totale esercizi**: 67
+- **Verificati al primo tentativo**: 56 (84%)
+- **Verificati al secondo tentativo**: 8 (12%)
+- **Verificati al terzo tentativo**: 3 (4%)
+- **Bundle finale WebP**: ~1.7 MB (~25 KB media per file)
