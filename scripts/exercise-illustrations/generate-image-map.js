@@ -40,8 +40,11 @@ function generate() {
   lines.push('// dinamici sui path, quindi serve l\'elenco completo qui.');
   lines.push('const EXERCISE_IMAGES: Record<string, ImageSourcePropType> = {');
 
+  // Path RELATIVO (../../assets/...) e non alias @/. Metro NON risolve gli
+  // alias di Babel/TS per il suo asset resolver: usa solo il file system.
+  // Stesso pattern di src/utils/sportSounds.ts.
   for (const e of MANIFEST) {
-    lines.push(`  ${JSON.stringify(e.slug)}: require('@/assets/exercises/${e.slug}.webp'),`);
+    lines.push(`  ${JSON.stringify(e.slug)}: require('../../assets/exercises/${e.slug}.webp'),`);
   }
 
   lines.push('};');
