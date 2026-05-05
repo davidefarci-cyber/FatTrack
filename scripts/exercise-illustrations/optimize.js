@@ -5,7 +5,7 @@
 // Uso:
 //   node scripts/exercise-illustrations/optimize.js [<dir>]
 //
-// Default dir: assets/exercises/verificate
+// Default dir: assets/exercises
 //
 // Parametri:
 //   - WebP qualità 85 (lossy ma indistinguibile per illustrazioni piatte).
@@ -20,7 +20,7 @@ const { execFileSync } = require('child_process');
 
 const QUALITY = 85;
 const MAX_DIM = 1080;
-const DEFAULT_DIR = path.join(__dirname, '..', '..', 'assets', 'exercises', 'verificate');
+const DEFAULT_DIR = path.join(__dirname, '..', '..', 'assets', 'exercises');
 
 function getImageDimensions(pngPath) {
   // Usa identify se disponibile, altrimenti parsa l'header del PNG.

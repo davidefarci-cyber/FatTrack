@@ -6,7 +6,7 @@ in fase di verifica.
 ## In sospeso
 
 🎉 **NESSUNO!** Tutti e 67 gli esercizi del manifest hanno il loro
-WebP verificato in `assets/exercises/verificate/`.
+WebP verificato in `assets/exercises/`.
 
 ## Storico delle promozioni
 
