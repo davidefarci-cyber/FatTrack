@@ -308,6 +308,7 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     `ALTER TABLE workout_exercises ADD COLUMN reps_max INTEGER`,
     `ALTER TABLE workout_exercises ADD COLUMN duration_max_sec INTEGER`,
     `ALTER TABLE workout_exercises ADD COLUMN alternative_exercise_id INTEGER REFERENCES exercises(id) ON DELETE SET NULL`,
+    `ALTER TABLE app_settings ADD COLUMN programs_intro_initialized INTEGER NOT NULL DEFAULT 0`,
   ]) {
     try {
       await db.execAsync(sql);
@@ -377,6 +378,58 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     }
     await db.runAsync(
       `UPDATE daily_settings SET seeded_quick_addons = 1 WHERE id = 1`,
+    );
+  }
+
+  // Sentinel one-shot per gli onboarding banner di WorkoutsScreen
+  // (`workoutsEquipmentIntro` + `workoutsProgramsNews`). Decisione presa
+  // alla prima migrazione dopo l'introduzione dei programmi:
+  // - Utente "vecchio" (ha già pasti o sessioni): mostra entrambi i
+  //   banner — l'annuncio "nuove schede" ha senso per lui.
+  // - Utente "nuovo" (DB vuoto): pre-marca `workoutsProgramsNews` come
+  //   visto, così non riceve un annuncio di novità che per lui non sono
+  //   tali; vede solo `workoutsEquipmentIntro`.
+  // Idempotente: il flag `programs_intro_initialized` su app_settings
+  // garantisce che il check giri una sola volta nel ciclo di vita
+  // dell'installazione.
+  const introRow = await db.getFirstAsync<{ done: number }>(
+    `SELECT programs_intro_initialized AS done FROM app_settings WHERE id = 1`,
+  );
+  if ((introRow?.done ?? 0) === 0) {
+    const counts = await db.getFirstAsync<{
+      meals: number;
+      sessions: number;
+    }>(
+      `SELECT
+         (SELECT COUNT(*) FROM meals) AS meals,
+         (SELECT COUNT(*) FROM sessions) AS sessions`,
+    );
+    const isExistingUser =
+      (counts?.meals ?? 0) > 0 || (counts?.sessions ?? 0) > 0;
+    if (!isExistingUser) {
+      // Merge nei coach_marks_seen senza sovrascrivere altri flag.
+      const seenRow = await db.getFirstAsync<{ json: string }>(
+        `SELECT coach_marks_seen AS json FROM app_settings WHERE id = 1`,
+      );
+      let seen: Record<string, boolean> = {};
+      try {
+        const parsed = JSON.parse(seenRow?.json ?? '{}');
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          for (const [k, v] of Object.entries(parsed)) {
+            if (typeof v === 'boolean') seen[k] = v;
+          }
+        }
+      } catch {
+        seen = {};
+      }
+      seen.workoutsProgramsNews = true;
+      await db.runAsync(
+        `UPDATE app_settings SET coach_marks_seen = ? WHERE id = 1`,
+        JSON.stringify(seen),
+      );
+    }
+    await db.runAsync(
+      `UPDATE app_settings SET programs_intro_initialized = 1 WHERE id = 1`,
     );
   }
 }

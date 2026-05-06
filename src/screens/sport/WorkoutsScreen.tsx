@@ -1,3 +1,5 @@
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -20,6 +22,10 @@ import { useToast } from '@/components/Toast';
 import { ProgramDetailModal } from '@/components/sport/ProgramDetailModal';
 import { WorkoutDetailModal } from '@/components/sport/WorkoutDetailModal';
 import { WorkoutEditorModal } from '@/components/sport/WorkoutEditorModal';
+import {
+  WorkoutsIntroModal,
+  type WorkoutsIntroKind,
+} from '@/components/sport/WorkoutsIntroModal';
 import { useActiveSession } from '@/contexts/ActiveSessionContext';
 import { workoutsDB } from '@/database';
 import type {
@@ -31,8 +37,10 @@ import type {
   WorkoutLevel,
 } from '@/database';
 import { useActiveProgram } from '@/hooks/useActiveProgram';
+import { useAppSettings } from '@/hooks/useAppSettings';
 import { useProfile } from '@/hooks/useProfile';
 import { usePrograms } from '@/hooks/usePrograms';
+import type { SportTabParamList } from '@/types';
 import { colors, radii, shadows, spacing, sportPalette, typography } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
 
@@ -101,6 +109,8 @@ function isExecutable(
 
 export default function WorkoutsScreen() {
   const insets = useSafeAreaInsets();
+  const navigation =
+    useNavigation<BottomTabNavigationProp<SportTabParamList>>();
   const toast = useToast();
   const { state: activeSessionState, start } = useActiveSession();
   const { programs, reload: reloadPrograms } = usePrograms();
@@ -110,6 +120,7 @@ export default function WorkoutsScreen() {
     clearActive: clearActiveProgram,
   } = useActiveProgram();
   const { profile } = useProfile();
+  const { coachMarksSeen, markCoachMarkSeen } = useAppSettings();
 
   const [viewMode, setViewMode] = useState<ViewMode>('schede');
   const [workouts, setWorkouts] = useState<Workout[]>([]);
@@ -124,6 +135,25 @@ export default function WorkoutsScreen() {
   const [levelFilter, setLevelFilter] = useState<LevelFilter>('all');
   const [durationFilter, setDurationFilter] = useState<DurationFilter>('all');
   const [onlyExecutable, setOnlyExecutable] = useState(false);
+
+  // Onboarding intro: due banner sequenziali (equipment → programs).
+  // Si pesca dal coach_marks_seen quale è il prossimo da mostrare.
+  // Mostriamo solo uno alla volta per non sommergere l'utente.
+  const introToShow: WorkoutsIntroKind | null = (() => {
+    if (!coachMarksSeen.workoutsEquipmentIntro) return 'equipment';
+    if (!coachMarksSeen.workoutsProgramsNews) return 'programs';
+    return null;
+  })();
+  const [introVisible, setIntroVisible] = useState(false);
+
+  // Apri il banner al focus della tab. Lo riapriamo a ogni focus finché
+  // non viene dismesso, perché il dismiss segna `seen=true` e
+  // `introToShow` diventa null o passa al successivo.
+  useFocusEffect(
+    useCallback(() => {
+      if (introToShow !== null) setIntroVisible(true);
+    }, [introToShow]),
+  );
 
   const reload = useCallback(async () => {
     try {
@@ -259,6 +289,27 @@ export default function WorkoutsScreen() {
     setOnlyExecutable(false);
   };
 
+  const handleIntroPrimary = useCallback(async () => {
+    if (introToShow === 'equipment') {
+      await markCoachMarkSeen('workoutsEquipmentIntro');
+      setIntroVisible(false);
+      navigation.navigate('SportSettings');
+    } else if (introToShow === 'programs') {
+      await markCoachMarkSeen('workoutsProgramsNews');
+      setIntroVisible(false);
+      setViewMode('programmi');
+    }
+  }, [introToShow, markCoachMarkSeen, navigation]);
+
+  const handleIntroDismiss = useCallback(async () => {
+    if (introToShow === 'equipment') {
+      await markCoachMarkSeen('workoutsEquipmentIntro');
+    } else if (introToShow === 'programs') {
+      await markCoachMarkSeen('workoutsProgramsNews');
+    }
+    setIntroVisible(false);
+  }, [introToShow, markCoachMarkSeen]);
+
   return (
     <View style={styles.container}>
       <ScreenHeader
@@ -383,6 +434,13 @@ export default function WorkoutsScreen() {
         onSave={handleSave}
         onValidationError={(msg) => toast.show(msg)}
         onSaveError={(msg) => toast.show(msg)}
+      />
+
+      <WorkoutsIntroModal
+        visible={introVisible && introToShow !== null}
+        kind={introToShow ?? 'equipment'}
+        onPrimary={handleIntroPrimary}
+        onDismiss={handleIntroDismiss}
       />
 
       <ProgramDetailModal

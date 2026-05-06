@@ -176,6 +176,44 @@ export default function SportSettingsScreen() {
         </Card>
 
         <Card style={styles.card}>
+          <Text style={typography.label}>La mia attrezzatura</Text>
+          <Text style={typography.caption}>
+            Seleziona ciò che hai disponibile in casa. Il filtro &ldquo;Solo
+            eseguibili&rdquo; nelle Schede userà queste informazioni per
+            mostrare solo gli allenamenti che puoi fare.
+          </Text>
+          <View style={styles.equipGrid}>
+            {EQUIPMENT_TAGS.map((tag) => {
+              const selected = availableEquipment.includes(tag);
+              return (
+                <Pressable
+                  key={tag}
+                  onPress={() => void toggleEquipment(tag)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selected }}
+                  accessibilityLabel={EQUIPMENT_LABELS[tag]}
+                  style={[
+                    styles.equipChip,
+                    selected
+                      ? { backgroundColor: theme.accent, borderColor: theme.accent }
+                      : { backgroundColor: colors.card, borderColor: colors.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.body,
+                      { color: selected ? '#FFFFFF' : colors.text },
+                    ]}
+                  >
+                    {EQUIPMENT_LABELS[tag]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Card>
+
+        <Card style={styles.card}>
           <Text style={typography.label}>Feedback</Text>
           <Pressable
             onPress={handleToggleHaptic}
@@ -265,44 +303,6 @@ export default function SportSettingsScreen() {
             Es. {'spotify:playlist:37i9dQZF1DX...'}. Lascia vuoto per aprire
             Spotify in home.
           </Text>
-        </Card>
-
-        <Card style={styles.card}>
-          <Text style={typography.label}>La mia attrezzatura</Text>
-          <Text style={typography.caption}>
-            Seleziona ciò che hai disponibile in casa. Il filtro &ldquo;Solo
-            eseguibili&rdquo; nelle Schede userà queste informazioni per
-            mostrare solo gli allenamenti che puoi fare.
-          </Text>
-          <View style={styles.equipGrid}>
-            {EQUIPMENT_TAGS.map((tag) => {
-              const selected = availableEquipment.includes(tag);
-              return (
-                <Pressable
-                  key={tag}
-                  onPress={() => void toggleEquipment(tag)}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: selected }}
-                  accessibilityLabel={EQUIPMENT_LABELS[tag]}
-                  style={[
-                    styles.equipChip,
-                    selected
-                      ? { backgroundColor: theme.accent, borderColor: theme.accent }
-                      : { backgroundColor: colors.card, borderColor: colors.border },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      typography.body,
-                      { color: selected ? '#FFFFFF' : colors.text },
-                    ]}
-                  >
-                    {EQUIPMENT_LABELS[tag]}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
         </Card>
 
         <Card style={styles.card}>
