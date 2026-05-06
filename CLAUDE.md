@@ -169,3 +169,55 @@ Vale anche per richieste implicite del tipo:
 Eccezioni in cui NON delegare: modifiche allo schema DB (`db.ts`), modifiche
 alla UI (modali / screens sport), bugfix nei layer `*DB.ts`. In quei casi
 procedi direttamente.
+
+### Pipeline immagini esercizi → `exercise-illustrations`
+
+Per qualsiasi richiesta che riguardi le **illustrazioni** degli esercizi
+(file `assets/exercises/*.webp` + mappa `src/utils/exerciseImages.ts` +
+script in `scripts/exercise-illustrations/`), **delega SEMPRE al subagent
+`exercise-illustrations`**. L'agente gestisce manifest, prompt GPT,
+verifica visiva, ottimizzazione PNG→WebP e rigenerazione mappa runtime.
+
+Vale per:
+- _"genera le immagini per i nuovi esercizi"_ (continuazione del blocco
+  handoff prodotto da `sport-content-author`),
+- _"rifai l'illustrazione di X"_ / _"queste immagini sono brutte, rigenerale"_,
+- _"continua la verifica delle illustrazioni"_ (frase magica di **modalità B**:
+  parte dopo che l'utente ha caricato uno ZIP `fattrack-exercises-*.zip`
+  in `assets/exercises/`),
+- richieste di modifica al manifest, ai prompt template, al processo di
+  rifacimento (round 2/3 con override geometrico).
+
+L'agente lavora in **due modalità**:
+- **A (preparazione)**: aggiorna manifest, lancia `generate-batches.js`,
+  committa e fa handoff con il path del batch markdown da incollare in
+  GPT image gen + indicazioni per uppload ZIP.
+- **B (finalizzazione)**: triggerata dalla frase magica. Estrae ZIP,
+  verifica ogni PNG, ottimizza i promossi in WebP via `optimize.js`,
+  rigenera `src/utils/exerciseImages.ts` via `generate-image-map.js`,
+  prepara round di rifacimento se necessario.
+
+L'agente NON genera immagini autonomamente — richiede sempre
+intervento umano per il passaggio GPT image gen tra A e B.
+
+### Workflow combinato (i due agenti in cascata)
+
+Quando l'utente chiede un'espansione che tocca contenuti **e** illustrazioni
+("aggiungi un piano calistenico a 3 giorni e produci anche le illustrazioni
+dei nuovi esercizi"):
+
+1. Delega prima a `sport-content-author` per le entry seed.
+2. Quando torna l'output con il blocco handoff, passalo come prompt a
+   `exercise-illustrations` (modalità A). Il blocco "Handoff per agente
+   immagini" è già nel formato corretto: nome esatto, gruppo muscolare,
+   equipment, descrizione, guideSteps.
+3. `exercise-illustrations` (A) torna con il path del batch da incollare
+   in GPT — riportalo all'utente.
+4. Quando l'utente conferma l'upload dello ZIP, richiama
+   `exercise-illustrations` con la frase magica per la modalità B.
+
+I due agenti lavorano sempre **in sequenza**, mai in parallelo:
+parallelizzare introdurrebbe merge conflict perché `sport-content-author`
+scrive `seedExercises.ts` e `exercise-illustrations` lo legge. Inoltre
+`exercise-illustrations` ha bisogno che gli esercizi siano già committati
+nel seed per recuperare gli eventuali campi mancanti dall'input.
