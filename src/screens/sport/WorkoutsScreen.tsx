@@ -17,7 +17,6 @@ import { Card } from '@/components/Card';
 import { FAB } from '@/components/FAB';
 import { Icon } from '@/components/Icon';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { SegmentedControl } from '@/components/SegmentedControl';
 import { useToast } from '@/components/Toast';
 import { ProgramDetailModal } from '@/components/sport/ProgramDetailModal';
 import { WorkoutDetailModal } from '@/components/sport/WorkoutDetailModal';
@@ -27,7 +26,7 @@ import {
   type WorkoutsIntroKind,
 } from '@/components/sport/WorkoutsIntroModal';
 import { useActiveSession } from '@/contexts/ActiveSessionContext';
-import { workoutsDB } from '@/database';
+import { programsDB, workoutsDB } from '@/database';
 import type {
   EquipmentTag,
   NewWorkout,
@@ -40,17 +39,16 @@ import { useActiveProgram } from '@/hooks/useActiveProgram';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useProfile } from '@/hooks/useProfile';
 import { usePrograms } from '@/hooks/usePrograms';
-import type { SportTabParamList } from '@/types';
 import { colors, radii, shadows, spacing, sportPalette, typography } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
+import type { SportTabParamList } from '@/types';
 
-// View mode top-level: l'utente sceglie tra le schede sciolte (preset +
-// utente) e i programmi multi-day (preset). Su `Programmi` la CTA per
-// "Imposta come piano attivo" vive nel modal di dettaglio. Su `Schede`
-// restano filtri (goal, livello, durata, attrezzatura) per restringere
-// la lista, oltre al FAB+ per creare schede personali.
-
-type ViewMode = 'schede' | 'programmi';
+// Lista unica "Schede" che mescola programmi multi-giorno e schede sciolte.
+// I 12 workout interni ai programmi NON compaiono come voci individuali
+// (l'utente li esegue dal dettaglio del programma, in ordine). I workout
+// preset sciolti (Full Body Casa, PPL, Mobilità mattina) e quelli utente
+// restano come voci singole. Tutti i filtri (goal/livello/durata/
+// equipment) si applicano a entrambi i tipi di item.
 
 type GoalFilter = 'all' | WorkoutGoal;
 type LevelFilter = 'all' | WorkoutLevel;
@@ -84,20 +82,26 @@ const DURATION_FILTER_OPTIONS: ReadonlyArray<{
   { value: 'long', label: '> 45 min' },
 ];
 
+const GOAL_LABELS: Record<string, string> = {
+  dimagrimento: 'Dimagrimento',
+  resistenza: 'Resistenza',
+  mantenimento: 'Mantenimento',
+  mobilita: 'Mobilità',
+};
+
 function matchesDuration(
   estimated: number | null,
   filter: DurationFilter,
 ): boolean {
   if (filter === 'all') return true;
   // Senza durata stimata non possiamo decidere; filtriamo via per non
-  // mostrare workout di durata sconosciuta sotto un filtro specifico.
+  // mostrare item di durata sconosciuta sotto un filtro specifico.
   if (estimated === null) return false;
   if (filter === 'short') return estimated <= 25;
   if (filter === 'medium') return estimated > 25 && estimated <= 45;
   return estimated > 45;
 }
 
-// Subset check: required ⊆ available. Se required è vuoto è sempre eseguibile.
 function isExecutable(
   required: EquipmentTag[],
   available: EquipmentTag[],
@@ -107,13 +111,37 @@ function isExecutable(
   return required.every((tag) => set.has(tag));
 }
 
+// Per ogni programma derivo durata massima dei suoi giorni e l'union dei
+// requiredEquipment così posso filtrarlo come fosse un singolo item.
+type ProgramView = {
+  program: Program;
+  maxDuration: number | null;
+  requiredEquipment: EquipmentTag[];
+};
+
+function deriveProgramView(
+  program: Program,
+  workoutsById: Map<number, Workout>,
+): ProgramView {
+  const ws = program.workouts
+    .map((pw) => workoutsById.get(pw.workoutId))
+    .filter((w): w is Workout => w !== undefined);
+  const durations = ws
+    .map((w) => w.estimatedDurationMin)
+    .filter((d): d is number => d !== null);
+  const maxDuration = durations.length > 0 ? Math.max(...durations) : null;
+  const eq = new Set<EquipmentTag>();
+  for (const w of ws) for (const t of w.requiredEquipment) eq.add(t);
+  return { program, maxDuration, requiredEquipment: Array.from(eq) };
+}
+
 export default function WorkoutsScreen() {
   const insets = useSafeAreaInsets();
   const navigation =
     useNavigation<BottomTabNavigationProp<SportTabParamList>>();
   const toast = useToast();
   const { state: activeSessionState, start } = useActiveSession();
-  const { programs, reload: reloadPrograms } = usePrograms();
+  const { programs } = usePrograms();
   const {
     active: activeProgramRow,
     setActive: setActiveProgram,
@@ -122,14 +150,16 @@ export default function WorkoutsScreen() {
   const { profile } = useProfile();
   const { coachMarksSeen, markCoachMarkSeen } = useAppSettings();
 
-  const [viewMode, setViewMode] = useState<ViewMode>('schede');
   const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [programWorkoutIds, setProgramWorkoutIds] = useState<Set<number>>(
+    new Set(),
+  );
   const [loading, setLoading] = useState(true);
   const [openDetail, setOpenDetail] = useState<Workout | null>(null);
   const [openProgram, setOpenProgram] = useState<Program | null>(null);
   const [editing, setEditing] = useState<Workout | 'new' | null>(null);
 
-  // Filtri Schede.
+  // Filtri.
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [goalFilter, setGoalFilter] = useState<GoalFilter>('all');
   const [levelFilter, setLevelFilter] = useState<LevelFilter>('all');
@@ -137,8 +167,6 @@ export default function WorkoutsScreen() {
   const [onlyExecutable, setOnlyExecutable] = useState(false);
 
   // Onboarding intro: due banner sequenziali (equipment → programs).
-  // Si pesca dal coach_marks_seen quale è il prossimo da mostrare.
-  // Mostriamo solo uno alla volta per non sommergere l'utente.
   const introToShow: WorkoutsIntroKind | null = (() => {
     if (!coachMarksSeen.workoutsEquipmentIntro) return 'equipment';
     if (!coachMarksSeen.workoutsProgramsNews) return 'programs';
@@ -146,9 +174,6 @@ export default function WorkoutsScreen() {
   })();
   const [introVisible, setIntroVisible] = useState(false);
 
-  // Apri il banner al focus della tab. Lo riapriamo a ogni focus finché
-  // non viene dismesso, perché il dismiss segna `seen=true` e
-  // `introToShow` diventa null o passa al successivo.
   useFocusEffect(
     useCallback(() => {
       if (introToShow !== null) setIntroVisible(true);
@@ -157,11 +182,16 @@ export default function WorkoutsScreen() {
 
   const reload = useCallback(async () => {
     try {
-      const rows = await workoutsDB.getAllWorkouts();
+      const [rows, ids] = await Promise.all([
+        workoutsDB.getAllWorkouts(),
+        programsDB.getWorkoutIdsInPrograms(),
+      ]);
       setWorkouts(rows);
+      setProgramWorkoutIds(ids);
     } catch (err) {
       console.warn('Workouts load failed', err);
       setWorkouts([]);
+      setProgramWorkoutIds(new Set());
     } finally {
       setLoading(false);
     }
@@ -252,8 +282,48 @@ export default function WorkoutsScreen() {
   const availableEquipment: EquipmentTag[] = profile?.availableEquipment ?? [];
   const canFilterEquipment = availableEquipment.length > 0;
 
-  const filteredWorkouts = useMemo(() => {
+  // Lookup workout per id (include i workout-of-program — servono solo
+  // alla derivazione di durata/equipment del programma, NON alla lista).
+  const workoutsById = useMemo(() => {
+    const m = new Map<number, Workout>();
+    for (const w of workouts) m.set(w.id, w);
+    return m;
+  }, [workouts]);
+
+  // Programmi filtrati: applico goal/livello/durata/equipment usando
+  // i metadati derivati dai loro workout interni.
+  const programViews = useMemo(() => {
+    return programs.map((p) => deriveProgramView(p, workoutsById));
+  }, [programs, workoutsById]);
+
+  const filteredPrograms = useMemo(() => {
+    return programViews.filter(({ program, maxDuration, requiredEquipment }) => {
+      if (goalFilter !== 'all' && program.goal !== goalFilter) return false;
+      if (levelFilter !== 'all' && program.level !== levelFilter) return false;
+      if (!matchesDuration(maxDuration, durationFilter)) return false;
+      if (
+        onlyExecutable &&
+        canFilterEquipment &&
+        !isExecutable(requiredEquipment, availableEquipment)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [
+    programViews,
+    goalFilter,
+    levelFilter,
+    durationFilter,
+    onlyExecutable,
+    canFilterEquipment,
+    availableEquipment,
+  ]);
+
+  // Schede sciolte: tutti i workout NON dentro un programma, filtrati.
+  const filteredStandaloneWorkouts = useMemo(() => {
     return workouts.filter((w) => {
+      if (programWorkoutIds.has(w.id)) return false;
       if (goalFilter !== 'all' && w.goal !== goalFilter) return false;
       if (levelFilter !== 'all' && w.level !== levelFilter) return false;
       if (!matchesDuration(w.estimatedDurationMin, durationFilter)) return false;
@@ -268,19 +338,34 @@ export default function WorkoutsScreen() {
     });
   }, [
     workouts,
+    programWorkoutIds,
     goalFilter,
     levelFilter,
     durationFilter,
     onlyExecutable,
-    availableEquipment,
     canFilterEquipment,
+    availableEquipment,
   ]);
+
+  // Ordine programmi: attivo in cima.
+  const orderedPrograms = useMemo(() => {
+    const activeId = activeProgramRow?.programId ?? null;
+    return [...filteredPrograms].sort((a, b) => {
+      if (a.program.id === activeId) return -1;
+      if (b.program.id === activeId) return 1;
+      return 0;
+    });
+  }, [filteredPrograms, activeProgramRow?.programId]);
 
   const filtersActive =
     goalFilter !== 'all' ||
     levelFilter !== 'all' ||
     durationFilter !== 'all' ||
     onlyExecutable;
+
+  const totalItems = programs.length + workouts.filter((w) => !programWorkoutIds.has(w.id)).length;
+  const filteredCount =
+    orderedPrograms.length + filteredStandaloneWorkouts.length;
 
   const resetFilters = () => {
     setGoalFilter('all');
@@ -297,7 +382,6 @@ export default function WorkoutsScreen() {
     } else if (introToShow === 'programs') {
       await markCoachMarkSeen('workoutsProgramsNews');
       setIntroVisible(false);
-      setViewMode('programmi');
     }
   }, [introToShow, markCoachMarkSeen, navigation]);
 
@@ -313,25 +397,10 @@ export default function WorkoutsScreen() {
   return (
     <View style={styles.container}>
       <ScreenHeader
-        title={viewMode === 'programmi' ? 'Programmi' : 'Schede'}
-        subtitle={
-          viewMode === 'programmi'
-            ? 'Piani multi-giorno preset'
-            : 'Le tue routine + preset'
-        }
+        title="Schede"
+        subtitle="Programmi multi-giorno + schede singole"
         style={{ paddingTop: insets.top + spacing.xl }}
       />
-
-      <View style={styles.toggleWrap}>
-        <SegmentedControl<ViewMode>
-          options={[
-            { value: 'schede', label: 'Schede' },
-            { value: 'programmi', label: 'Programmi' },
-          ]}
-          value={viewMode}
-          onChange={setViewMode}
-        />
-      </View>
 
       <ScrollView
         contentContainerStyle={[
@@ -340,75 +409,77 @@ export default function WorkoutsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {viewMode === 'schede' ? (
-          <>
-            <FilterBar
-              expanded={filtersExpanded}
-              onToggle={() => setFiltersExpanded((v) => !v)}
-              filtersActive={filtersActive}
-              filteredCount={filteredWorkouts.length}
-              totalCount={workouts.length}
-              goalFilter={goalFilter}
-              setGoalFilter={setGoalFilter}
-              levelFilter={levelFilter}
-              setLevelFilter={setLevelFilter}
-              durationFilter={durationFilter}
-              setDurationFilter={setDurationFilter}
-              onlyExecutable={onlyExecutable}
-              setOnlyExecutable={setOnlyExecutable}
-              canFilterEquipment={canFilterEquipment}
-              onReset={resetFilters}
-            />
+        <FilterBar
+          expanded={filtersExpanded}
+          onToggle={() => setFiltersExpanded((v) => !v)}
+          filtersActive={filtersActive}
+          filteredCount={filteredCount}
+          totalCount={totalItems}
+          goalFilter={goalFilter}
+          setGoalFilter={setGoalFilter}
+          levelFilter={levelFilter}
+          setLevelFilter={setLevelFilter}
+          durationFilter={durationFilter}
+          setDurationFilter={setDurationFilter}
+          onlyExecutable={onlyExecutable}
+          setOnlyExecutable={setOnlyExecutable}
+          canFilterEquipment={canFilterEquipment}
+          onReset={resetFilters}
+        />
 
-            {loading ? (
-              <Card style={styles.placeholderCard}>
-                <ActivityIndicator color={colors.textSec} />
-              </Card>
-            ) : filteredWorkouts.length === 0 ? (
-              <Card style={styles.placeholderCard}>
-                <Text style={typography.body}>
-                  {filtersActive
-                    ? 'Nessuna scheda corrisponde ai filtri.'
-                    : 'Nessuna scheda'}
-                </Text>
-                <Text style={typography.caption}>
-                  {filtersActive
-                    ? 'Prova a rimuovere uno dei filtri attivi.'
-                    : 'Usa il pulsante + per creare la tua prima scheda.'}
-                </Text>
-              </Card>
-            ) : (
-              filteredWorkouts.map((workout) => (
-                <WorkoutRow
-                  key={workout.id}
-                  workout={workout}
-                  onOpen={() => setOpenDetail(workout)}
-                  onAction={() => {
-                    if (workout.isPreset) handleDuplicate(workout);
-                    else setEditing(workout);
-                  }}
-                  onDelete={() => handleDelete(workout)}
-                />
-              ))
-            )}
-          </>
+        {loading ? (
+          <Card style={styles.placeholderCard}>
+            <ActivityIndicator color={colors.textSec} />
+          </Card>
+        ) : filteredCount === 0 ? (
+          <Card style={styles.placeholderCard}>
+            <Text style={typography.body}>
+              {filtersActive
+                ? 'Nessuna voce corrisponde ai filtri.'
+                : 'Nessuna scheda'}
+            </Text>
+            <Text style={typography.caption}>
+              {filtersActive
+                ? 'Prova a rimuovere uno dei filtri attivi.'
+                : 'Usa il pulsante + per creare la tua prima scheda.'}
+            </Text>
+          </Card>
         ) : (
-          <ProgramsList
-            programs={programs}
-            activeProgramId={activeProgramRow?.programId ?? null}
-            onOpenProgram={setOpenProgram}
-          />
+          <>
+            {orderedPrograms.map(({ program, maxDuration }) => {
+              const isActive = activeProgramRow?.programId === program.id;
+              return (
+                <ProgramRow
+                  key={`p-${program.id}`}
+                  program={program}
+                  isActive={isActive}
+                  maxDuration={maxDuration}
+                  onOpen={() => setOpenProgram(program)}
+                />
+              );
+            })}
+            {filteredStandaloneWorkouts.map((workout) => (
+              <WorkoutRow
+                key={`w-${workout.id}`}
+                workout={workout}
+                onOpen={() => setOpenDetail(workout)}
+                onAction={() => {
+                  if (workout.isPreset) handleDuplicate(workout);
+                  else setEditing(workout);
+                }}
+                onDelete={() => handleDelete(workout)}
+              />
+            ))}
+          </>
         )}
       </ScrollView>
 
-      {viewMode === 'schede' ? (
-        <FAB
-          icon="plus"
-          onPress={() => setEditing('new')}
-          bottom={insets.bottom + spacing.xxl * 2}
-          accessibilityLabel="Crea nuova scheda"
-        />
-      ) : null}
+      <FAB
+        icon="plus"
+        onPress={() => setEditing('new')}
+        bottom={insets.bottom + spacing.xxl * 2}
+        accessibilityLabel="Crea nuova scheda"
+      />
 
       <WorkoutDetailModal
         visible={openDetail !== null}
@@ -520,7 +591,7 @@ function FilterBar({
         </View>
         <View style={styles.filterHeaderRight}>
           <Text style={typography.caption}>
-            {filteredCount}/{totalCount} schede
+            {filteredCount}/{totalCount}
           </Text>
           <Icon
             name={expanded ? 'chevron-up' : 'chevron-down'}
@@ -660,81 +731,65 @@ function FilterRow<T extends string>({
   );
 }
 
-type ProgramsListProps = {
-  programs: Program[];
-  activeProgramId: number | null;
-  onOpenProgram: (p: Program) => void;
+type ProgramRowProps = {
+  program: Program;
+  isActive: boolean;
+  maxDuration: number | null;
+  onOpen: () => void;
 };
 
-function ProgramsList({
-  programs,
-  activeProgramId,
-  onOpenProgram,
-}: ProgramsListProps) {
+function ProgramRow({
+  program,
+  isActive,
+  maxDuration,
+  onOpen,
+}: ProgramRowProps) {
   const { accent } = useAppTheme();
-  if (programs.length === 0) {
-    return (
-      <Card style={styles.placeholderCard}>
-        <Text style={typography.body}>Nessun programma</Text>
-        <Text style={typography.caption}>
-          Riavvia l'app per popolare i programmi preset.
-        </Text>
-      </Card>
-    );
-  }
+  const goalLabel = program.goal
+    ? GOAL_LABELS[program.goal] ?? program.goal
+    : '—';
   return (
-    <>
-      {programs.map((program) => {
-        const isActive = activeProgramId === program.id;
-        const goalLabel = program.goal
-          ? GOAL_LABELS[program.goal] ?? program.goal
-          : '—';
-        return (
-          <Pressable
-            key={program.id}
-            onPress={() => onOpenProgram(program)}
-            accessibilityRole="button"
-            accessibilityLabel={`Apri programma ${program.name}`}
-          >
-            <Card
-              style={[
-                styles.programCard,
-                isActive && { borderColor: accent, borderWidth: 1.5 },
-              ]}
-            >
-              <View style={styles.programHeader}>
-                <View style={styles.programTitle}>
-                  <Text style={typography.body} numberOfLines={1}>
-                    {program.name}
-                  </Text>
-                  <Text style={typography.caption}>
-                    {goalLabel} · {program.daysPerWeek}× a settimana ·{' '}
-                    {program.workouts.length}{' '}
-                    {program.workouts.length === 1 ? 'giorno' : 'giorni'}
-                  </Text>
-                </View>
-                {isActive ? (
-                  <View style={[styles.activeChip, { backgroundColor: accent }]}>
-                    <Text style={[typography.bodyBold, { color: '#FFFFFF' }]}>
-                      Attivo
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-            </Card>
-          </Pressable>
-        );
-      })}
-    </>
+    <Pressable
+      onPress={onOpen}
+      accessibilityRole="button"
+      accessibilityLabel={`Apri programma ${program.name}`}
+    >
+      <Card
+        style={[
+          styles.card,
+          isActive && { borderColor: accent, borderWidth: 1.5 },
+        ]}
+      >
+        <View style={styles.cardHeader}>
+          <View style={styles.cardTitle}>
+            <Text style={typography.body} numberOfLines={1}>
+              {program.name}
+            </Text>
+            <Text style={typography.caption}>
+              {goalLabel} · {program.daysPerWeek}× a settimana ·{' '}
+              {program.workouts.length}{' '}
+              {program.workouts.length === 1 ? 'giorno' : 'giorni'}
+              {maxDuration !== null ? ` · fino a ${maxDuration} min` : ''}
+            </Text>
+          </View>
+          <View style={[styles.programBadge, { backgroundColor: accent }]}>
+            <Text style={[typography.bodyBold, { color: '#FFFFFF' }]}>
+              Programma
+            </Text>
+          </View>
+        </View>
+        {isActive ? (
+          <View style={styles.activeFooter}>
+            <Icon name="bolt" size={14} color={accent} />
+            <Text style={[typography.label, { color: accent }]}>
+              Piano attivo
+            </Text>
+          </View>
+        ) : null}
+      </Card>
+    </Pressable>
   );
 }
-
-const GOAL_LABELS: Record<string, string> = {
-  dimagrimento: 'Dimagrimento',
-  resistenza: 'Resistenza',
-  mantenimento: 'Mantenimento',
-  mobilita: 'Mobilità',
-};
 
 type RowProps = {
   workout: Workout;
@@ -828,10 +883,6 @@ function WorkoutRow({ workout, onOpen, onAction, onDelete }: RowProps) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  toggleWrap: {
-    paddingHorizontal: spacing.screen,
-    paddingTop: spacing.sm,
-  },
   scroll: { padding: spacing.screen, gap: spacing.screen },
   placeholderCard: {
     padding: spacing.screen,
@@ -855,6 +906,16 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.lg,
     borderRadius: radii.round,
+  },
+  programBadge: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.round,
+  },
+  activeFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   cardActions: {
     flexDirection: 'row',
@@ -949,23 +1010,5 @@ const styles = StyleSheet.create({
   resetBtn: {
     paddingVertical: spacing.sm,
     alignSelf: 'flex-end',
-  },
-  programCard: {
-    padding: spacing.xl,
-    gap: spacing.md,
-  },
-  programHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-  },
-  programTitle: {
-    flex: 1,
-    gap: spacing.xxs,
-  },
-  activeChip: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radii.round,
   },
 });
