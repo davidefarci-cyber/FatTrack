@@ -44,7 +44,12 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~18.2.79",
-    "typescript": "~5.3.3"
+    "eslint": "^9.39.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.15.0",
+    "typescript": "~5.3.3",
+    "typescript-eslint": "^8.59.2"
   },
   "private": true
 }

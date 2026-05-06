@@ -171,8 +171,18 @@ if errorlevel 1 (
 echo.
 echo ============================================================
 echo  Build completata: !OUTPUT_APK!
-echo  Trasferisci sul telefono e installa.
 echo ============================================================
+
+set "_QS_CHOICE="
+set /p "_QS_CHOICE=Inviare ora con Quick Share? [S/n]: "
+if /i not "!_QS_CHOICE!"=="n" (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\quickshare-send.ps1" -FilePath "%~dp0!OUTPUT_APK!"
+    if !ERRORLEVEL! EQU 2 (
+        echo [ ] Quick Share non disponibile: trasferisci !OUTPUT_APK! manualmente.
+    )
+)
+
+echo.
 pause
 exit /b 0
 
@@ -312,6 +322,22 @@ if errorlevel 1 (
     exit /b 1
 )
 
+rem --- 4b. lint (skip opzionale per release urgenti) ---
+set "_SKIP_LINT="
+set /p "_SKIP_LINT=Saltare lint? [s/N]: "
+if /i "!_SKIP_LINT!"=="s" (
+    echo [SKIP] Lint saltato su richiesta esplicita.
+) else (
+    echo [ ] Eseguo lint...
+    call npm run --silent lint
+    if errorlevel 1 (
+        echo [!] Lint ha trovato problemi. Fixali oppure rilancia
+        echo     la release rispondendo "s" alla domanda "Saltare lint?".
+        pause
+        exit /b 1
+    )
+)
+
 rem --- 5. CALCOLO VERSIONE ---
 for /f "delims=" %%v in ('node scripts\bump-version.js current') do set "CUR_VER=%%v"
 echo.
@@ -421,7 +447,7 @@ if /i not "!CONFIRM!"=="s" (
 
 rem --- 9. APPLICA BUMP ---
 echo.
-echo [ ] Aggiorno app.json e version.json...
+echo [ ] Aggiorno app.json...
 call node scripts\bump-version.js apply "!NEW_VER!" "!NOTES_CLEAN!"
 if errorlevel 1 (
     echo [!] bump-version.js apply fallito.
@@ -507,7 +533,7 @@ set "APK_PATH=fattrack.apk"
 rem --- 11. COMMIT + TAG + PUSH ---
 echo.
 echo [ ] git add + commit + tag...
-call git add app.json version.json
+call git add app.json
 call git commit -m "release: !TAG!"
 if errorlevel 1 (
     echo [!] git commit fallito.
@@ -560,8 +586,8 @@ exit /b 0
 
 :rel_rollback
 echo.
-echo [!] Rollback delle modifiche locali ad app.json e version.json...
-call git checkout -- app.json version.json
+echo [!] Rollback delle modifiche locali ad app.json...
+call git checkout -- app.json
 del "!NOTES_FILE!" >nul 2>nul
 del "!NOTES_CLEAN!" >nul 2>nul
 pause

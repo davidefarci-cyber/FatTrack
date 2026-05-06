@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /* eslint-disable */
-// Bumpa la versione di FatTrack in modo coerente su:
-//   - app.json (expo.version, opzionale expo.android.versionCode)
-//   - version.json (version, notes)
+// Bumpa la versione di FatTrack in app.json (expo.version + versionCode).
+// Le note di release vengono passate a `gh release create --notes-file`
+// dal flusso di fattrack.bat: l'app le legge dalla GitHub Releases API.
 //
 // Uso:
 //   node scripts/bump-version.js current
@@ -12,8 +12,10 @@
 //       -> stampa cosa diventerebbe la nuova versione, senza scrivere
 //
 //   node scripts/bump-version.js apply <new-version> [notes-file-path]
-//       -> scrive new-version in app.json + version.json,
-//          incrementa versionCode di +1, e mette le note (se passate).
+//       -> scrive new-version in app.json e incrementa versionCode di +1.
+//          Il parametro notes-file-path resta accettato per compatibilita'
+//          con lo script .bat ma non viene piu' usato (le note vivono
+//          nel body della GitHub Release).
 //          Stampa la nuova versione su stdout.
 //
 // Exit codes:
@@ -24,7 +26,6 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const APP_JSON = path.join(ROOT, 'app.json');
-const VERSION_JSON = path.join(ROOT, 'version.json');
 
 function readJson(file) {
   const raw = fs.readFileSync(file, 'utf8');
@@ -112,13 +113,13 @@ function cmdApply(newVersion, notesFile) {
     process.exit(1);
   }
 
-  let notes = '';
-  if (notesFile) {
-    if (!fs.existsSync(notesFile)) {
-      console.error(`File note inesistente: ${notesFile}`);
-      process.exit(1);
-    }
-    notes = fs.readFileSync(notesFile, 'utf8').replace(/\r\n/g, '\n').trim();
+  // Il parametro notesFile e' deprecato (le note vivono nel body della
+  // GitHub Release, non in version.json). Verifichiamo solo che, se
+  // passato, esista — cosi' il flusso .bat che lo passa sempre non
+  // fallisce silenziosamente con un path errato.
+  if (notesFile && !fs.existsSync(notesFile)) {
+    console.error(`File note inesistente: ${notesFile}`);
+    process.exit(1);
   }
 
   // app.json
@@ -131,20 +132,6 @@ function cmdApply(newVersion, notesFile) {
     appData.expo.android.versionCode = currentCode + 1;
   }
   writeJson(APP_JSON, appData);
-
-  // version.json
-  const { data: versionData } = readJson(VERSION_JSON);
-  versionData.version = fmt(next);
-  versionData.notes = notes;
-  // Se manca apk_url usa il default GitHub latest.
-  if (typeof versionData.apk_url !== 'string' || !versionData.apk_url) {
-    versionData.apk_url =
-      'https://github.com/davidefarci-cyber/fattrack/releases/latest/download/fattrack.apk';
-  }
-  if (typeof versionData.min_supported_version !== 'string') {
-    versionData.min_supported_version = fmt(cur.parsed);
-  }
-  writeJson(VERSION_JSON, versionData);
 
   process.stdout.write(fmt(next));
 }

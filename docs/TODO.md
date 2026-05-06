@@ -82,85 +82,6 @@ release`.
 
 ---
 
-### [3] Drop di `version.json`, solo Releases API
-
-**Aperta**: 2026-05-01
-**Area**: codice
-**Dipende da**: tutti gli utenti su versione >= 1.1.x con supporto API
-
-`updateChecker.ts` oggi prova prima la GitHub Releases API (zero cache) e
-in fallback legge `version.json` su raw.githubusercontent. Il fallback
-serve solo per APK già installati con la vecchia logica (~v1.1.0).
-
-Quando tutti gli utenti hanno una versione che supporta la Releases API,
-si può:
-- droppare `fetchFromVersionJson` da `updateChecker.ts`
-- droppare `version.json` dal repo
-- ridurre `bump-version.js` a scrivere solo `app.json`
-- togliere il marker `MIN_VERSION_MARKER` se nessuno usa
-  `min_supported_version` (decidere: vale la pena tenere il supporto a
-  release "obbligatorie"?)
-
-**Done quando**: `updateChecker.ts` legge solo da Releases API; `version.json`
-rimosso dal repo; `bump-version.js apply` scrive solo `app.json`.
-
----
-
-### [40] Auto-trigger Quick Share su APK appena buildato
-
-**Aperta**: 2026-05-06
-**Priorità**: 🟡 media
-**Area**: build / UX
-**Effort**: S
-
-Sostituisce la vecchia voce [4] (smoke test via `adb install`) — l'utente
-trasferisce gli APK di test dal portatile al telefono via **Samsung Quick
-Share**, che funziona già bene tra i suoi due device Samsung. Resta
-manuale solo il "drag and drop dell'APK sulla finestra Quick Share":
-sarebbe utile lanciare Quick Share già con l'APK preselezionato a fine
-build.
-
-Approccio candidato (PowerShell + COM Shell.Application — invoca il verb
-"Quick Share" del context menu di Windows direttamente sul file):
-```powershell
-$shell = New-Object -ComObject Shell.Application
-$file  = $shell.Namespace((Get-Item .).FullName).ParseName('fattrack-test-arm64-v8a.apk')
-$verb  = $file.Verbs() | Where-Object { $_.Name -match 'Quick Share' }
-if ($verb) { $verb.DoIt() } else { Write-Host 'Quick Share non trovato' }
-```
-
-Da fare:
-- Aggiungere alla voce `[3] Build APK senza release` di `fattrack.bat`
-  uno step finale opzionale "Invia con Quick Share?" (default sì).
-- Implementare via PowerShell one-liner (no nuove dep), con fallback
-  silenzioso se il verb "Quick Share" non è registrato sul PC (es.
-  device non Samsung) — in quel caso l'utente vede il path dell'APK
-  e fa drag manuale come oggi.
-- Verificare che il nome del verb sia stabile su Windows 11 +
-  Samsung Quick Share: potrebbe variare per locale italiano
-  ("Condivisione rapida"?) — usare regex `match 'Quick Share|Condivisione rapida'`.
-
-**Done quando**: dopo "Build APK senza release", `fattrack.bat` apre
-automaticamente la finestra Quick Share con l'APK pre-caricato; se
-Quick Share non è installato, la voce esce normalmente senza errori.
-
----
-
-### [5] Lint automatico in `:menu_release`
-
-**Aperta**: 2026-05-01
-**Area**: build
-
-`fattrack.bat → [4] Release completa` esegue `npm run typecheck` ma non
-`npm run lint` (che pure esiste in `package.json`). Errori lint non
-bloccano la release ma ci possono essere bug latenti che ESLint
-intercetta.
-
-**Done quando**: voce `[4]` esegue lint dopo typecheck e prima del bump,
-fallisce la release su errori (configurabile con flag `--skip-lint`).
-
----
-
 ### [6] Retry automatico su `gh release create`
 
 **Aperta**: 2026-05-01
@@ -731,6 +652,141 @@ contro spam.
 ---
 
 ## ✅ Fatto
+
+### [chiusa] [42] Cleanup warning `react-hooks/exhaustive-deps`
+
+**Aperta**: 2026-05-06 — **Chiusa**: 2026-05-06
+
+Commit `1c83bf1`. I 10 warning lasciati aperti dal setup ESLint
+[41] tutti chiusi (0 problems totali).
+
+- `GramsInputModal.tsx` (3 warning): `servings = target?.servings
+  ?? []` wrappato in `useMemo` con dep `target?.servings` — il
+  fallback array veniva ricreato a ogni render invalidando le
+  useMemo a valle.
+- `SportSettingsScreen.tsx` (1 warning): stesso pattern su
+  `availableEquipment`, wrappato in `useMemo`.
+- `WorkoutsScreen.tsx` (2 warning): idem su `availableEquipment`.
+  Le useMemo `filteredPrograms`/`filteredStandaloneWorkouts` non
+  si invalidano più a vuoto.
+- `EditMealModal.tsx` (3 warning):
+  - Effect "carica servings": deps semplificate a
+    `[visible, meal, isFixedCost]`. Il mosaico precedente
+    mancava di `meal?.grams` — vero bug latente: un edit che
+    cambiava solo i grammi non faceva ricaricare i servings.
+  - Effect "form init on id change": deps `[visible, meal?.id]`
+    intenzionali (snapshot iniziale, non reattivo). Aggiunto
+    `eslint-disable-next-line` con commento esplicativo.
+  - Effect "sync unit con servings": riscritto estraendo
+    `label = meal?.servingLabel` per eliminare l'uso standalone
+    di `meal`.
+- `FavoritesScreen.tsx` (1 warning): effect form-init con stesso
+  pattern di EditMealModal, `eslint-disable-next-line` con
+  motivazione.
+
+**Future-proofing**: la regola `react-hooks/exhaustive-deps` resta
+a `warn` per ora (futuro upgrade a `error` decidibile più avanti
+se si vuole un gate più rigido).
+
+---
+
+### [chiusa] [41] Setup `eslint.config.js` per ESLint v9
+
+**Aperta**: 2026-05-06 — **Chiusa**: 2026-05-06
+
+Commit `d7fd1cf`. Lo script `npm run lint` esisteva da sempre in
+`package.json` ma non era mai stato cablato (niente eslint nelle
+devDependencies, niente file di config). ESLint v10 globale del
+container ricordava la verità: il gate introdotto in [5] era de
+facto sempre da skippare. Cleanup completo:
+
+- `package.json` devDependencies: aggiunti `eslint@^9.39`,
+  `typescript-eslint@^8`, `eslint-plugin-react@^7.37`,
+  `eslint-plugin-react-hooks@^5.2`, `globals@^15.15`.
+- Nuovo `eslint.config.js` (flat config v9): base
+  `js.recommended` + `tseslint.recommended`, React rules
+  consigliate (con `react-in-jsx-scope`/`prop-types`/
+  `no-unescaped-entities` off), `react-hooks/rules-of-hooks`
+  ERROR + `react-hooks/exhaustive-deps` WARN, TypeScript rules
+  rilassate (`no-explicit-any` warn, `no-unused-vars` con
+  pattern `^_` tollerato).
+- Ignore: node_modules, android, ios, .expo, dist, build,
+  coverage, assets, `src/utils/exerciseImages.ts`
+  (autogenerato), scripts, babel/metro config, eslint.config.js
+  stesso.
+
+Verifica:
+- `npm run lint` exit 0, 10 warning, 0 errori.
+- `npm run typecheck` exit 0.
+- I 10 warning residui (tutti exhaustive-deps) tracciati come
+  voce **[42]** in 🟢 bassa.
+
+Effetto sul gate di [5]: il prompt "Saltare lint?" in
+`fattrack.bat` adesso è davvero non bloccante. Premendo Invio
+(default NO) lint gira, exit 0, release prosegue.
+
+---
+
+### [chiusa] [3] Drop di `version.json`, solo Releases API
+
+**Aperta**: 2026-05-01 — **Chiusa**: 2026-05-06
+
+Commit `9a72eb9` sul branch `claude/complete-todo-items-9sI5S`.
+Cleanup completo del fallback su `version.json`:
+
+- `src/utils/updateChecker.ts`: rimosse `VERSION_JSON_URL`,
+  `MIN_VERSION_MARKER`, `fetchFromVersionJson`, `isVersionJsonPayload`,
+  router `fetchRemoteVersion`. Tipo `RemoteVersion` snellito (no
+  `minSupportedVersion`). `runCheck` non calcola più `isMandatory`,
+  `promptUpdate` ha sempre i due bottoni Dopo+Aggiorna.
+- `scripts/bump-version.js`: scrive solo `app.json`. Parametro
+  `notes-file` mantenuto per retrocompat con `fattrack.bat` ma non
+  più usato (note nel body GitHub Release).
+- `fattrack.bat`: `git add app.json` e `git checkout -- app.json`
+  in rollback (no più `version.json`).
+- File `version.json` rimosso dal repo.
+- `README.md` §5.2-5.3 aggiornato: niente più riferimenti a
+  `version.json` / `min_supported_version` / alert bloccante.
+
+Step 0 (release ponte con bump `min_supported_version`) saltato
+consapevolmente: cerchia di tester ristretta tutti già su versione
+ben superiore al floor, niente rischio di lasciare utenti orfani.
+
+---
+
+### [chiusa] [5] Lint automatico in `:menu_release`
+
+**Aperta**: 2026-05-01 — **Chiusa**: 2026-05-06
+
+Commit `fa9b46e`. Aggiunto in `fattrack.bat:316-329` (subito dopo il
+typecheck) un sub-prompt "Saltare lint? [s/N]" con default NO: premendo
+Invio il lint gira tramite `npm run --silent lint`, su errori la
+release abortisce. Per saltare in casi urgenti basta scrivere "s" al
+prompt. Niente flag CLI: il menu batch non supporta argv classici.
+
+**Nota follow-up**: al momento `npm run lint` non gira sul repo perché
+ESLint v10 richiede `eslint.config.js` (assente). Il gate è già in
+posizione ma sarà operativo solo dopo aver introdotto la config —
+vedi voce **[41]** in `🟡 media`.
+
+---
+
+### [chiusa] [40] Auto-trigger Quick Share su APK appena buildato
+
+**Aperta**: 2026-05-06 — **Chiusa**: 2026-05-06
+
+Commit `fa9b46e`. Nuovo `scripts/quickshare-send.ps1`: script
+PowerShell che invoca il verb "Quick Share" del context menu Windows
+via `Shell.Application` COM, aprendo la finestra Quick Share con
+l'APK pre-caricato. Regex copre "Quick Share" + "Condivisione
+rapida" / "Condivisione vicina" (locale IT futuri). Exit code 2 se
+verb non registrato → fallback grazioso che stampa il path APK.
+
+Hook in `fattrack.bat` dopo build OK del menu **[3] Build APK senza
+release**: prompt "Inviare ora con Quick Share? [S/n]" default SI.
+Sostituisce la vecchia voce [4] (smoke test `adb install`) annullata.
+
+---
 
 ### [annullata] [4] Smoke test automatico via `adb install` dopo build
 

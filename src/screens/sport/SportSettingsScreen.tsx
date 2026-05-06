@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -55,7 +55,13 @@ export default function SportSettingsScreen() {
   } = useAppSettings();
   const theme = useAppTheme();
   const { profile, patchProfile } = useProfile();
-  const availableEquipment: EquipmentTag[] = profile?.availableEquipment ?? [];
+  // Memoizzato: il fallback `[]` produrrebbe altrimenti un nuovo array a
+  // ogni render, invalidando le useCallback/useMemo che dipendono da questo
+  // valore (toggleEquipment).
+  const availableEquipment = useMemo<EquipmentTag[]>(
+    () => profile?.availableEquipment ?? [],
+    [profile?.availableEquipment],
+  );
   const [spotifyDraft, setSpotifyDraft] = useState(spotifyPlaylistUri ?? '');
 
   const toggleEquipment = useCallback(

@@ -5,28 +5,10 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import { Alert, AppState, Linking, Platform } from 'react-native';
 import type { AppStateStatus } from 'react-native';
 
-// Endpoint primario: GitHub Releases API. Restituisce sempre il latest
-// release in tempo reale (cache pubblico ~assente), tag_name è la versione,
-// body contiene le note, asset .apk il link al binario. Vantaggi vs.
-// raw.githubusercontent: zero latenza dopo una nuova release (raw cache
-// max-age=300, fino a 5 minuti di delay).
+// GitHub Releases API: cache lato server praticamente assente, tag_name è
+// la versione, body contiene le note, asset .apk il link al binario.
 const RELEASES_API_URL =
   'https://api.github.com/repos/davidefarci-cyber/fattrack/releases/latest';
-
-// Fallback: il vecchio version.json su raw. Lo usiamo come backup se
-// l'API è 403/429 (rate limit) o l'utente è su un APK <= 1.1.0 che
-// scarichera la prima release post-migrazione: lì il body della release
-// non è ancora taggato col marker min, quindi version.json resta utile.
-// TODO(tech-debt #ota-cache): quando tutti gli utenti saranno >= 1.1.x con
-// supporto Releases API, droppare version.json. Vedi docs/TECH_DEBT.md.
-const VERSION_JSON_URL =
-  'https://raw.githubusercontent.com/davidefarci-cyber/fattrack/main/version.json';
-
-// Marker nel body della release per indicare la versione minima ancora
-// supportata. Esempio: "<!-- min:1.0.0 -->" all'inizio o fine del body.
-// Il commento HTML è invisibile nella UI di GitHub e nell'Alert dell'app
-// (lo strippiamo prima di mostrare le note).
-const MIN_VERSION_MARKER = /<!--\s*min:\s*([0-9.]+)\s*-->/i;
 
 // Nome dell'asset da scaricare dalla release. Il flusso di rilascio
 // pubblica sempre l'APK con questo nome stabile.
@@ -49,7 +31,6 @@ let appStateSubscribed = false;
 type RemoteVersion = {
   version: string;
   apkUrl: string;
-  minSupportedVersion: string | null;
   notes: string;
 };
 
@@ -96,27 +77,22 @@ async function runCheck({ force = false }: { force?: boolean } = {}): Promise<Ma
   void AsyncStorage.setItem(STORAGE_KEY_LAST_CHECK, String(Date.now()));
 
   try {
-    const remote = await fetchRemoteVersion();
+    const remote = await fetchFromReleasesApi();
     if (!remote) return 'error';
 
     const current = getCurrentVersion();
     if (!current) return 'error';
 
     if (compareVersions(remote.version, current) > 0) {
-      const isMandatory =
-        remote.minSupportedVersion !== null &&
-        compareVersions(current, remote.minSupportedVersion) < 0;
-
-      // Se l'utente ha già detto "Dopo" per questa versione e l'update non è
-      // obbligatorio, non riprompare finché non esce una versione successiva.
-      // Eccezione: con force=true (bottone manuale) vogliamo sempre il prompt,
-      // l'utente sta esplicitamente chiedendo di riprovare.
-      if (!isMandatory && !force) {
+      // Se l'utente ha già detto "Dopo" per questa versione non riproporre
+      // il prompt finché non esce una versione successiva. Eccezione: con
+      // force=true (bottone manuale) vogliamo sempre il prompt.
+      if (!force) {
         const dismissed = await AsyncStorage.getItem(STORAGE_KEY_DISMISSED);
         if (dismissed === remote.version) return 'up-to-date';
       }
 
-      promptUpdate(remote, isMandatory);
+      promptUpdate(remote);
       return 'prompted';
     }
     return 'up-to-date';
@@ -141,14 +117,6 @@ function getCurrentVersion(): string | null {
   return Constants.expoConfig?.version ?? null;
 }
 
-async function fetchRemoteVersion(): Promise<RemoteVersion | null> {
-  // Prova prima la Releases API (zero cache, fresh sempre); se torna null
-  // (rate limit, network, payload inatteso) cade sul vecchio version.json.
-  const fromApi = await fetchFromReleasesApi();
-  if (fromApi) return fromApi;
-  return fetchFromVersionJson();
-}
-
 async function fetchFromReleasesApi(): Promise<RemoteVersion | null> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -170,47 +138,12 @@ async function fetchFromReleasesApi(): Promise<RemoteVersion | null> {
     const asset = data.assets.find((a) => a.name === APK_ASSET_NAME);
     if (!asset) return null;
 
-    const body = typeof data.body === 'string' ? data.body : '';
-    const minMatch = body.match(MIN_VERSION_MARKER);
-    const minSupportedVersion = minMatch ? minMatch[1] : null;
-    const notes = body.replace(MIN_VERSION_MARKER, '').trim();
+    const notes = typeof data.body === 'string' ? data.body.trim() : '';
 
     return {
       version,
       apkUrl: asset.browser_download_url,
-      minSupportedVersion,
       notes,
-    };
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-async function fetchFromVersionJson(): Promise<RemoteVersion | null> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const res = await fetch(VERSION_JSON_URL, {
-      signal: controller.signal,
-      // Evita cache del CDN di GitHub: manifest è piccolo e vogliamo
-      // sempre la versione fresh. Nota: raw.githubusercontent ha comunque
-      // max-age=300 lato server, quindi questo `no-store` aiuta solo lato
-      // RN/OkHttp.
-      cache: 'no-store',
-    });
-    if (!res.ok) return null;
-    const data: unknown = await res.json();
-    if (!isVersionJsonPayload(data)) return null;
-    return {
-      version: data.version,
-      apkUrl: data.apk_url,
-      minSupportedVersion:
-        typeof data.min_supported_version === 'string'
-          ? data.min_supported_version
-          : null,
-      notes: typeof data.notes === 'string' ? data.notes : '',
     };
   } catch {
     return null;
@@ -237,19 +170,6 @@ function isReleasesApiPayload(
       typeof (a as Record<string, unknown>).name === 'string' &&
       typeof (a as Record<string, unknown>).browser_download_url === 'string',
   );
-}
-
-function isVersionJsonPayload(
-  data: unknown,
-): data is {
-  version: string;
-  apk_url: string;
-  min_supported_version?: unknown;
-  notes?: unknown;
-} {
-  if (!data || typeof data !== 'object') return false;
-  const obj = data as Record<string, unknown>;
-  return typeof obj.version === 'string' && typeof obj.apk_url === 'string';
 }
 
 // Confronto semver leggero: gestisce stringhe dot-separated numeriche.
@@ -279,34 +199,31 @@ function buildAlertBody(remote: RemoteVersion): string {
   return `${head}\n\n${remote.notes}`;
 }
 
-function promptUpdate(remote: RemoteVersion, isMandatory: boolean): void {
+function promptUpdate(remote: RemoteVersion): void {
   isPromptOpen = true;
 
-  const buttons: { text: string; style?: 'cancel'; onPress?: () => void }[] = [];
-  if (!isMandatory) {
-    buttons.push({
-      text: 'Dopo',
-      style: 'cancel',
-      onPress: () => {
-        // Persisti la dismissione: niente prompt finché non esce una versione
-        // diversa da questa (anche dopo cold-start).
-        void AsyncStorage.setItem(STORAGE_KEY_DISMISSED, remote.version);
-        isPromptOpen = false;
-      },
-    });
-  }
-  buttons.push({
-    text: 'Aggiorna',
-    onPress: () => {
-      void downloadAndInstall(remote);
-    },
-  });
-
   Alert.alert(
-    isMandatory ? 'Aggiornamento richiesto' : 'Aggiornamento disponibile',
+    'Aggiornamento disponibile',
     buildAlertBody(remote),
-    buttons,
-    { cancelable: !isMandatory },
+    [
+      {
+        text: 'Dopo',
+        style: 'cancel',
+        onPress: () => {
+          // Persisti la dismissione: niente prompt finché non esce una versione
+          // diversa da questa (anche dopo cold-start).
+          void AsyncStorage.setItem(STORAGE_KEY_DISMISSED, remote.version);
+          isPromptOpen = false;
+        },
+      },
+      {
+        text: 'Aggiorna',
+        onPress: () => {
+          void downloadAndInstall(remote);
+        },
+      },
+    ],
+    { cancelable: true },
   );
 }
 
