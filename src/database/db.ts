@@ -2,6 +2,7 @@ import * as SQLite from 'expo-sqlite';
 
 import { seedExercisesIfEmpty } from './seedExercises';
 import { applySeedServings, seedFoodsIfEmpty } from './seedFoods';
+import { seedProgramsIfEmpty } from './seedPrograms';
 import { seedPresetWorkoutsIfEmpty } from './seedWorkouts';
 
 const DB_NAME = 'fattrack.db';
@@ -20,6 +21,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
     await applySeedServings(db);
     await seedExercisesIfEmpty(db);
     await seedPresetWorkoutsIfEmpty(db);
+    await seedProgramsIfEmpty(db);
     dbInstance = db;
     return db;
   })();
