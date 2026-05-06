@@ -92,10 +92,13 @@ export function EditMealModal({ visible, meal, onClose, onSave }: EditMealModalP
     return () => {
       active = false;
     };
-  }, [visible, meal?.id, meal?.foodId, meal?.servingLabel, meal?.servingQty, isFixedCost]);
+  }, [visible, meal, isFixedCost]);
 
-  // Allineiamo il form al pasto a ogni apertura. Cambiamo `meal?.id` in deps
-  // per gestire l'apertura su pasti diversi senza chiusura intermedia.
+  // Allineiamo il form al pasto a ogni apertura o cambio di pasto. Le deps
+  // sono volutamente solo `[visible, meal?.id]`: i campi del meal vengono
+  // letti come snapshot iniziale, non come source-of-truth reattiva (le
+  // modifiche dell'utente al form sono tracciate localmente da qty/unit/
+  // mealType e committate da handleSubmit).
   useEffect(() => {
     if (!visible || !meal) return;
     setMealType(meal.mealType);
@@ -108,13 +111,15 @@ export function EditMealModal({ visible, meal, onClose, onSave }: EditMealModalP
       setUnit('g');
       setQty(formatGramsInput(meal.grams));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, meal?.id]);
 
   // Sincronizza l'unit con la lista servings appena caricata.
   useEffect(() => {
-    if (!meal || !meal.servingLabel) return;
+    const label = meal?.servingLabel;
+    if (!label) return;
     const idx = servings.findIndex(
-      (s) => s.label.toLowerCase() === meal.servingLabel!.toLowerCase(),
+      (s) => s.label.toLowerCase() === label.toLowerCase(),
     );
     if (idx >= 0) setUnit(`s${idx}` as UnitKey);
   }, [servings, meal?.servingLabel]);

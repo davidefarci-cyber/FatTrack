@@ -279,7 +279,13 @@ export default function WorkoutsScreen() {
     [activeSessionState, start, toast],
   );
 
-  const availableEquipment: EquipmentTag[] = profile?.availableEquipment ?? [];
+  // Memoizzato: il fallback `[]` produrrebbe altrimenti un nuovo array a
+  // ogni render, invalidando le useMemo dei filtri (filteredPrograms,
+  // filteredStandaloneWorkouts) anche quando il profilo non e' cambiato.
+  const availableEquipment = useMemo<EquipmentTag[]>(
+    () => profile?.availableEquipment ?? [],
+    [profile?.availableEquipment],
+  );
   const canFilterEquipment = availableEquipment.length > 0;
 
   // Lookup workout per id (include i workout-of-program — servono solo

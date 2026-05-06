@@ -238,7 +238,9 @@ function FavoriteEditorModal({
 
   // Reset del form a ogni riapertura. La dipendenza da editing?.id distingue
   // tra modifica di preferiti diversi; quando si chiude/riapre la modal
-  // azzeriamo comunque la ricerca.
+  // azzeriamo comunque la ricerca. Le deps sono volutamente solo
+  // `[visible, editing?.id, setSearchQuery]`: name/items vengono letti come
+  // snapshot iniziale, le modifiche utente sono tracciate localmente.
   useEffect(() => {
     if (!visible) return;
     setName(editing?.name ?? '');
@@ -249,6 +251,7 @@ function FavoriteEditorModal({
     setEditingServings(null);
     setManualOpen(false);
     setManualPrefillName('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, editing?.id, setSearchQuery]);
 
   // Quando si seleziona un alimento per aggiungerlo al preferito, carichiamo

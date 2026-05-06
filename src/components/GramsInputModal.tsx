@@ -75,7 +75,10 @@ export function GramsInputModal({
   onRequestAddServing,
 }: GramsInputModalProps) {
   const insets = useSafeAreaInsets();
-  const servings = target?.servings ?? [];
+  // Memoizzato: il fallback `[]` produrrebbe altrimenti un nuovo array a
+  // ogni render, invalidando le useMemo a valle (defaultUnit, activeServing,
+  // unitOptions) e i loro consumer.
+  const servings = useMemo(() => target?.servings ?? [], [target?.servings]);
   const hasServings = servings.length > 0;
 
   const defaultUnit: UnitKey = useMemo(() => {
