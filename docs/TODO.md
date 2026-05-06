@@ -210,43 +210,6 @@ manuale su device).
 
 ---
 
-### [33] Permessi: rimuovere RECORD_AUDIO + verificare prompt camera
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟡 media
-**Area**: UX / codice
-**Effort**: S
-
-Il plugin `expo-camera` (`app.json:37-43`) non ha
-`microphonePermission: false`, quindi expo-camera v15 inietta
-automaticamente `android.permission.RECORD_AUDIO` nel manifest finale
-(serve per video recording, che FatTrack non usa). Risultato: alla
-prima apertura `BarcodeScreen` Android chiede anche il permesso
-microfono, confondendo l'utente che vede una richiesta non
-giustificata dall'uso reale.
-
-`ScannerView.tsx:51-56` già gestisce il prompt camera in modo robusto
-(auto-prompt su `undetermined`, bottone esplicito su rifiuto,
-`Linking.openSettings()` su rifiuto permanente), ma vale un QA pass
-end-to-end dopo il cleanup permessi per assicurarsi che non ci siano
-regressioni.
-
-Da fare:
-- aggiungere `"microphonePermission": false` alla config del plugin
-  `expo-camera` in `app.json`
-- verificare con `expo prebuild --clean` che `AndroidManifest.xml`
-  generato non contenga più `RECORD_AUDIO`
-- QA manuale: clean install APK → apertura BarcodeScreen prima volta
-  (deve chiedere SOLO camera) → rifiuto permesso (deve mostrare card
-  con bottone) → tap bottone (deve aprire impostazioni) → concessione
-  + ritorno (deve riprendere scansione)
-
-**Done quando**: APK installato non chiede più il permesso microfono;
-il flow camera (concedi/rifiuta/rifiuta-permanente/ri-concedi da
-impostazioni) funziona senza intoppi.
-
----
-
 ## 🟢 Priorità bassa
 
 ### [8] Persistere il consenso `REQUEST_INSTALL_PACKAGES`
