@@ -171,8 +171,18 @@ if errorlevel 1 (
 echo.
 echo ============================================================
 echo  Build completata: !OUTPUT_APK!
-echo  Trasferisci sul telefono e installa.
 echo ============================================================
+
+set "_QS_CHOICE="
+set /p "_QS_CHOICE=Inviare ora con Quick Share? [S/n]: "
+if /i not "!_QS_CHOICE!"=="n" (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\quickshare-send.ps1" -FilePath "%~dp0!OUTPUT_APK!"
+    if !ERRORLEVEL! EQU 2 (
+        echo [ ] Quick Share non disponibile: trasferisci !OUTPUT_APK! manualmente.
+    )
+)
+
+echo.
 pause
 exit /b 0
 
@@ -310,6 +320,22 @@ if errorlevel 1 (
     echo [!] Typecheck fallito. Sistema gli errori prima di rilasciare.
     pause
     exit /b 1
+)
+
+rem --- 4b. lint (skip opzionale per release urgenti) ---
+set "_SKIP_LINT="
+set /p "_SKIP_LINT=Saltare lint? [s/N]: "
+if /i "!_SKIP_LINT!"=="s" (
+    echo [SKIP] Lint saltato su richiesta esplicita.
+) else (
+    echo [ ] Eseguo lint...
+    call npm run --silent lint
+    if errorlevel 1 (
+        echo [!] Lint ha trovato problemi. Fixali oppure rilancia
+        echo     la release rispondendo "s" alla domanda "Saltare lint?".
+        pause
+        exit /b 1
+    )
 )
 
 rem --- 5. CALCOLO VERSIONE ---
