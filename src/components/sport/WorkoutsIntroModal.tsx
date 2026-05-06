@@ -40,8 +40,8 @@ const COPY: Record<
   programs: {
     icon: 'bolt',
     title: 'Nuovi programmi di allenamento',
-    body: 'Ora puoi seguire piani multi-giorno: dimagrimento, resistenza, mantenimento e mobilità. Imposta quello che fa per te e in home ti proporrò la prossima sessione.',
-    primaryLabel: 'Esplora i programmi',
+    body: 'Ora trovi nelle Schede 4 piani multi-giorno: dimagrimento, resistenza, mantenimento e mobilità. Aprine uno e attivalo: in home ti proporrò la prossima sessione del piano dopo ogni allenamento.',
+    primaryLabel: 'Va bene',
     secondaryLabel: 'Più tardi',
   },
 };

@@ -136,6 +136,18 @@ export async function getProgramById(id: number): Promise<Program | null> {
   return rowToProgram(row, workouts);
 }
 
+// Set di tutti i workout id che fanno parte di un qualsiasi programma.
+// Usato in WorkoutsScreen per nascondere i workout-of-program dalla
+// lista principale: si accedono dal dettaglio del programma, non come
+// schede sciolte (l'utente li esegue nell'ordine del piano).
+export async function getWorkoutIdsInPrograms(): Promise<Set<number>> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ workoutId: number }>(
+    `SELECT DISTINCT workout_id AS workoutId FROM program_workouts`,
+  );
+  return new Set(rows.map((r) => r.workoutId));
+}
+
 async function insertProgramWorkouts(
   db: Awaited<ReturnType<typeof getDatabase>>,
   programId: number,
