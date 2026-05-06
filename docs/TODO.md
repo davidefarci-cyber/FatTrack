@@ -82,49 +82,6 @@ release`.
 
 ---
 
-### [42] Cleanup warning `react-hooks/exhaustive-deps` residui
-
-**Aperta**: 2026-05-06
-**Priorità**: 🟢 bassa
-**Area**: codice
-**Effort**: S-M
-
-Il gate ESLint introdotto in [5] + [41] passa con 0 errori ma lascia
-**10 warning** tutti del tipo `react-hooks/exhaustive-deps`. Alcuni
-potrebbero essere bug latenti (stale closure), altri sono falsi
-positivi legati a logical expression usate come deps (es.
-`servings && ...` dentro `useMemo`). File coinvolti:
-
-- `src/components/EditMealModal.tsx:95,111,120` — useEffect con
-  `meal` mancante (probabile vero bug: il modale aperto su un meal
-  diverso dal precedente potrebbe non resettare lo state).
-- `src/components/GramsInputModal.tsx:78,107,130` —
-  `servings` (logical expr) in deps, ESLint suggerisce
-  useMemo separato.
-- `src/screens/FavoritesScreen.tsx:252` — useEffect con
-  `editing?.items` e `editing?.name` mancanti.
-- `src/screens/sport/SportSettingsScreen.tsx:58` —
-  `availableEquipment` (logical expr) in useCallback deps.
-- `src/screens/sport/WorkoutsScreen.tsx:282` (×2) — stesso
-  pattern.
-
-Approccio:
-1. Pass file per file. Per ogni warning: capire se è bug vero o
-   falso positivo.
-2. Se bug vero → aggiungere la dep mancante o riscrivere lo state.
-3. Se falso positivo → wrappare il valore in `useMemo` come
-   suggerito ESLint, oppure ` // eslint-disable-next-line` con
-   commento sul perché.
-4. Obiettivo finale: 0 warning oltre a 0 errori. Eventualmente
-   stringere il gate da `warn` a `error` in `eslint.config.js` per
-   prevenire regressioni.
-
-**Done quando**: `npm run lint` produce 0 problems su `main`; la
-regola `react-hooks/exhaustive-deps` resta `warn` (o passa a
-`error` se l'utente preferisce un gate più rigido).
-
----
-
 ### [6] Retry automatico su `gh release create`
 
 **Aperta**: 2026-05-01
@@ -695,6 +652,43 @@ contro spam.
 ---
 
 ## ✅ Fatto
+
+### [chiusa] [42] Cleanup warning `react-hooks/exhaustive-deps`
+
+**Aperta**: 2026-05-06 — **Chiusa**: 2026-05-06
+
+Commit `1c83bf1`. I 10 warning lasciati aperti dal setup ESLint
+[41] tutti chiusi (0 problems totali).
+
+- `GramsInputModal.tsx` (3 warning): `servings = target?.servings
+  ?? []` wrappato in `useMemo` con dep `target?.servings` — il
+  fallback array veniva ricreato a ogni render invalidando le
+  useMemo a valle.
+- `SportSettingsScreen.tsx` (1 warning): stesso pattern su
+  `availableEquipment`, wrappato in `useMemo`.
+- `WorkoutsScreen.tsx` (2 warning): idem su `availableEquipment`.
+  Le useMemo `filteredPrograms`/`filteredStandaloneWorkouts` non
+  si invalidano più a vuoto.
+- `EditMealModal.tsx` (3 warning):
+  - Effect "carica servings": deps semplificate a
+    `[visible, meal, isFixedCost]`. Il mosaico precedente
+    mancava di `meal?.grams` — vero bug latente: un edit che
+    cambiava solo i grammi non faceva ricaricare i servings.
+  - Effect "form init on id change": deps `[visible, meal?.id]`
+    intenzionali (snapshot iniziale, non reattivo). Aggiunto
+    `eslint-disable-next-line` con commento esplicativo.
+  - Effect "sync unit con servings": riscritto estraendo
+    `label = meal?.servingLabel` per eliminare l'uso standalone
+    di `meal`.
+- `FavoritesScreen.tsx` (1 warning): effect form-init con stesso
+  pattern di EditMealModal, `eslint-disable-next-line` con
+  motivazione.
+
+**Future-proofing**: la regola `react-hooks/exhaustive-deps` resta
+a `warn` per ora (futuro upgrade a `error` decidibile più avanti
+se si vuole un gate più rigido).
+
+---
 
 ### [chiusa] [41] Setup `eslint.config.js` per ESLint v9
 
