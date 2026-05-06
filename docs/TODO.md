@@ -106,27 +106,43 @@ rimosso dal repo; `bump-version.js apply` scrive solo `app.json`.
 
 ---
 
-### [4] Smoke test automatico via `adb install` dopo build
+### [40] Auto-trigger Quick Share su APK appena buildato
 
-**Aperta**: 2026-05-01
+**Aperta**: 2026-05-06
+**Priorità**: 🟡 media
 **Area**: build / UX
+**Effort**: S
 
-Voce `[3] Build APK senza release` produce `fattrack-test-arm64.apk`
-ma poi l'utente deve manualmente trasferire l'APK sul telefono.
+Sostituisce la vecchia voce [4] (smoke test via `adb install`) — l'utente
+trasferisce gli APK di test dal portatile al telefono via **Samsung Quick
+Share**, che funziona già bene tra i suoi due device Samsung. Resta
+manuale solo il "drag and drop dell'APK sulla finestra Quick Share":
+sarebbe utile lanciare Quick Share già con l'APK preselezionato a fine
+build.
 
-Idea: aggiungere un flag o un prompt finale alla voce `[3]` che, se è
-collegato un device via USB (`adb devices` non vuoto), offre l'install
-diretto:
+Approccio candidato (PowerShell + COM Shell.Application — invoca il verb
+"Quick Share" del context menu di Windows direttamente sul file):
+```powershell
+$shell = New-Object -ComObject Shell.Application
+$file  = $shell.Namespace((Get-Item .).FullName).ParseName('fattrack-test-arm64-v8a.apk')
+$verb  = $file.Verbs() | Where-Object { $_.Name -match 'Quick Share' }
+if ($verb) { $verb.DoIt() } else { Write-Host 'Quick Share non trovato' }
 ```
-adb install -r ./fattrack-test-arm64.apk
-adb shell am start -n com.fattrack.app/.MainActivity
-```
 
-Riduce il loop di test da ~3-5 min a ~30 sec.
+Da fare:
+- Aggiungere alla voce `[3] Build APK senza release` di `fattrack.bat`
+  uno step finale opzionale "Invia con Quick Share?" (default sì).
+- Implementare via PowerShell one-liner (no nuove dep), con fallback
+  silenzioso se il verb "Quick Share" non è registrato sul PC (es.
+  device non Samsung) — in quel caso l'utente vede il path dell'APK
+  e fa drag manuale come oggi.
+- Verificare che il nome del verb sia stabile su Windows 11 +
+  Samsung Quick Share: potrebbe variare per locale italiano
+  ("Condivisione rapida"?) — usare regex `match 'Quick Share|Condivisione rapida'`.
 
-**Done quando**: voce `[3]` di `fattrack.bat` rileva automaticamente
-`adb` + device collegato e propone install; `adb` opzionale (se manca,
-build esce normalmente).
+**Done quando**: dopo "Build APK senza release", `fattrack.bat` apre
+automaticamente la finestra Quick Share con l'APK pre-caricato; se
+Quick Share non è installato, la voce esce normalmente senza errori.
 
 ---
 
@@ -715,6 +731,20 @@ contro spam.
 ---
 
 ## ✅ Fatto
+
+### [annullata] [4] Smoke test automatico via `adb install` dopo build
+
+**Aperta**: 2026-05-01 — **Chiusa**: 2026-05-06
+
+Annullata: l'utente trasferisce gli APK di test via **Samsung Quick
+Share** tra il suo portatile e il suo telefono Samsung (entrambi sullo
+stesso ecosistema, funziona senza intoppi). `adb install` richiederebbe
+cavo USB + driver + autorizzazioni debug a ogni riavvio device →
+overhead maggiore del workflow Quick Share già operativo. Sostituita
+dalla voce **[40]** che automatizza l'invocazione di Quick Share sul
+file APK appena buildato.
+
+---
 
 ### [chiusa] [27] Immagini illustrate per esercizi + guida pre-primo-set
 
