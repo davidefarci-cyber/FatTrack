@@ -15,7 +15,13 @@ export type CoachMarkId =
   | 'rowActions'
   | 'mealAsFavorite'
   | 'usePreferiti'
-  | 'sportMode';
+  | 'sportMode'
+  // Coach mark sport-side: vivono fuori dal CoachMarkHost (renderizzati
+  // direttamente da WorkoutsScreen). Sono qui per type-safety quando
+  // si chiama `markCoachMarkSeen` e per restare in un solo registro
+  // persistito (`app_settings.coach_marks_seen`).
+  | 'workoutsEquipmentIntro'
+  | 'workoutsProgramsNews';
 
 export type CoachMarkState = {
   totalMealsCount: number;

@@ -2,6 +2,7 @@ import * as SQLite from 'expo-sqlite';
 
 import { seedExercisesIfEmpty } from './seedExercises';
 import { applySeedServings, seedFoodsIfEmpty } from './seedFoods';
+import { seedProgramsIfEmpty } from './seedPrograms';
 import { seedPresetWorkoutsIfEmpty } from './seedWorkouts';
 
 const DB_NAME = 'fattrack.db';
@@ -20,6 +21,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
     await applySeedServings(db);
     await seedExercisesIfEmpty(db);
     await seedPresetWorkoutsIfEmpty(db);
+    await seedProgramsIfEmpty(db);
     dbInstance = db;
     return db;
   })();
@@ -112,7 +114,8 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       target_calories REAL NOT NULL,
       name TEXT,
       target_weight_kg REAL,
-      start_weight_kg REAL
+      start_weight_kg REAL,
+      available_equipment TEXT
     );
 
     CREATE TABLE IF NOT EXISTS app_settings (
@@ -135,6 +138,7 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       name TEXT NOT NULL UNIQUE,
       muscle_group TEXT NOT NULL,
       equipment TEXT NOT NULL,
+      equipment_tags TEXT,
       level TEXT NOT NULL CHECK (level IN ('principiante','intermedio','avanzato')),
       description TEXT,
       guide_steps TEXT,
@@ -148,6 +152,9 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       category TEXT NOT NULL CHECK (category IN ('forza','cardio','mobilita','misto')),
+      goal TEXT,
+      level TEXT,
+      required_equipment TEXT,
       is_preset INTEGER NOT NULL DEFAULT 0,
       notes TEXT,
       estimated_duration_min INTEGER,
@@ -162,13 +169,47 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       position INTEGER NOT NULL,
       sets INTEGER,
       reps INTEGER,
+      reps_max INTEGER,
       duration_sec INTEGER,
+      duration_max_sec INTEGER,
       rest_sec INTEGER,
       weight_kg REAL,
+      alternative_exercise_id INTEGER REFERENCES exercises(id) ON DELETE SET NULL,
       notes TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_workout_exercises_workout
       ON workout_exercises(workout_id);
+
+    CREATE TABLE IF NOT EXISTS workout_programs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      goal TEXT,
+      level TEXT,
+      days_per_week INTEGER NOT NULL,
+      is_preset INTEGER NOT NULL DEFAULT 0,
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS program_workouts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      program_id INTEGER NOT NULL REFERENCES workout_programs(id) ON DELETE CASCADE,
+      workout_id INTEGER NOT NULL REFERENCES workouts(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL,
+      day_label TEXT,
+      UNIQUE (program_id, position)
+    );
+    CREATE INDEX IF NOT EXISTS idx_program_workouts_program
+      ON program_workouts(program_id);
+
+    CREATE TABLE IF NOT EXISTS active_program (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      program_id INTEGER NOT NULL REFERENCES workout_programs(id) ON DELETE CASCADE,
+      last_completed_program_workout_id INTEGER REFERENCES program_workouts(id) ON DELETE SET NULL,
+      started_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
 
     CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -258,6 +299,16 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     `ALTER TABLE app_settings ADD COLUMN coach_marks_seen TEXT NOT NULL DEFAULT '{}'`,
     `ALTER TABLE app_settings ADD COLUMN exercise_guides_enabled INTEGER NOT NULL DEFAULT 1`,
     `ALTER TABLE active_session ADD COLUMN rest_duration_sec INTEGER`,
+    // Fase 1 piani allenamento: nuovi campi schema (vedi commit relativo).
+    `ALTER TABLE user_profile ADD COLUMN available_equipment TEXT`,
+    `ALTER TABLE exercises ADD COLUMN equipment_tags TEXT`,
+    `ALTER TABLE workouts ADD COLUMN goal TEXT`,
+    `ALTER TABLE workouts ADD COLUMN level TEXT`,
+    `ALTER TABLE workouts ADD COLUMN required_equipment TEXT`,
+    `ALTER TABLE workout_exercises ADD COLUMN reps_max INTEGER`,
+    `ALTER TABLE workout_exercises ADD COLUMN duration_max_sec INTEGER`,
+    `ALTER TABLE workout_exercises ADD COLUMN alternative_exercise_id INTEGER REFERENCES exercises(id) ON DELETE SET NULL`,
+    `ALTER TABLE app_settings ADD COLUMN programs_intro_initialized INTEGER NOT NULL DEFAULT 0`,
   ]) {
     try {
       await db.execAsync(sql);
@@ -329,6 +380,58 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       `UPDATE daily_settings SET seeded_quick_addons = 1 WHERE id = 1`,
     );
   }
+
+  // Sentinel one-shot per gli onboarding banner di WorkoutsScreen
+  // (`workoutsEquipmentIntro` + `workoutsProgramsNews`). Decisione presa
+  // alla prima migrazione dopo l'introduzione dei programmi:
+  // - Utente "vecchio" (ha già pasti o sessioni): mostra entrambi i
+  //   banner — l'annuncio "nuove schede" ha senso per lui.
+  // - Utente "nuovo" (DB vuoto): pre-marca `workoutsProgramsNews` come
+  //   visto, così non riceve un annuncio di novità che per lui non sono
+  //   tali; vede solo `workoutsEquipmentIntro`.
+  // Idempotente: il flag `programs_intro_initialized` su app_settings
+  // garantisce che il check giri una sola volta nel ciclo di vita
+  // dell'installazione.
+  const introRow = await db.getFirstAsync<{ done: number }>(
+    `SELECT programs_intro_initialized AS done FROM app_settings WHERE id = 1`,
+  );
+  if ((introRow?.done ?? 0) === 0) {
+    const counts = await db.getFirstAsync<{
+      meals: number;
+      sessions: number;
+    }>(
+      `SELECT
+         (SELECT COUNT(*) FROM meals) AS meals,
+         (SELECT COUNT(*) FROM sessions) AS sessions`,
+    );
+    const isExistingUser =
+      (counts?.meals ?? 0) > 0 || (counts?.sessions ?? 0) > 0;
+    if (!isExistingUser) {
+      // Merge nei coach_marks_seen senza sovrascrivere altri flag.
+      const seenRow = await db.getFirstAsync<{ json: string }>(
+        `SELECT coach_marks_seen AS json FROM app_settings WHERE id = 1`,
+      );
+      let seen: Record<string, boolean> = {};
+      try {
+        const parsed = JSON.parse(seenRow?.json ?? '{}');
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          for (const [k, v] of Object.entries(parsed)) {
+            if (typeof v === 'boolean') seen[k] = v;
+          }
+        }
+      } catch {
+        seen = {};
+      }
+      seen.workoutsProgramsNews = true;
+      await db.runAsync(
+        `UPDATE app_settings SET coach_marks_seen = ? WHERE id = 1`,
+        JSON.stringify(seen),
+      );
+    }
+    await db.runAsync(
+      `UPDATE app_settings SET programs_intro_initialized = 1 WHERE id = 1`,
+    );
+  }
 }
 
 export async function resetDatabase(): Promise<void> {
@@ -337,6 +440,9 @@ export async function resetDatabase(): Promise<void> {
     DROP TABLE IF EXISTS active_session;
     DROP TABLE IF EXISTS session_sets;
     DROP TABLE IF EXISTS sessions;
+    DROP TABLE IF EXISTS active_program;
+    DROP TABLE IF EXISTS program_workouts;
+    DROP TABLE IF EXISTS workout_programs;
     DROP TABLE IF EXISTS workout_exercises;
     DROP TABLE IF EXISTS workouts;
     DROP TABLE IF EXISTS exercises;
