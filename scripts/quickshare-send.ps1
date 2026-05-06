@@ -2,24 +2,28 @@
 # menu di Windows. Apre la finestra Quick Share con il file pre-caricato:
 # l'utente sceglie il device di destinazione e conferma.
 #
+# Uso (positional):
+#   powershell -File quickshare-send.ps1 "C:\path\to\file.apk"
+#
 # Exit codes:
 #   0 = verb invocato (Quick Share aperto)
 #   1 = errore generico (file non trovato, ParseName fallito, ...)
 #   2 = verb "Quick Share" non registrato sul PC (fallback grazioso)
 
+[CmdletBinding()]
 param(
-    [Parameter(Mandatory=$true)]
-    [string]$FilePath
+    [Parameter(Mandatory=$true, Position=0)]
+    [string]$ApkPath
 )
 
 $ErrorActionPreference = 'Stop'
 
-if (-not (Test-Path -LiteralPath $FilePath)) {
-    Write-Host "ERRORE: file non trovato: $FilePath"
+if (-not (Test-Path -LiteralPath $ApkPath)) {
+    Write-Host "ERRORE: file non trovato: $ApkPath"
     exit 1
 }
 
-$abs  = (Resolve-Path -LiteralPath $FilePath).Path
+$abs  = (Resolve-Path -LiteralPath $ApkPath).Path
 $dir  = Split-Path -LiteralPath $abs -Parent
 $leaf = Split-Path -LiteralPath $abs -Leaf
 
