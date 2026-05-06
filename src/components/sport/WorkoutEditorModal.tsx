@@ -233,9 +233,12 @@ export function WorkoutEditorModal({
           position: i,
           sets,
           reps,
+          repsMax: null,
           durationSec: null,
+          durationMaxSec: null,
           restSec,
           weightKg: null,
+          alternativeExerciseId: null,
           notes: row.notes.trim() ? row.notes.trim() : null,
         });
       } else {
@@ -251,9 +254,12 @@ export function WorkoutEditorModal({
           position: i,
           sets: null,
           reps: null,
+          repsMax: null,
           durationSec,
+          durationMaxSec: null,
           restSec,
           weightKg: null,
+          alternativeExerciseId: null,
           notes: row.notes.trim() ? row.notes.trim() : null,
         });
       }
@@ -262,6 +268,9 @@ export function WorkoutEditorModal({
     const payload: NewWorkout = {
       name: trimmedName,
       category,
+      goal: editing?.goal ?? null,
+      level: editing?.level ?? null,
+      requiredEquipment: editing?.requiredEquipment ?? [],
       notes: editing?.notes ?? null,
       estimatedDurationMin: parsePositiveInt(duration),
       exercises: payloadExercises,

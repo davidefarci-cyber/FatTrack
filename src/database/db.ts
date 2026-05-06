@@ -112,7 +112,8 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       target_calories REAL NOT NULL,
       name TEXT,
       target_weight_kg REAL,
-      start_weight_kg REAL
+      start_weight_kg REAL,
+      available_equipment TEXT
     );
 
     CREATE TABLE IF NOT EXISTS app_settings (
@@ -135,6 +136,7 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       name TEXT NOT NULL UNIQUE,
       muscle_group TEXT NOT NULL,
       equipment TEXT NOT NULL,
+      equipment_tags TEXT,
       level TEXT NOT NULL CHECK (level IN ('principiante','intermedio','avanzato')),
       description TEXT,
       guide_steps TEXT,
@@ -148,6 +150,9 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       category TEXT NOT NULL CHECK (category IN ('forza','cardio','mobilita','misto')),
+      goal TEXT,
+      level TEXT,
+      required_equipment TEXT,
       is_preset INTEGER NOT NULL DEFAULT 0,
       notes TEXT,
       estimated_duration_min INTEGER,
@@ -162,13 +167,47 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       position INTEGER NOT NULL,
       sets INTEGER,
       reps INTEGER,
+      reps_max INTEGER,
       duration_sec INTEGER,
+      duration_max_sec INTEGER,
       rest_sec INTEGER,
       weight_kg REAL,
+      alternative_exercise_id INTEGER REFERENCES exercises(id) ON DELETE SET NULL,
       notes TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_workout_exercises_workout
       ON workout_exercises(workout_id);
+
+    CREATE TABLE IF NOT EXISTS workout_programs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      goal TEXT,
+      level TEXT,
+      days_per_week INTEGER NOT NULL,
+      is_preset INTEGER NOT NULL DEFAULT 0,
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS program_workouts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      program_id INTEGER NOT NULL REFERENCES workout_programs(id) ON DELETE CASCADE,
+      workout_id INTEGER NOT NULL REFERENCES workouts(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL,
+      day_label TEXT,
+      UNIQUE (program_id, position)
+    );
+    CREATE INDEX IF NOT EXISTS idx_program_workouts_program
+      ON program_workouts(program_id);
+
+    CREATE TABLE IF NOT EXISTS active_program (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      program_id INTEGER NOT NULL REFERENCES workout_programs(id) ON DELETE CASCADE,
+      last_completed_program_workout_id INTEGER REFERENCES program_workouts(id) ON DELETE SET NULL,
+      started_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
 
     CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -258,6 +297,15 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     `ALTER TABLE app_settings ADD COLUMN coach_marks_seen TEXT NOT NULL DEFAULT '{}'`,
     `ALTER TABLE app_settings ADD COLUMN exercise_guides_enabled INTEGER NOT NULL DEFAULT 1`,
     `ALTER TABLE active_session ADD COLUMN rest_duration_sec INTEGER`,
+    // Fase 1 piani allenamento: nuovi campi schema (vedi commit relativo).
+    `ALTER TABLE user_profile ADD COLUMN available_equipment TEXT`,
+    `ALTER TABLE exercises ADD COLUMN equipment_tags TEXT`,
+    `ALTER TABLE workouts ADD COLUMN goal TEXT`,
+    `ALTER TABLE workouts ADD COLUMN level TEXT`,
+    `ALTER TABLE workouts ADD COLUMN required_equipment TEXT`,
+    `ALTER TABLE workout_exercises ADD COLUMN reps_max INTEGER`,
+    `ALTER TABLE workout_exercises ADD COLUMN duration_max_sec INTEGER`,
+    `ALTER TABLE workout_exercises ADD COLUMN alternative_exercise_id INTEGER REFERENCES exercises(id) ON DELETE SET NULL`,
   ]) {
     try {
       await db.execAsync(sql);
@@ -337,6 +385,9 @@ export async function resetDatabase(): Promise<void> {
     DROP TABLE IF EXISTS active_session;
     DROP TABLE IF EXISTS session_sets;
     DROP TABLE IF EXISTS sessions;
+    DROP TABLE IF EXISTS active_program;
+    DROP TABLE IF EXISTS program_workouts;
+    DROP TABLE IF EXISTS workout_programs;
     DROP TABLE IF EXISTS workout_exercises;
     DROP TABLE IF EXISTS workouts;
     DROP TABLE IF EXISTS exercises;

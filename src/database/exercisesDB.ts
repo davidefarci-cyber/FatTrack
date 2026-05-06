@@ -1,4 +1,5 @@
 import { getDatabase } from './db';
+import { EquipmentTag, parseEquipmentTags } from '../types/equipment';
 
 // Layer minimale per la libreria esercizi: in Fase 2 serve solo per
 // risolvere i nomi referenziati dai preset e popolare il picker
@@ -11,7 +12,10 @@ export type Exercise = {
   id: number;
   name: string;
   muscleGroup: string;
+  // `equipment` è la stringa display human-readable (es. "Manubri + panca").
+  // `equipmentTags` sono i tag normalizzati per filtri/ranking.
   equipment: string;
+  equipmentTags: EquipmentTag[];
   level: ExerciseLevel;
   description: string | null;
   guideSteps: string[] | null;
@@ -24,6 +28,7 @@ type Row = {
   name: string;
   muscleGroup: string;
   equipment: string;
+  equipmentTags: string | null;
   level: ExerciseLevel;
   description: string | null;
   guideSteps: string | null;
@@ -36,6 +41,7 @@ const COLUMNS = `
   name,
   muscle_group AS muscleGroup,
   equipment,
+  equipment_tags AS equipmentTags,
   level,
   description,
   guide_steps AS guideSteps,
@@ -59,6 +65,7 @@ function rowToExercise(row: Row): Exercise {
     name: row.name,
     muscleGroup: row.muscleGroup,
     equipment: row.equipment,
+    equipmentTags: parseEquipmentTags(row.equipmentTags),
     level: row.level,
     description: row.description,
     guideSteps: parseGuideSteps(row.guideSteps),

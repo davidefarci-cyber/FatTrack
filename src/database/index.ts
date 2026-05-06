@@ -14,7 +14,15 @@ export * as profileDB from './profileDB';
 export * as appSettingsDB from './appSettingsDB';
 export * as exercisesDB from './exercisesDB';
 export * as workoutsDB from './workoutsDB';
+export * as programsDB from './programsDB';
 export * as sessionsDB from './sessionsDB';
+
+export {
+  EQUIPMENT_TAGS,
+  parseEquipmentTags,
+  serializeEquipmentTags,
+} from '../types/equipment';
+export type { EquipmentTag } from '../types/equipment';
 
 export type { Food, FoodSource, NewFood } from './foodsDB';
 export type { FoodServing, NewFoodServing } from './foodServingsDB';
@@ -28,9 +36,17 @@ export type { Exercise, ExerciseLevel } from './exercisesDB';
 export type {
   Workout,
   WorkoutCategory,
+  WorkoutGoal,
+  WorkoutLevel,
   WorkoutExercise,
   NewWorkout,
 } from './workoutsDB';
+export type {
+  Program,
+  ProgramWorkout,
+  NewProgram,
+  ActiveProgram,
+} from './programsDB';
 export type {
   Session,
   SessionSet,
