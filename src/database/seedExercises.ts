@@ -1,6 +1,8 @@
 import type * as SQLite from 'expo-sqlite';
 
 import type { ExerciseLevel } from './exercisesDB';
+import type { EquipmentTag } from '../types/equipment';
+import { serializeEquipmentTags } from '../types/equipment';
 
 // Seed della libreria esercizi (Fase 4: ~40 esercizi a corpo libero o
 // con sedia/panca). Pattern allineato a `seedFoodsIfEmpty` con un'aggiunta:
@@ -1059,7 +1061,441 @@ export const SEED_EXERCISES: SeedExercise[] = [
     ],
     videoUrl: null,
   },
+
+  // ─── CARDIO (con/senza attrezzatura) ───────────────────────────
+  {
+    name: 'Camminata veloce',
+    muscleGroup: 'Cardio',
+    equipment: 'Corpo libero o tapis roulant',
+    level: 'principiante',
+    met: 4.3,
+    description: 'Camminata sostenuta a 5–6 km/h, in piano o su tapis roulant.',
+    guideSteps: [
+      'Postura eretta, sguardo davanti, spalle rilassate.',
+      'Passo deciso, braccia in oscillazione naturale.',
+      'Respirazione regolare, mantieni un ritmo che ti permette di parlare.',
+      'Per intensità maggiore aumenta velocità o pendenza.',
+    ],
+    videoUrl: null,
+  },
+  {
+    name: 'Cyclette',
+    muscleGroup: 'Cardio',
+    equipment: 'Cyclette',
+    level: 'principiante',
+    met: 6.8,
+    description: 'Pedalata a intensità moderata su cyclette.',
+    guideSteps: [
+      'Regola sella e manubrio: ginocchio leggermente piegato a fine pedalata.',
+      'Pedala a cadenza costante (~70–90 rpm).',
+      'Tronco eretto, spalle rilassate, mani morbide sul manubrio.',
+      'Aumenta resistenza per intensità maggiore, non solo cadenza.',
+    ],
+    videoUrl: null,
+  },
+
+  // ─── GAMBE / GLUTEI con manubri ────────────────────────────────
+  {
+    name: 'Squat con manubri',
+    muscleGroup: 'Gambe',
+    equipment: 'Manubri',
+    level: 'principiante',
+    met: 5,
+    description: 'Squat tenendo un manubrio per mano lungo i fianchi.',
+    guideSteps: [
+      'Manubri lungo i fianchi, presa neutra, piedi alla larghezza delle spalle.',
+      'Scendi piegando ginocchia e anche, schiena dritta.',
+      'Cosce parallele al pavimento, ginocchia in linea con le punte.',
+      'Risali spingendo dai talloni mantenendo i manubri immobili.',
+    ],
+    videoUrl: null,
+  },
+  {
+    name: 'Goblet squat con manubri',
+    muscleGroup: 'Gambe',
+    equipment: 'Manubri',
+    level: 'principiante',
+    met: 5,
+    description: 'Squat tenendo un manubrio verticale al petto a due mani.',
+    guideSteps: [
+      'Tieni un manubrio in verticale appoggiato al petto, gomiti sotto.',
+      'Piedi leggermente più larghi delle spalle, punte appena fuori.',
+      'Scendi profondo mantenendo il busto eretto e i gomiti dentro le ginocchia.',
+      'Risali spingendo dai talloni senza inclinare il busto in avanti.',
+    ],
+    videoUrl: null,
+  },
+  {
+    name: 'Sumo squat con manubri',
+    muscleGroup: 'Gambe',
+    equipment: 'Manubri',
+    level: 'principiante',
+    met: 5,
+    description: 'Squat sumo con un manubrio tenuto a due mani tra le gambe.',
+    guideSteps: [
+      'Piedi molto più larghi delle spalle, punte ruotate verso l’esterno.',
+      'Tieni un manubrio a due mani che pende davanti al bacino.',
+      'Scendi piegando le ginocchia in linea con le punte dei piedi.',
+      'Risali spingendo i talloni e contraendo i glutei.',
+    ],
+    videoUrl: null,
+  },
+  {
+    name: 'Affondi con manubri',
+    muscleGroup: 'Gambe',
+    equipment: 'Manubri',
+    level: 'principiante',
+    met: 5.5,
+    description: 'Affondi alternati con manubri lungo i fianchi.',
+    guideSteps: [
+      'Manubri lungo i fianchi, busto eretto.',
+      'Fai un passo avanti e piega entrambe le ginocchia a 90°.',
+      'Il ginocchio posteriore sfiora il pavimento senza appoggiarsi.',
+      'Spingi sul tallone anteriore per tornare in piedi, alterna gamba.',
+    ],
+    videoUrl: null,
+  },
+  {
+    name: 'Stacco rumeno con manubri',
+    muscleGroup: 'Glutei',
+    equipment: 'Manubri',
+    level: 'intermedio',
+    met: 5,
+    description: 'Stacco rumeno con manubri davanti alle cosce.',
+    guideSteps: [
+      'Manubri davanti alle cosce, ginocchia leggermente piegate.',
+      'Inclina il busto in avanti spingendo i glutei indietro, schiena dritta.',
+      'Scendi finché senti tensione nei femorali (manubri vicini alle gambe).',
+      'Risali contraendo glutei e femorali, spingendo il bacino in avanti.',
+    ],
+    videoUrl: null,
+  },
+  {
+    name: 'Step-up con manubri',
+    muscleGroup: 'Gambe',
+    equipment: 'Manubri + sedia o panca',
+    level: 'principiante',
+    met: 6,
+    description: 'Salita su panca alternata, manubri lungo i fianchi.',
+    guideSteps: [
+      'Manubri lungo i fianchi, di fronte a una panca o sedia stabile.',
+      'Sali appoggiando tutto il piede sulla superficie, spingi con il tallone.',
+      'Porta in alto anche l’altra gamba, busto eretto.',
+      'Scendi controllato e alterna gamba di salita.',
+    ],
+    videoUrl: null,
+  },
+  {
+    name: 'Bulgarian split squat con manubri',
+    muscleGroup: 'Gambe',
+    equipment: 'Manubri + sedia o panca',
+    level: 'intermedio',
+    met: 5.5,
+    description: 'Split squat con piede posteriore appoggiato a panca, manubri ai fianchi.',
+    guideSteps: [
+      'Piede posteriore appoggiato sulla panca, manubri lungo i fianchi.',
+      'Scendi piegando il ginocchio anteriore a 90°, busto eretto.',
+      'Il ginocchio resta in linea con la punta del piede anteriore.',
+      'Risali spingendo dal tallone della gamba anteriore.',
+    ],
+    videoUrl: null,
+  },
+
+  // ─── PETTO / SPALLE con panca e manubri ───────────────────────
+  {
+    name: 'Panca piana con manubri',
+    muscleGroup: 'Petto',
+    equipment: 'Manubri + panca',
+    level: 'principiante',
+    met: 4,
+    description: 'Distensioni su panca piana con manubri.',
+    guideSteps: [
+      'Disteso supino sulla panca, piedi a terra, scapole retratte.',
+      'Manubri sopra il petto, presa prona, gomiti a ~45° dal busto.',
+      'Scendi controllato fino a poco sopra il petto.',
+      'Spingi i manubri verso l’alto senza farli toccare in cima.',
+    ],
+    videoUrl: null,
+  },
+  {
+    name: 'Panca inclinata con manubri',
+    muscleGroup: 'Petto',
+    equipment: 'Manubri + panca inclinata',
+    level: 'intermedio',
+    met: 4,
+    description: 'Distensioni su panca a ~30° con manubri (focus petto alto).',
+    guideSteps: [
+      'Panca inclinata a ~30°, supino, scapole retratte, piedi a terra.',
+      'Manubri sopra il petto alto, presa prona.',
+      'Scendi controllato fino a poco sopra le clavicole.',
+      'Spingi verso l’alto contraendo il petto.',
+    ],
+    videoUrl: null,
+  },
+  {
+    name: 'Pullover con manubrio',
+    muscleGroup: 'Petto',
+    equipment: 'Manubrio + panca',
+    level: 'intermedio',
+    met: 4,
+    description: 'Pullover supino con un manubrio tenuto a due mani.',
+    guideSteps: [
+      'Disteso sulla panca, manubrio tenuto a due mani sopra il petto.',
+      'Gomiti leggermente piegati, fai scendere il manubrio dietro la testa.',
+      'Senti l’allungo del gran dorsale e del petto.',
+      'Riporta il manubrio sopra il petto senza piegare di più i gomiti.',
+    ],
+    videoUrl: null,
+  },
+  {
+    name: 'Shoulder press con manubri',
+    muscleGroup: 'Spalle',
+    equipment: 'Manubri',
+    level: 'principiante',
+    met: 4,
+    description: 'Distensioni sopra la testa con manubri, seduto o in piedi.',
+    guideSteps: [
+      'Manubri all’altezza delle spalle, presa prona, gomiti sotto i polsi.',
+      'Spingi verso l’alto fino quasi a estendere completamente le braccia.',
+      'Manubri si avvicinano in alto senza toccarsi.',
+      'Scendi controllato fino alla posizione di partenza.',
+    ],
+    videoUrl: null,
+  },
+  {
+    name: 'Arnold press',
+    muscleGroup: 'Spalle',
+    equipment: 'Manubri',
+    level: 'intermedio',
+    met: 4,
+    description: 'Distensione sopra la testa con rotazione (palmi verso il viso → fuori).',
+    guideSteps: [
+      'Parti con i manubri davanti al viso, palmi verso di te.',
+      'Salendo, ruota i polsi verso l’esterno fino a palmi avanti.',
+      'Estendi sopra la testa senza bloccare i gomiti.',
+      'Inverti la rotazione mentre scendi alla posizione iniziale.',
+    ],
+    videoUrl: null,
+  },
+  {
+    name: 'Alzate laterali con manubri',
+    muscleGroup: 'Spalle',
+    equipment: 'Manubri',
+    level: 'principiante',
+    met: 3.5,
+    description: 'Sollevamento laterale dei manubri fino all’altezza delle spalle.',
+    guideSteps: [
+      'Manubri lungo i fianchi, busto eretto, gomiti leggermente piegati.',
+      'Solleva lateralmente fino a portare i gomiti all’altezza delle spalle.',
+      'Polsi leggermente sotto i gomiti per non chiamare il trapezio.',
+      'Scendi controllato senza far rimbalzare i manubri.',
+    ],
+    videoUrl: null,
+  },
+
+  // ─── SCHIENA con manubri ──────────────────────────────────────
+  {
+    name: 'Rematore con manubrio',
+    muscleGroup: 'Schiena',
+    equipment: 'Manubrio + panca',
+    level: 'principiante',
+    met: 4.5,
+    description: 'Rematore monolaterale con appoggio ginocchio/mano sulla panca.',
+    guideSteps: [
+      'Una mano e un ginocchio sulla panca, schiena parallela al pavimento.',
+      'Manubrio nell’altra mano, braccio teso, presa neutra.',
+      'Tira il manubrio verso l’anca, gomito vicino al busto.',
+      'Scendi controllato, mantenendo la schiena dritta. Cambia lato dopo le ripetizioni.',
+    ],
+    videoUrl: null,
+  },
+
+  // ─── BRACCIA con manubri ──────────────────────────────────────
+  {
+    name: 'Curl bicipiti con manubri',
+    muscleGroup: 'Braccia',
+    equipment: 'Manubri',
+    level: 'principiante',
+    met: 3.5,
+    description: 'Curl alternato o simultaneo con manubri, presa supina.',
+    guideSteps: [
+      'Manubri lungo i fianchi, presa supina (palmi avanti).',
+      'Gomiti fissi accanto al busto, fletti gli avambracci verso le spalle.',
+      'Stringi il bicipite in cima senza dondolare il corpo.',
+      'Scendi controllato fino a estendere completamente.',
+    ],
+    videoUrl: null,
+  },
+  {
+    name: 'Curl martello con manubri',
+    muscleGroup: 'Braccia',
+    equipment: 'Manubri',
+    level: 'principiante',
+    met: 3.5,
+    description: 'Curl con presa neutra (palmi verso il corpo).',
+    guideSteps: [
+      'Manubri lungo i fianchi, presa neutra (palmi verso il corpo).',
+      'Gomiti fissi al busto, fletti l’avambraccio verso la spalla.',
+      'Mantieni la presa neutra per tutto il movimento.',
+      'Scendi controllato. Coinvolge anche brachiale e brachioradiale.',
+    ],
+    videoUrl: null,
+  },
+  {
+    name: 'Estensioni tricipiti con manubrio',
+    muscleGroup: 'Braccia',
+    equipment: 'Manubrio',
+    level: 'principiante',
+    met: 3.5,
+    description: 'French press sopra la testa con un manubrio a due mani.',
+    guideSteps: [
+      'Tieni un manubrio a due mani sopra la testa, braccia tese.',
+      'Gomiti fermi vicini alla testa, abbassa il manubrio dietro la nuca.',
+      'Estendi le braccia verso l’alto contraendo i tricipiti.',
+      'Mantieni il busto stabile, evita di inarcare la schiena.',
+    ],
+    videoUrl: null,
+  },
+  {
+    name: 'Kickback tricipiti con manubri',
+    muscleGroup: 'Braccia',
+    equipment: 'Manubri',
+    level: 'principiante',
+    met: 3.5,
+    description: 'Estensione del tricipite a busto inclinato.',
+    guideSteps: [
+      'Busto inclinato in avanti, schiena dritta, gomiti alti vicini al busto.',
+      'Estendi gli avambracci all’indietro fino a tendere completamente il braccio.',
+      'Stringi il tricipite in cima per un istante.',
+      'Riporta lentamente alla posizione iniziale, gomiti fermi.',
+    ],
+    videoUrl: null,
+  },
+
+  // ─── CORE ─────────────────────────────────────────────────────
+  {
+    name: 'Bicycle crunch',
+    muscleGroup: 'Core',
+    equipment: 'Corpo libero',
+    level: 'principiante',
+    met: 3.5,
+    description: 'Crunch incrociato con pedalata: gomito incontra ginocchio opposto.',
+    guideSteps: [
+      'Supino, mani dietro la testa, gambe sollevate a 90°.',
+      'Porta il gomito destro verso il ginocchio sinistro, estendi la gamba destra.',
+      'Inverti: gomito sinistro verso ginocchio destro.',
+      'Mantieni la zona lombare aderente al pavimento, ritmo controllato.',
+    ],
+    videoUrl: null,
+  },
 ];
+
+// Mappa name → equipment tags. Definita separatamente da SEED_EXERCISES per
+// minimizzare la rumorosità dei record (un solo array di tag per esercizio).
+// Usata sia in fase di INSERT (DB nuovi e top-up) sia per il backfill
+// idempotente sui DB esistenti che non hanno mai visto la colonna.
+const SEED_EQUIPMENT_TAGS: Record<string, EquipmentTag[]> = {
+  // Gambe / glutei a corpo libero
+  Squat: ['corpo_libero'],
+  Affondi: ['corpo_libero'],
+  'Bulgarian split squat': ['corpo_libero', 'sedia_o_panca'],
+  'Wall sit': ['corpo_libero'],
+  'Calf raise': ['corpo_libero'],
+  'Single-leg deadlift': ['corpo_libero'],
+  'Hip thrust': ['corpo_libero', 'sedia_o_panca'],
+  'Glute bridge': ['corpo_libero'],
+  'Step-up': ['corpo_libero', 'sedia_o_panca'],
+  'Sumo squat': ['corpo_libero'],
+  // Petto a corpo libero
+  'Push-up': ['corpo_libero'],
+  'Push-up declinati': ['corpo_libero', 'sedia_o_panca'],
+  'Diamond push-up': ['corpo_libero'],
+  'Pike push-up': ['corpo_libero'],
+  'Tricep dip': ['corpo_libero', 'sedia_o_panca'],
+  'Wide push-up': ['corpo_libero'],
+  'Plank to push-up': ['corpo_libero'],
+  // Core a corpo libero
+  Plank: ['corpo_libero'],
+  'Side plank': ['corpo_libero'],
+  Crunch: ['corpo_libero'],
+  'Russian twist': ['corpo_libero'],
+  'Hollow hold': ['corpo_libero'],
+  'Bird-dog': ['corpo_libero'],
+  'Dead bug': ['corpo_libero'],
+  'Leg raise': ['corpo_libero'],
+  // Cardio a corpo libero
+  Burpees: ['corpo_libero'],
+  'Mountain climber': ['corpo_libero'],
+  'Jumping jacks': ['corpo_libero'],
+  'High knees': ['corpo_libero'],
+  'Skater jumps': ['corpo_libero'],
+  'Squat jumps': ['corpo_libero'],
+  'Tuck jump': ['corpo_libero'],
+  'Broad jump': ['corpo_libero'],
+  // Mobilità a corpo libero
+  'Schiena - Cat-cow': ['corpo_libero'],
+  'Schiena - Cobra': ['corpo_libero'],
+  'Schiena - Child pose': ['corpo_libero'],
+  'Full body - Downward dog': ['corpo_libero'],
+  'Anche - Hip circles': ['corpo_libero'],
+  'Spalle - Shoulder rolls': ['corpo_libero'],
+  'Anche - Pigeon pose': ['corpo_libero'],
+  'Anche - Leg swings': ['corpo_libero'],
+  'Polsi - Wrist circles': ['corpo_libero'],
+  'Caviglie - Ankle circles': ['corpo_libero'],
+  'Hamstring stretch': ['corpo_libero'],
+  'Quad stretch': ['corpo_libero'],
+  'Chest opener': ['corpo_libero'],
+  'Spinal twist': ['corpo_libero'],
+  // Schiena/glutei attivazione a corpo libero
+  Superman: ['corpo_libero'],
+  'Reverse snow angel': ['corpo_libero'],
+  // Improvised (bottiglie/asciugamano): equiparate al corpo libero per
+  // i filtri (chiunque ha bottiglie d'acqua in casa).
+  'Rematore con bottiglie': ['corpo_libero'],
+  'Curl con bottiglie': ['corpo_libero'],
+  'Curl isometrico con asciugamano': ['corpo_libero'],
+  'Goblet squat con bottiglia': ['corpo_libero'],
+  'Romanian deadlift con bottiglie': ['corpo_libero'],
+  'Good morning': ['corpo_libero'],
+  // Elastico e sbarra
+  'Pull-apart con elastico': ['elastico'],
+  'Trazioni assistite con elastico': ['elastico', 'sbarra'],
+  // Spalle/core/gambe a corpo libero
+  'Shoulder taps': ['corpo_libero'],
+  'Y-T-W prone': ['corpo_libero'],
+  Clamshell: ['corpo_libero'],
+  'Donkey kick': ['corpo_libero'],
+  'Fire hydrant': ['corpo_libero'],
+  'Lateral lunge': ['corpo_libero'],
+  'Cossack squat': ['corpo_libero'],
+  // Adattati per anziani / mobilità ridotta
+  'Marcia da seduti': ['corpo_libero', 'sedia_o_panca'],
+  'Alzata gambe da seduti': ['corpo_libero', 'sedia_o_panca'],
+  'Twist da seduti': ['corpo_libero', 'sedia_o_panca'],
+  // ── Nuovi (fase 2) ──
+  'Camminata veloce': ['corpo_libero', 'tapis_roulant'],
+  Cyclette: ['ciclette'],
+  'Squat con manubri': ['manubri'],
+  'Goblet squat con manubri': ['manubri'],
+  'Sumo squat con manubri': ['manubri'],
+  'Affondi con manubri': ['manubri'],
+  'Stacco rumeno con manubri': ['manubri'],
+  'Step-up con manubri': ['manubri', 'sedia_o_panca'],
+  'Bulgarian split squat con manubri': ['manubri', 'sedia_o_panca'],
+  'Panca piana con manubri': ['manubri', 'panca'],
+  'Panca inclinata con manubri': ['manubri', 'panca_inclinata'],
+  'Pullover con manubrio': ['manubri', 'panca'],
+  'Shoulder press con manubri': ['manubri'],
+  'Arnold press': ['manubri'],
+  'Alzate laterali con manubri': ['manubri'],
+  'Rematore con manubrio': ['manubri'],
+  'Curl bicipiti con manubri': ['manubri'],
+  'Curl martello con manubri': ['manubri'],
+  'Estensioni tricipiti con manubrio': ['manubri'],
+  'Kickback tricipiti con manubri': ['manubri'],
+  'Bicycle crunch': ['corpo_libero'],
+};
 
 async function insertExercise(
   db: SQLite.SQLiteDatabase,
@@ -1067,13 +1503,15 @@ async function insertExercise(
   ignoreOnConflict: boolean,
 ): Promise<void> {
   const verb = ignoreOnConflict ? 'INSERT OR IGNORE INTO' : 'INSERT INTO';
+  const tags = SEED_EQUIPMENT_TAGS[ex.name];
   await db.runAsync(
     `${verb} exercises
-       (name, muscle_group, equipment, level, description, guide_steps, video_url, met)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (name, muscle_group, equipment, equipment_tags, level, description, guide_steps, video_url, met)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ex.name,
     ex.muscleGroup,
     ex.equipment,
+    serializeEquipmentTags(tags ?? null),
     ex.level,
     ex.description,
     JSON.stringify(ex.guideSteps),
@@ -1109,6 +1547,25 @@ export async function seedExercisesIfEmpty(
   // teniamo aperta la porta — vedi PLAN.md §4A).
   for (const ex of SEED_EXERCISES) {
     await insertExercise(db, ex, true);
+  }
+
+  // Backfill `equipment_tags` sugli esercizi pre-fase-1 che hanno la
+  // colonna NULL. Solo le righe NULL vengono toccate, così eventuali
+  // edit utente futuri sono preservati.
+  await backfillEquipmentTags(db);
+}
+
+async function backfillEquipmentTags(
+  db: SQLite.SQLiteDatabase,
+): Promise<void> {
+  for (const [name, tags] of Object.entries(SEED_EQUIPMENT_TAGS)) {
+    await db.runAsync(
+      `UPDATE exercises
+         SET equipment_tags = ?
+       WHERE name = ? AND equipment_tags IS NULL`,
+      serializeEquipmentTags(tags),
+      name,
+    );
   }
 }
 
