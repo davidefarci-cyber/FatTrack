@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -7,10 +7,27 @@ import { Card } from '@/components/Card';
 import { Input } from '@/components/Input';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
+import { EQUIPMENT_TAGS } from '@/database';
+import type { EquipmentTag } from '@/database';
 import { useAppSettings } from '@/hooks/useAppSettings';
+import { useProfile } from '@/hooks/useProfile';
 import { colors, radii, spacing, typography } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
 import { invalidateHapticCache, successHaptic } from '@/utils/haptics';
+
+const EQUIPMENT_LABELS: Record<EquipmentTag, string> = {
+  corpo_libero: 'Corpo libero',
+  manubri: 'Manubri',
+  panca: 'Panca piana',
+  panca_inclinata: 'Panca inclinata',
+  elastico: 'Elastico',
+  kettlebell: 'Kettlebell',
+  bilanciere: 'Bilanciere',
+  sbarra: 'Sbarra trazioni',
+  tapis_roulant: 'Tapis roulant',
+  ciclette: 'Cyclette',
+  sedia_o_panca: 'Sedia o panca bassa',
+};
 
 const WEEKLY_TARGET_OPTIONS = [1, 2, 3, 4, 5, 6, 7] as const;
 
@@ -37,7 +54,20 @@ export default function SportSettingsScreen() {
     setSpotifyPlaylistUri,
   } = useAppSettings();
   const theme = useAppTheme();
+  const { profile, patchProfile } = useProfile();
+  const availableEquipment: EquipmentTag[] = profile?.availableEquipment ?? [];
   const [spotifyDraft, setSpotifyDraft] = useState(spotifyPlaylistUri ?? '');
+
+  const toggleEquipment = useCallback(
+    async (tag: EquipmentTag) => {
+      const has = availableEquipment.includes(tag);
+      const next = has
+        ? availableEquipment.filter((t) => t !== tag)
+        : [...availableEquipment, tag];
+      await patchProfile({ availableEquipment: next });
+    },
+    [availableEquipment, patchProfile],
+  );
 
   // Sync del draft quando il valore persistito cambia (es. dopo restore di
   // backup): se l'utente non sta editando attivamente, riallinea il campo
@@ -238,6 +268,44 @@ export default function SportSettingsScreen() {
         </Card>
 
         <Card style={styles.card}>
+          <Text style={typography.label}>La mia attrezzatura</Text>
+          <Text style={typography.caption}>
+            Seleziona ciò che hai disponibile in casa. Il filtro &ldquo;Solo
+            eseguibili&rdquo; nelle Schede userà queste informazioni per
+            mostrare solo gli allenamenti che puoi fare.
+          </Text>
+          <View style={styles.equipGrid}>
+            {EQUIPMENT_TAGS.map((tag) => {
+              const selected = availableEquipment.includes(tag);
+              return (
+                <Pressable
+                  key={tag}
+                  onPress={() => void toggleEquipment(tag)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selected }}
+                  accessibilityLabel={EQUIPMENT_LABELS[tag]}
+                  style={[
+                    styles.equipChip,
+                    selected
+                      ? { backgroundColor: theme.accent, borderColor: theme.accent }
+                      : { backgroundColor: colors.card, borderColor: colors.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.body,
+                      { color: selected ? '#FFFFFF' : colors.text },
+                    ]}
+                  >
+                    {EQUIPMENT_LABELS[tag]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Card>
+
+        <Card style={styles.card}>
           <Text style={typography.label}>Modalità app</Text>
           <Text style={typography.caption}>
             Stai usando la modalità Sport. Le impostazioni dedicate
@@ -300,5 +368,16 @@ const styles = StyleSheet.create({
   toggleChipText: {
     ...typography.bodyBold,
     fontSize: 13,
+  },
+  equipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  equipChip: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.round,
+    borderWidth: 1.5,
   },
 });

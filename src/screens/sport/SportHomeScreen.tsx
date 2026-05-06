@@ -24,6 +24,7 @@ import { WorkoutPickerSheet } from '@/components/sport/WorkoutPickerSheet';
 import { useActiveSession } from '@/contexts/ActiveSessionContext';
 import { sessionsDB, workoutsDB } from '@/database';
 import type { Workout } from '@/database';
+import { useActiveProgram } from '@/hooks/useActiveProgram';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import { useSportStats } from '@/hooks/useSportStats';
 import {
@@ -61,6 +62,12 @@ export default function SportHomeScreen() {
   const toast = useToast();
   const stats = useSportStats();
   const { spotifyPlaylistUri } = useAppSettings();
+  const {
+    program: activeProgram,
+    nextWorkout: programNextWorkout,
+    nextWorkoutLink: programNextWorkoutLink,
+    reload: reloadActiveProgram,
+  } = useActiveProgram();
   const {
     state: activeSessionState,
     start,
@@ -125,15 +132,21 @@ export default function SportHomeScreen() {
       void loadWorkouts();
       void reloadStats();
       void refreshOnboarding();
-    }, [loadWorkouts, reloadStats, refreshOnboarding]),
+      void reloadActiveProgram();
+    }, [loadWorkouts, reloadStats, refreshOnboarding, reloadActiveProgram]),
   );
 
   const lastSessionWorkoutId = stats.last?.session.workoutId ?? null;
 
-  // Scheda preselezionata: override locale > ultima usata > primo preset.
+  // Scheda preselezionata in priorità: override locale > prossima sessione
+  // del programma attivo > ultima usata > primo preset.
   const todaysWorkout: Workout | null = (() => {
     if (overrideWorkoutId !== null) {
       const found = workouts.find((w) => w.id === overrideWorkoutId);
+      if (found) return found;
+    }
+    if (programNextWorkout) {
+      const found = workouts.find((w) => w.id === programNextWorkout.id);
       if (found) return found;
     }
     if (lastSessionWorkoutId !== null) {
@@ -142,6 +155,17 @@ export default function SportHomeScreen() {
     }
     return workouts.find((w) => w.isPreset) ?? workouts[0] ?? null;
   })();
+
+  // Etichetta "prossimo giorno" mostrata nella TodayCard solo quando il
+  // workout proposto coincide col next del programma attivo (l'utente
+  // non ha fatto override).
+  const programDayLabel: string | null =
+    overrideWorkoutId === null &&
+    programNextWorkout !== null &&
+    todaysWorkout !== null &&
+    todaysWorkout.id === programNextWorkout.id
+      ? programNextWorkoutLink?.dayLabel ?? null
+      : null;
 
   const handleStart = async () => {
     if (activeSessionState) {
@@ -222,12 +246,23 @@ export default function SportHomeScreen() {
           />
         ) : null}
 
+        {activeProgram ? (
+          <ActiveProgramCard
+            programName={activeProgram.name}
+            dayLabel={programNextWorkoutLink?.dayLabel ?? null}
+            workoutName={programNextWorkout?.name ?? null}
+            accent={theme.accent}
+            onPress={() => navigation.navigate('Workouts')}
+          />
+        ) : null}
+
         <TodayCard
           workout={todaysWorkout}
           loading={workoutsLoading}
           activeWorkoutName={
             activeSessionState ? activeSessionState.workout.name : null
           }
+          programDayLabel={programDayLabel}
           starting={starting}
           accent={theme.accent}
           accentDark={theme.accentDark}
@@ -336,10 +371,58 @@ function OnboardingCard({
   );
 }
 
+type ActiveProgramCardProps = {
+  programName: string;
+  dayLabel: string | null;
+  workoutName: string | null;
+  accent: string;
+  onPress: () => void;
+};
+
+function ActiveProgramCard({
+  programName,
+  dayLabel,
+  workoutName,
+  accent,
+  onPress,
+}: ActiveProgramCardProps) {
+  const subtitle =
+    dayLabel && workoutName
+      ? `Prossimo: ${dayLabel} · ${workoutName}`
+      : workoutName
+      ? `Prossimo: ${workoutName}`
+      : 'Prossima sessione in arrivo.';
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Apri programma attivo"
+    >
+      <Card style={[styles.card, { borderColor: accent, borderWidth: 1.5 }]}>
+        <View style={styles.row}>
+          <Icon name="target" size={22} color={accent} />
+          <Text style={[typography.bodyBold, { color: accent }]}>
+            Piano attivo
+          </Text>
+        </View>
+        <View style={styles.todayMeta}>
+          <Text style={typography.body} numberOfLines={1}>
+            {programName}
+          </Text>
+          <Text style={typography.caption} numberOfLines={1}>
+            {subtitle}
+          </Text>
+        </View>
+      </Card>
+    </Pressable>
+  );
+}
+
 type TodayCardProps = {
   workout: Workout | null;
   loading: boolean;
   activeWorkoutName: string | null;
+  programDayLabel: string | null;
   starting: boolean;
   accent: string;
   accentDark: string;
@@ -351,6 +434,7 @@ function TodayCard({
   workout,
   loading,
   activeWorkoutName,
+  programDayLabel,
   starting,
   accent,
   accentDark,
@@ -399,6 +483,11 @@ function TodayCard({
       ) : workout ? (
         <>
           <View style={styles.todayMeta}>
+            {programDayLabel ? (
+              <Text style={[typography.label, { color: accent }]}>
+                Prossimo del piano · {programDayLabel}
+              </Text>
+            ) : null}
             <Text style={typography.h1} numberOfLines={1}>
               {workout.name}
             </Text>

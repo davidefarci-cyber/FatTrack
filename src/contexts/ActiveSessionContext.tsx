@@ -11,8 +11,18 @@ import type { ReactNode } from 'react';
 import { AppState } from 'react-native';
 import type { AppStateStatus } from 'react-native';
 
-import { exercisesDB, profileDB, sessionsDB, workoutsDB } from '@/database';
+import {
+  exercisesDB,
+  profileDB,
+  programsDB,
+  sessionsDB,
+  workoutsDB,
+} from '@/database';
 import type { Exercise, Session, Workout } from '@/database';
+import {
+  findProgramWorkoutForActive,
+  reloadActiveProgram,
+} from '@/hooks/useActiveProgram';
 import {
   cancelRestEndNotification,
   scheduleRestEndNotification,
@@ -453,6 +463,21 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
         caloriesEstimated: calories,
         notes: notes ?? null,
       });
+      // Se questa sessione corrisponde a un giorno del programma attivo
+      // marca quel `program_workouts` come "ultimo completato": al
+      // prossimo refresh del banner home la prossima sessione proposta
+      // sarà il giorno successivo nell'ordine. Best-effort: errori
+      // silenziati, l'end della sessione non deve fallire per questo.
+      const workoutId = current.workout.id;
+      try {
+        const link = await findProgramWorkoutForActive(workoutId);
+        if (link) {
+          await programsDB.markProgramWorkoutCompleted(link.id);
+          await reloadActiveProgram();
+        }
+      } catch {
+        // Ignora: lo stato del programma è secondario al fine sessione.
+      }
       setState(null);
       void cancelRestEndNotification();
       return { session: updated, calories };
