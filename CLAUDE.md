@@ -147,3 +147,25 @@ Quando l'utente:
   `chore(todo): ...`).
 - chiude un task → spostare la voce nella sezione "✅ Fatto" col campo
   `Chiusa: YYYY-MM-DD`, NON cancellarla.
+
+---
+
+## 8. Routing automatico per modalità sport
+
+Per qualsiasi richiesta di creazione/modifica di **esercizi**, **schede di
+allenamento** o **programmi multi-giorno** della modalità sport (contenuto
+dei file `src/database/seed*.ts`), **delega SEMPRE al subagent
+`sport-content-author`** invece di procedere direttamente. L'agente
+conosce gli enum chiusi, l'inventario preset corrente e produce
+automaticamente il blocco handoff con la lista immagini da generare,
+pronto da passare al secondo agente che gestisce le illustrazioni.
+
+Vale anche per richieste implicite del tipo:
+- _"aggiungi un esercizio per le spalle"_
+- _"crea una scheda push pull legs"_
+- _"voglio un piano a 3 giorni di calistenico"_
+- _"servono 5 esercizi nuovi con elastico"_
+
+Eccezioni in cui NON delegare: modifiche allo schema DB (`db.ts`), modifiche
+alla UI (modali / screens sport), bugfix nei layer `*DB.ts`. In quei casi
+procedi direttamente.
