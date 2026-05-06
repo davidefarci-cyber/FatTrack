@@ -316,8 +316,8 @@ Da `fattrack.bat` scegli **`[4] Release completa`**. Lo script gestisce
    dalla versione attuale di `app.json`. Verifica che il tag non esista già né
    in locale né sul remoto.
 5. **Note di rilascio**: apre `notepad` con un template; quello che scrivi
-   finisce sia su `version.json` (mostrato nell'alert in-app) sia nella
-   GitHub Release.
+   finisce nel body della GitHub Release (l'app le mostra nell'alert
+   in-app leggendole dalla Releases API).
 6. **Scelta build**: locale (veloce; se JDK 17 / Android SDK mancano lo
    script li installa automaticamente — vedi §3.4) o cloud EAS (lenta, ma
    nessun prerequisito locale).
@@ -327,38 +327,37 @@ Da `fattrack.bat` scegli **`[4] Release completa`**. Lo script gestisce
    e del tag.
 9. **GitHub Release**: `gh release create vX.Y.Z fattrack.apk` con title e
    note di rilascio.
-10. **Rollback automatico** di `app.json`/`version.json` se qualcosa fallisce
+10. **Rollback automatico** di `app.json` se qualcosa fallisce
     prima del commit.
 
-L'APK è caricato come asset con nome stabile `fattrack.apk`, quindi
-`version.json` può puntare al link **permanente**:
+L'APK è caricato come asset con nome stabile `fattrack.apk`, raggiungibile
+al link **permanente**:
 
 ```
 https://github.com/davidefarci-cyber/fattrack/releases/latest/download/fattrack.apk
 ```
 
-Niente edit manuale di `version.json` ad ogni release: lo script lo fa per te.
-
 ### 5.3 Cosa succede lato utente
 
 `src/utils/updateChecker.ts`:
 
-- Al lancio dell'app + a ogni ritorno in foreground (max 1 volta/ora) fa fetch
-  di `version.json` su `raw.githubusercontent.com`.
+- Al lancio dell'app + a ogni ritorno in foreground (max 1 volta/ora) fa
+  fetch della GitHub Releases API (`api.github.com/.../releases/latest`).
+- Estrae versione (`tag_name` strip della "v"), URL APK (`assets[].browser_download_url`
+  per l'asset chiamato `fattrack.apk`) e note (body della release).
 - Se la remota è più alta della locale, mostra un `Alert` con titolo, le note
-  di rilascio e i bottoni **Dopo** / **Aggiorna**.
+  di rilascio e i bottoni **Dopo** / **Aggiorna**. **Dopo** silenzia il
+  prompt finché non esce una versione successiva.
 - Su **Aggiorna**: scarica l'APK in cache via `expo-file-system`, poi apre
   l'installer di sistema con `expo-intent-launcher` (`ACTION_VIEW` +
   `FLAG_GRANT_READ_URI_PERMISSION`). Un solo tap, niente browser.
-- Se imposti `min_supported_version` ≥ versione utente, l'alert diventa
-  **bloccante** (niente bottone "Dopo").
 
 > **Permesso `REQUEST_INSTALL_PACKAGES`** è già dichiarato in `app.json`. La
 > prima volta che l'utente preme "Aggiorna", Android chiederà di abilitare
 > "Installa app sconosciute" per FatTrack. È normale, non è un errore.
 
-> `version.json` usa il pattern `MAJOR.MINOR.PATCH`. Il confronto è numerico
-> per segmento: ricorda di usare solo cifre (niente `1.0.1-beta`).
+> Il tag GitHub usa il pattern `vMAJOR.MINOR.PATCH`. Il confronto è numerico
+> per segmento: ricorda di usare solo cifre (niente `v1.0.1-beta`).
 
 ---
 

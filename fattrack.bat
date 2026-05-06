@@ -447,7 +447,7 @@ if /i not "!CONFIRM!"=="s" (
 
 rem --- 9. APPLICA BUMP ---
 echo.
-echo [ ] Aggiorno app.json e version.json...
+echo [ ] Aggiorno app.json...
 call node scripts\bump-version.js apply "!NEW_VER!" "!NOTES_CLEAN!"
 if errorlevel 1 (
     echo [!] bump-version.js apply fallito.
@@ -533,7 +533,7 @@ set "APK_PATH=fattrack.apk"
 rem --- 11. COMMIT + TAG + PUSH ---
 echo.
 echo [ ] git add + commit + tag...
-call git add app.json version.json
+call git add app.json
 call git commit -m "release: !TAG!"
 if errorlevel 1 (
     echo [!] git commit fallito.
@@ -586,8 +586,8 @@ exit /b 0
 
 :rel_rollback
 echo.
-echo [!] Rollback delle modifiche locali ad app.json e version.json...
-call git checkout -- app.json version.json
+echo [!] Rollback delle modifiche locali ad app.json...
+call git checkout -- app.json
 del "!NOTES_FILE!" >nul 2>nul
 del "!NOTES_CLEAN!" >nul 2>nul
 pause
