@@ -82,39 +82,46 @@ release`.
 
 ---
 
-### [41] Setup `eslint.config.js` per ESLint v10
+### [42] Cleanup warning `react-hooks/exhaustive-deps` residui
 
 **Aperta**: 2026-05-06
-**Priorità**: 🟡 media
-**Area**: build / codice
-**Effort**: S
+**Priorità**: 🟢 bassa
+**Area**: codice
+**Effort**: S-M
 
-Lanciando `npm run lint` ESLint v10 dice:
+Il gate ESLint introdotto in [5] + [41] passa con 0 errori ma lascia
+**10 warning** tutti del tipo `react-hooks/exhaustive-deps`. Alcuni
+potrebbero essere bug latenti (stale closure), altri sono falsi
+positivi legati a logical expression usate come deps (es.
+`servings && ...` dentro `useMemo`). File coinvolti:
 
-```
-ESLint couldn't find an eslint.config.(js|mjs|cjs) file.
-```
+- `src/components/EditMealModal.tsx:95,111,120` — useEffect con
+  `meal` mancante (probabile vero bug: il modale aperto su un meal
+  diverso dal precedente potrebbe non resettare lo state).
+- `src/components/GramsInputModal.tsx:78,107,130` —
+  `servings` (logical expr) in deps, ESLint suggerisce
+  useMemo separato.
+- `src/screens/FavoritesScreen.tsx:252` — useEffect con
+  `editing?.items` e `editing?.name` mancanti.
+- `src/screens/sport/SportSettingsScreen.tsx:58` —
+  `availableEquipment` (logical expr) in useCallback deps.
+- `src/screens/sport/WorkoutsScreen.tsx:282` (×2) — stesso
+  pattern.
 
-Il progetto non ha mai avuto un config file (né `.eslintrc*` né
-`eslint.config.js`): finché il lint non veniva mai invocato la cosa
-è passata inosservata. Il gate aggiunto da [5] in `fattrack.bat`
-chiede ora di saltare il lint a ogni release perché il comando
-fallisce subito.
+Approccio:
+1. Pass file per file. Per ogni warning: capire se è bug vero o
+   falso positivo.
+2. Se bug vero → aggiungere la dep mancante o riscrivere lo state.
+3. Se falso positivo → wrappare il valore in `useMemo` come
+   suggerito ESLint, oppure ` // eslint-disable-next-line` con
+   commento sul perché.
+4. Obiettivo finale: 0 warning oltre a 0 errori. Eventualmente
+   stringere il gate da `warn` a `error` in `eslint.config.js` per
+   prevenire regressioni.
 
-Da fare:
-- Creare `eslint.config.js` (formato flat config) con preset minimo
-  per React Native + TypeScript (es. `@react-native`, `@typescript-eslint`).
-- Decidere se attivare anche `eslint-plugin-react-hooks` (utile su
-  questo codebase: avrebbe intercettato il loop infinito di
-  `SportHomeScreen` documentato in "✅ Fatto").
-- Pass di pulizia: eseguire una volta `npm run lint`, fixare gli
-  errori bloccanti (eventuali warning si possono lasciare per dopo).
-- A quel punto il gate di [5] è effettivamente operativo senza
-  attriti.
-
-**Done quando**: `npm run lint` gira senza errori bloccanti su
-`main`; il prompt "Saltare lint?" in `fattrack.bat` non richiede
-più di rispondere "s" per ogni release.
+**Done quando**: `npm run lint` produce 0 problems su `main`; la
+regola `react-hooks/exhaustive-deps` resta `warn` (o passa a
+`error` se l'utente preferisce un gate più rigido).
 
 ---
 
@@ -688,6 +695,43 @@ contro spam.
 ---
 
 ## ✅ Fatto
+
+### [chiusa] [41] Setup `eslint.config.js` per ESLint v9
+
+**Aperta**: 2026-05-06 — **Chiusa**: 2026-05-06
+
+Commit `d7fd1cf`. Lo script `npm run lint` esisteva da sempre in
+`package.json` ma non era mai stato cablato (niente eslint nelle
+devDependencies, niente file di config). ESLint v10 globale del
+container ricordava la verità: il gate introdotto in [5] era de
+facto sempre da skippare. Cleanup completo:
+
+- `package.json` devDependencies: aggiunti `eslint@^9.39`,
+  `typescript-eslint@^8`, `eslint-plugin-react@^7.37`,
+  `eslint-plugin-react-hooks@^5.2`, `globals@^15.15`.
+- Nuovo `eslint.config.js` (flat config v9): base
+  `js.recommended` + `tseslint.recommended`, React rules
+  consigliate (con `react-in-jsx-scope`/`prop-types`/
+  `no-unescaped-entities` off), `react-hooks/rules-of-hooks`
+  ERROR + `react-hooks/exhaustive-deps` WARN, TypeScript rules
+  rilassate (`no-explicit-any` warn, `no-unused-vars` con
+  pattern `^_` tollerato).
+- Ignore: node_modules, android, ios, .expo, dist, build,
+  coverage, assets, `src/utils/exerciseImages.ts`
+  (autogenerato), scripts, babel/metro config, eslint.config.js
+  stesso.
+
+Verifica:
+- `npm run lint` exit 0, 10 warning, 0 errori.
+- `npm run typecheck` exit 0.
+- I 10 warning residui (tutti exhaustive-deps) tracciati come
+  voce **[42]** in 🟢 bassa.
+
+Effetto sul gate di [5]: il prompt "Saltare lint?" in
+`fattrack.bat` adesso è davvero non bloccante. Premendo Invio
+(default NO) lint gira, exit 0, release prosegue.
+
+---
 
 ### [chiusa] [3] Drop di `version.json`, solo Releases API
 
