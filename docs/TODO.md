@@ -101,21 +101,6 @@ auto-ritentata).
 
 ---
 
-### [7] Proporre PR Workflow CI
-
-**Aperta**: 2026-05-01
-**Area**: infra
-
-Oggi push diretto su `main`. Niente CI. Una GitHub Action minimale che
-esegua `npm ci && npm run typecheck && npm run lint` su ogni PR
-intercetterebbe regressioni prima del merge.
-
-**Done quando**: `.github/workflows/ci.yml` esegue typecheck + lint su
-push a feature branches; il proprietario abilita il branch protection
-per richiederlo prima del merge.
-
----
-
 ### [15] Asset wordmark "FitTrack" definitivi
 
 **Aperta**: 2026-05-02
@@ -652,6 +637,30 @@ contro spam.
 ---
 
 ## ✅ Fatto
+
+### [chiusa] [7] Proporre PR Workflow CI
+
+**Aperta**: 2026-05-01 — **Chiusa**: 2026-05-07
+
+Commit `63aa976` su branch `claude/review-todo-list-jo3yK`. Aggiunto
+`.github/workflows/ci.yml`: trigger su `push: branches: [main]` +
+`pull_request:` (qualsiasi base). Job singolo `validate` su
+`ubuntu-latest` con Node 20 LTS, cache npm via `actions/setup-node@v4`,
+`npm ci` → `npm run typecheck` → `npm run lint`. Sequenziale per leggere
+chiaro l'output di ogni step e perché lo step di install è già
+condiviso.
+
+I gate locali introdotti in [5]/[41]/[42] (lint+typecheck nel
+`fattrack.bat:menu_release`) restano operativi: il workflow CI è il
+backstop per regressioni che sfuggono al run locale (es. dimenticato
+di lanciare prima del push) e abilita la branch protection sul PR
+flow lato GitHub.
+
+**Follow-up lato proprietario** (non bloccante per la chiusura):
+abilitare branch protection su `main` richiedendo il check `Typecheck
+& Lint` come required prima del merge — rende il gate vincolante.
+
+---
 
 ### [chiusa] [42] Cleanup warning `react-hooks/exhaustive-deps`
 
