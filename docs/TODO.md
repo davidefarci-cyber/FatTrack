@@ -397,38 +397,6 @@ backup); export/import del backup la include.
 
 ---
 
-### [30] Pulsante utente anche in fit (profilo trasversale)
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟢 bassa
-**Area**: UX (fit)
-
-In modalità diet `HomeScreen` ha icone `cog` (Settings) e `user`
-(Profile) nel right slot di `ScreenHeader`. In modalità fit
-`SportHomeScreen` ha solo `cog` (SportSettings). Il profilo utente
-(peso/altezza/età/obiettivo) è trasversale tra le due modalità — il
-peso serve a calcolare le calorie sport via MET — quindi l'utente
-si aspetta di poter editare il profilo anche da fit senza dover
-prima switchare a diet.
-
-Implementazione: aggiungere icona `user` allo stesso slot in
-`SportHomeScreen.tsx`, con `navigate('Profile')`. Ma `Profile` è
-una Tab.Screen di `MainTabNavigator` (diet), non di
-`SportTabNavigator`. Opzioni:
-- Registrare `Profile` come Tab.Screen anche in `SportTabNavigator`
-  (nascosta dalla bar) — duplicato, ma navigazione locale.
-- Switch automatico a diet → tab Profile, poi switch back a fit
-  alla chiusura. Sgraziato.
-- Convertire `ProfileScreen` in modal/stack screen sopra entrambi i
-  tab navigator (cambio architetturale più grosso).
-
-**Done quando**: dalla home fit l'utente può aprire la stessa
-ProfileScreen che vede da diet, modificare peso/etc, salvare, e
-tornare alla home fit; il calcolo calorie sport recepisce il nuovo
-peso.
-
----
-
 ### [34] Widget Android per la home screen
 
 **Aperta**: 2026-05-02
@@ -584,56 +552,53 @@ contro spam.
 
 ---
 
-### [45] Pulsante Settings + Utente in tutte le schermate (uniformità)
+## ✅ Fatto
 
-**Aperta**: 2026-05-07
-**Priorità**: 🟢 bassa
-**Area**: UX
+### [chiusa] [45] + [30] Pulsante Settings + Utente in tutte le schermate
 
-Oggi le icone `cog` (Settings) e `user` (Profile) appaiono solo
-nello slot `right` di `ScreenHeader` su `HomeScreen` (diet) e solo
-`cog` su `SportHomeScreen` (fit). Le altre schermate non hanno
-accesso rapido — l'utente deve tornare a Home per cambiare profilo
-o aprire le impostazioni:
-- Diet: `BarcodeScreen`, `FavoritesScreen`, `HistoryScreen`,
-  `FoodSearchScreen`
-- Fit: `WorkoutsScreen`, `ExercisesScreen`, `TabataScreen`,
-  `SportHistoryScreen`
+**Aperta**: 2026-05-02 ([30]) / 2026-05-07 ([45]) — **Chiusa**: 2026-05-07
 
-Inoltre il pulsante `user` deve esserci anche in fit — il profilo
-è trasversale tra modalità (peso, altezza, età servono al calcolo
-calorie sport via MET), quindi nome utente / dati personali non
-cambiano da una modalità all'altra. L'icona `user` in fit deve
-aprire **la stessa** `ProfileScreen` di fat, nessuna duplicazione.
-Interseca la voce [30] (pulsante utente in fit).
+Chiuse insieme perché [45] è un superset di [30].
 
-Proposta:
-- Aggiungere coppia `user` + `cog` nel right slot di tutti gli
-  `ScreenHeader` di entrambi i tab navigator.
-- `user` → `navigate('Profile')` — registrare `Profile` come
-  Tab.Screen anche in `SportTabNavigator` (nascosto dalla tab bar,
-  pattern già usato per Settings) per avere navigazione locale
-  senza switch di modalità forzato.
-- `cog` → `navigate('Settings')` in fat o `navigate('SportSettings')`
-  in fit, in base a `appMode` (oppure la decisione è già implicita
-  dal tab navigator corrente).
+Nuovo primitive `src/components/HeaderActions.tsx`: coppia `user` +
+`cog` nel right slot. Decide la rotta del cog via `useAppSettings()`
+(Settings in diet, SportSettings in sport) — un solo punto di verità
+per l'icona impostazioni cross-modalità. Icone size 24 (uniformata —
+SportHomeScreen usava 22).
 
-Da considerare:
-- Se la chiusura di [45] copre anche [30], unificare e tenere
-  un'unica voce.
-- Layout `ScreenHeader`: già supporta lo slot `right` per N icone
-  affiancate, nessuna modifica al primitive servirebbe (verificare).
+`Profile` registrato come Tab.Screen nascosta anche in
+`SportTabNavigator` (riusa lo stesso `ProfileScreen` di diet). Path
+locale, niente switch di modalità forzato per accedere al profilo
+da fit. Aggiunto `Profile: undefined` a `SportTabParamList`.
 
-**Done quando**: ogni schermata in fat ha cog+user nel right slot
-dell'header; ogni schermata in fit ha cog+user nel right slot;
-l'icona `user` apre la stessa `ProfileScreen` da entrambe le
-modalità senza richiedere switch; nessuna regressione di layout
-header (titolo non viene troncato dalle icone aggiunte). Decidere
-se chiudere [30] insieme.
+Schermate aggiornate (10 totali):
+- **Diet (5)**: `HomeScreen` (refactor: blocco inline → primitive),
+  `BarcodeScreen`, `FavoritesScreen`, `HistoryScreen`, `FoodSearchScreen`.
+- **Fit (5)**: `SportHomeScreen` (refactor: solo cog → primitive con
+  cog+user), `WorkoutsScreen`, `TabataScreen`, `SportHistoryScreen`,
+  `ExercisesScreen`.
+
+`TabataScreen` aveva già un `cog` per "Personalizza Tabata" — clash
+con il cog di Settings. Sostituito con `pencil` (semantica
+"edit/customize" preservata). Le 4 icone affiancate (pencil + info +
+user + cog) entrano comodamente perché lo header del Tabata non ha
+subtitle.
+
+Skippate volutamente: `Settings`/`SportSettings`/`Profile` (sono
+le destinazioni del cog/user, non avrebbe senso) e
+`ActiveSessionScreen` (modal di sessione live, UX dedicata immersiva
+— interrompere con cog/user durante un set sarebbe un bug).
+
+Cleanup secondario:
+- Stile orfano `headerActions` rimosso da `HomeScreen` (era usato
+  solo dal vecchio blocco inline).
+- Import `useNavigation`/`BottomTabNavigationProp`/`TabParamList` +
+  variable `navigation` rimossi da `HomeScreen` (ora la navigation
+  vive dentro `HeaderActions`).
+
+Verifica: typecheck OK, lint 0 problems.
 
 ---
-
-## ✅ Fatto
 
 ### [chiusa] [7] Proporre PR Workflow CI
 
