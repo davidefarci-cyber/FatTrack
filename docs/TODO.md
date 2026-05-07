@@ -173,43 +173,6 @@ toggle in SportSettings permette di disattivarlo.
 
 ---
 
-### [44] Bug: switch fit→fat a volte atterra su BarcodeScreen invece di Home
-
-**Aperta**: 2026-05-07
-**Priorità**: 🟡 media
-**Area**: codice
-
-Tornando dalla modalità sport (fit) alla modalità diet (fat) — via
-long-press tab Home o toggle in Settings — l'utente a volte si
-ritrova sulla `BarcodeScreen` invece che sulla `HomeScreen`.
-`MainTabNavigator` ha `initialRouteName="Home"` ma il bug suggerisce
-che lo state di navigazione sopravviva al mount/unmount oppure che
-il primo tab in ordine (`Barcode`) prenda il focus per qualche
-race.
-
-Da investigare:
-- `RootNavigator` smonta/rimonta i tab navigator al cambio di
-  `appMode`, oppure tiene entrambi montati con flag di visibilità?
-  Se il secondo, lo state persiste tra switch.
-- `Barcode` è il primo tab in ordine di rendering (`Barcode ·
-  Favorites · Home · History · FoodSearch`); se per qualunque
-  motivo `initialRouteName` non viene rispettato, il default è il
-  primo tab.
-- Riproducibilità sospetta: aprire fat → navigare su Barcode →
-  switch a fit → switch di nuovo a fat. Probabilmente atterri su
-  Barcode invece che Home.
-
-Fix candidato: forzare reset dello state al cambio di `appMode` nel
-`RootNavigator.tsx`, oppure spostare `Home` come primo tab in
-ordine di registrazione (ma rompe il layout della tab bar — meglio
-il reset esplicito).
-
-**Done quando**: ogni switch fit→fat (e fat→fit) atterra sempre
-sulla rispettiva HomeScreen, indipendentemente dalla tab attiva
-prima dello switch; testato partendo da ogni tab.
-
----
-
 ## 🟢 Priorità bassa
 
 ### [8] Persistere il consenso `REQUEST_INSTALL_PACKAGES`
@@ -553,6 +516,43 @@ contro spam.
 ---
 
 ## ✅ Fatto
+
+### [chiusa] [44] Bug: switch fit→fat a volte atterra su BarcodeScreen
+
+**Aperta**: 2026-05-07 — **Chiusa**: 2026-05-07
+
+Root cause: `RootNavigator` aveva un singolo `<NavigationContainer>`
+con due tab navigator condizionali (Main vs Sport) come children.
+React unmontava/montava i tab navigator al cambio di `appMode`, ma
+il NavigationContainer rimaneva lo stesso istante e preservava la
+propria navigation state interna attraverso lo swap.
+
+Se il route focused era un nome che non esisteva nel nuovo navigator
+(es. `Workouts` in sport → swap a diet), il container ricadeva sul
+primo tab dichiarato (`Barcode` in fat = primo nell'ordine di
+Tab.Screen) ignorando `initialRouteName="Home"`. Coincideva col
+sintomo "a volte atterro su Barcode" — succedeva quando l'utente
+prima dello switch era su un tab specifico della modalità sport.
+Da fit a `Tabata`/`Workouts`/`Exercises` il bug si presentava;
+da `Home` (route comune ai due navigator) no.
+
+Fix: aggiunto `key={appMode}` a `<NavigationContainer>` in
+`RootNavigator.tsx`. Forza un full-remount del container ad ogni
+switch di modalità — niente più state carry-over, il nuovo navigator
+parte sempre dallo stato pulito con `initialRouteName="Home"` che
+viene rispettato. Visivamente coperto dal `<ModeTransitionOverlay>`
+(~1500ms cross-fade in `App.tsx`), zero flicker percepito.
+
+Alternativa scartata: `useEffect + navigationRef.reset` nel
+RootNavigator. Più surgical ma race-prone (la `useEffect` fire dopo
+il commit del nuovo navigator, l'utente vede brevemente Barcode prima
+del jump a Home). La key-based remount è deterministica.
+
+Verifica: typecheck OK, lint 0 problems. QA manuale a carico
+dell'utente al prossimo build (riproduzione: fit on Workouts →
+toggle a fat → atterra su Home).
+
+---
 
 ### [chiusa] [45] + [30] Pulsante Settings + Utente in tutte le schermate
 
