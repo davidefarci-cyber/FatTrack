@@ -33,8 +33,4 @@ Esempio:
 
 ## In sospeso
 
-- `push-up-ginocchia` — Push-up sui ginocchi (gruppo: Petto, equipment: Corpo libero)
-- `push-up-inclinati` — Push-up inclinati (gruppo: Petto, equipment: Sedia o panca)
-- `dead-hang` — Dead hang (gruppo: Schiena, equipment: Sbarra)
-- `scapular-pull` — Scapular pull (gruppo: Schiena, equipment: Sbarra)
-- `glute-bridge-una-gamba` — Glute bridge a una gamba (gruppo: Glutei, equipment: Corpo libero)
+_(vuoto — tutti gli esercizi hanno l'illustrazione)_
