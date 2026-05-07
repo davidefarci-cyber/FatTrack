@@ -1,4 +1,4 @@
-# BATCH 09 / 11 — illustrazioni esercizi FatTrack
+# BATCH 09 / 10 — illustrazioni esercizi FatTrack
 
 ## Istruzioni per la chat GPT
 

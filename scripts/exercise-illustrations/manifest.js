@@ -763,67 +763,6 @@ const MANIFEST = [
     notes: 'Vista a 3/4 dall\'alto per leggere la rotazione del busto.',
   },
 
-  // ─── CALISTENICO — REGRESSIONI E BASI PRINCIPIANTI (5) ─────────
-  {
-    slug: 'push-up-ginocchia',
-    name: 'Push-up sui ginocchi',
-    strategy: 'dual',
-    view: 'lateral',
-    character: 'F',
-    frames: [
-      'Posizione alta: mani a terra alla larghezza delle spalle, braccia tese, ginocchia a terra con caviglie incrociate sollevate, corpo allineato in linea retta dalla testa alle ginocchia, core attivo.',
-      'Posizione bassa: gomiti piegati, petto vicino al pavimento, corpo ancora allineato dalla testa alle ginocchia, ginocchia ancora a terra.',
-    ],
-    notes: 'Fondamentale che il corpo formi una linea retta da testa a ginocchia (non seduta/arco) in entrambi i frame.',
-  },
-  {
-    slug: 'push-up-inclinati',
-    name: 'Push-up inclinati',
-    strategy: 'dual',
-    view: 'lateral',
-    character: 'M',
-    frames: [
-      'Posizione alta: mani sul bordo di una panca bassa (#1E2532) o sedia stabile, braccia tese, piedi a terra distanziati, corpo inclinato in linea retta dalle spalle ai talloni con testa più alta dei piedi.',
-      'Posizione bassa: gomiti piegati, petto sfiorava il bordo della panca, corpo ancora in linea retta inclinata, piedi fermi a terra.',
-    ],
-    notes: 'La panca è un rettangolo basso #1E2532 vista laterale su cui poggiano le mani. L\'inclinazione deve essere evidente (mani alte, piedi bassi).',
-  },
-  {
-    slug: 'dead-hang',
-    name: 'Dead hang',
-    strategy: 'single',
-    view: 'frontal',
-    character: 'F',
-    frames: [
-      'Vista frontale: appesa a una sbarra orizzontale spessa (#1E2532) in alto al centro dell\'immagine, presa prona alla larghezza delle spalle, braccia completamente distese, corpo verticale con piedi staccati da terra, spalle aperte e attive (non shrugged), gambe unite e rilassate.',
-    ],
-    notes: 'La sbarra è una linea orizzontale spessa #1E2532 in cima all\'immagine. Vista frontale per leggere la verticalità e la presa.',
-  },
-  {
-    slug: 'scapular-pull',
-    name: 'Scapular pull',
-    strategy: 'dual',
-    view: 'frontal',
-    character: 'M',
-    frames: [
-      'Posizione di partenza vista frontale: appeso a una sbarra orizzontale spessa (#1E2532), braccia completamente distese, scapole rilassate/elevate, corpo verticale, piedi staccati da terra.',
-      'Posizione contratta vista frontale: stessa posizione appesa ma scapole abbassate e retratte (corpo salito di pochi centimetri visibili), braccia ancora completamente tese — NESSUNA flessione del gomito, solo movimento scapolare.',
-    ],
-    notes: 'La differenza tra i due frame deve essere inequivocabile: frame 1 = spalle vicine alle orecchie, frame 2 = spalle abbassate con leggero sollevamento del busto. Braccia TESE in entrambi.',
-  },
-  {
-    slug: 'glute-bridge-una-gamba',
-    name: 'Glute bridge a una gamba',
-    strategy: 'dual',
-    view: 'lateral',
-    character: 'F',
-    frames: [
-      'Posizione di partenza: distesa supina, una gamba piegata col piede a terra vicino al gluteo, l\'altra gamba estesa tesa verso l\'alto a circa 45°, braccia lungo i fianchi, bacino a terra.',
-      'Posizione contratta: bacino sollevato formando una linea retta da spalla a ginocchio della gamba piegata, gluteo contratto, gamba estesa ancora tesa in linea col busto (parallela al pavimento o leggermente sopra), bacino livellato senza inclinazioni laterali.',
-    ],
-    notes: 'La differenza tra i frame deve essere netta: bacino a terra vs bacino alto. La gamba estesa rimane tesa e parallela al pavimento nel frame 2.',
-  },
-
   // ─── MOBILITÀ (3 finali) ─────────────────────────────────────
   {
     slug: 'leg-swings',
