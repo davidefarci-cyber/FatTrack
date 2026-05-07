@@ -132,6 +132,84 @@ manuale su device).
 
 ---
 
+### [43] Mantieni schermo acceso durante sessione attiva
+
+**Aperta**: 2026-05-07
+**Priorità**: 🟡 media
+**Area**: UX (sport) / codice
+
+Durante una sessione di allenamento attiva (`ActiveSessionScreen`) lo
+schermo si spegne dopo il timeout di sistema Android. Conseguenze:
+il `RestTimer` non è più visibile, l'utente perde il countdown della
+pausa e — peggio — se l'OS sospende il task JS il timer può anche
+freezare, falsando la durata del recupero. Lo stesso problema vale
+per il banner sticky `<ActiveSessionBanner>` durante navigazione tra
+tab e per il `RunningView` di Tabata.
+
+Da fare: usare `expo-keep-awake` (lib ufficiale Expo SDK 51, già
+compatibile) — `useKeepAwake()` hook attivato SOLO durante:
+- `ActiveSessionScreen` con sessione live (o gestione centralizzata
+  in `ActiveSessionContext` quando `state.session != null`)
+- `RunningView` di `TabataScreen` quando il workout è in corso
+- `RestTimerStandaloneModal` quando aperto in fase countdown
+
+Importante: **non** attivarlo per l'intera app — drain batteria
+inaccettabile durante navigazione normale (libreria esercizi,
+storico, settings).
+
+Da considerare:
+- toggle in `SportSettings` ("Tieni schermo acceso durante
+  allenamento", default ON) — qualcuno con device flagship potrebbe
+  voler disattivare per risparmio batteria su sessioni lunghe
+- comportamento al background/foreground: se l'utente mette l'app
+  in background il keep-awake si rilascia (lo fa Android in
+  automatico)
+
+**Done quando**: durante una sessione attiva lo schermo non si
+blocca; il `RestTimer` rimane visibile fino al termine; analoga
+copertura per Tabata in `RunningView` e per il timer pausa
+standalone; chiusura/abbandono sessione disattiva il keep-awake;
+toggle in SportSettings permette di disattivarlo.
+
+---
+
+### [44] Bug: switch fit→fat a volte atterra su BarcodeScreen invece di Home
+
+**Aperta**: 2026-05-07
+**Priorità**: 🟡 media
+**Area**: codice
+
+Tornando dalla modalità sport (fit) alla modalità diet (fat) — via
+long-press tab Home o toggle in Settings — l'utente a volte si
+ritrova sulla `BarcodeScreen` invece che sulla `HomeScreen`.
+`MainTabNavigator` ha `initialRouteName="Home"` ma il bug suggerisce
+che lo state di navigazione sopravviva al mount/unmount oppure che
+il primo tab in ordine (`Barcode`) prenda il focus per qualche
+race.
+
+Da investigare:
+- `RootNavigator` smonta/rimonta i tab navigator al cambio di
+  `appMode`, oppure tiene entrambi montati con flag di visibilità?
+  Se il secondo, lo state persiste tra switch.
+- `Barcode` è il primo tab in ordine di rendering (`Barcode ·
+  Favorites · Home · History · FoodSearch`); se per qualunque
+  motivo `initialRouteName` non viene rispettato, il default è il
+  primo tab.
+- Riproducibilità sospetta: aprire fat → navigare su Barcode →
+  switch a fit → switch di nuovo a fat. Probabilmente atterri su
+  Barcode invece che Home.
+
+Fix candidato: forzare reset dello state al cambio di `appMode` nel
+`RootNavigator.tsx`, oppure spostare `Home` come primo tab in
+ordine di registrazione (ma rompe il layout della tab bar — meglio
+il reset esplicito).
+
+**Done quando**: ogni switch fit→fat (e fat→fit) atterra sempre
+sulla rispettiva HomeScreen, indipendentemente dalla tab attiva
+prima dello switch; testato partendo da ogni tab.
+
+---
+
 ## 🟢 Priorità bassa
 
 ### [8] Persistere il consenso `REQUEST_INSTALL_PACKAGES`
@@ -503,6 +581,55 @@ lo invia, riceve conferma; il proprietario riceve il messaggio in un
 canale unico (issue GitHub o dashboard) SENZA informazioni che
 identifichino il mittente; il flow regge un minimo di rate-limiting
 contro spam.
+
+---
+
+### [45] Pulsante Settings + Utente in tutte le schermate (uniformità)
+
+**Aperta**: 2026-05-07
+**Priorità**: 🟢 bassa
+**Area**: UX
+
+Oggi le icone `cog` (Settings) e `user` (Profile) appaiono solo
+nello slot `right` di `ScreenHeader` su `HomeScreen` (diet) e solo
+`cog` su `SportHomeScreen` (fit). Le altre schermate non hanno
+accesso rapido — l'utente deve tornare a Home per cambiare profilo
+o aprire le impostazioni:
+- Diet: `BarcodeScreen`, `FavoritesScreen`, `HistoryScreen`,
+  `FoodSearchScreen`
+- Fit: `WorkoutsScreen`, `ExercisesScreen`, `TabataScreen`,
+  `SportHistoryScreen`
+
+Inoltre il pulsante `user` deve esserci anche in fit — il profilo
+è trasversale tra modalità (peso, altezza, età servono al calcolo
+calorie sport via MET), quindi nome utente / dati personali non
+cambiano da una modalità all'altra. L'icona `user` in fit deve
+aprire **la stessa** `ProfileScreen` di fat, nessuna duplicazione.
+Interseca la voce [30] (pulsante utente in fit).
+
+Proposta:
+- Aggiungere coppia `user` + `cog` nel right slot di tutti gli
+  `ScreenHeader` di entrambi i tab navigator.
+- `user` → `navigate('Profile')` — registrare `Profile` come
+  Tab.Screen anche in `SportTabNavigator` (nascosto dalla tab bar,
+  pattern già usato per Settings) per avere navigazione locale
+  senza switch di modalità forzato.
+- `cog` → `navigate('Settings')` in fat o `navigate('SportSettings')`
+  in fit, in base a `appMode` (oppure la decisione è già implicita
+  dal tab navigator corrente).
+
+Da considerare:
+- Se la chiusura di [45] copre anche [30], unificare e tenere
+  un'unica voce.
+- Layout `ScreenHeader`: già supporta lo slot `right` per N icone
+  affiancate, nessuna modifica al primitive servirebbe (verificare).
+
+**Done quando**: ogni schermata in fat ha cog+user nel right slot
+dell'header; ogni schermata in fit ha cog+user nel right slot;
+l'icona `user` apre la stessa `ProfileScreen` da entrambe le
+modalità senza richiedere switch; nessuna regressione di layout
+header (titolo non viene troncato dalle icone aggiunte). Decidere
+se chiudere [30] insieme.
 
 ---
 
