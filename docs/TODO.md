@@ -214,32 +214,6 @@ con warning.
 
 ---
 
-### [17] Haptic feedback / suoni su completamento set e fine recupero
-
-**Aperta**: 2026-05-02
-**Area**: UX
-
-Il `RestTimer` finisce silenziosamente. Anche il "Set completato"
-non ha feedback tattile. Per un'app sport è una mancanza
-significativa: l'utente vuole vibrazione/suono breve a fine recupero
-mentre sta riprendendo fiato.
-
-Due dipendenze candidate:
-- `expo-haptics` per vibrazione (già usata in molte app Expo,
-  leggera)
-- `expo-av` per suono (più pesante; valutare se basta solo
-  haptic)
-
-Suggerimento MVP: solo haptic (`Haptics.notificationAsync(Success)`)
-a fine recupero e su tap "Set completato". Suono come iterazione
-successiva.
-
-**Done quando**: a fine recupero il device vibra brevemente; al tap
-"Set completato" un haptic leggero conferma l'azione; flag
-`hapticEnabled` nelle SportSettings (default true) per disattivare.
-
----
-
 ### [18] Video URL veri sugli esercizi
 
 **Aperta**: 2026-05-02
@@ -289,34 +263,6 @@ linkare ai gif remoti via URL (con cache RN).
 **Done quando**: la libreria ha ≥150 esercizi; il bundle non cresce
 oltre +15MB; gli esercizi nuovi hanno descrizione + guideSteps +
 videoUrl o gif embed.
-
----
-
-### [20] Spotify integration (deep-link MVP, OAuth Web API v2)
-
-**Aperta**: 2026-05-02
-**Area**: feature
-
-Idea originale Fase 1 dell'esplorazione sport mode: accesso veloce
-alla musica preferita per allenamento. Esclusa dal MVP per
-complessità.
-
-Due opzioni:
-- **MVP (~1g)**: tasto "🎵 Apri Spotify" in `SportHomeScreen` o nel
-  banner della sessione attiva. Usa `Linking.openURL('spotify:')` per
-  aprire l'app nativa. Se l'utente vuole una playlist specifica
-  (es. "Workout"), può fissarla nelle SportSettings come URI
-  `spotify:playlist:xyz`. Niente OAuth, niente backend.
-- **V2 (~3-5g)**: integrazione Spotify Web API con OAuth PKCE.
-  Permette controllo playback in-app (play/pause/next), lettura
-  della playlist corrente, ecc. Richiede redirect URI configurato e
-  account Premium dell'utente per il playback control.
-
-Suggerimento: partire da MVP e valutare se l'utente vuole di più.
-
-**Done quando**: dalle schermate sport è raggiungibile Spotify in
-1 tap; se l'utente ha configurato una playlist preferita, parte
-direttamente da lì.
 
 ---
 
@@ -370,82 +316,6 @@ pasti del diario (vita propria).
 "pizza counter screen", che mostra il totale anno + un + per
 incrementare; il dato è persistito in DB (sopravvive a reinstall via
 backup); export/import del backup la include.
-
----
-
-### [23] Scroll orizzontale per cambiare giorno nella home diet
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟢 bassa
-**Area**: UX (diet)
-
-Oggi nella home diet il giorno corrente si cambia solo via le frecce
-laterali sull'header data. Aggiungere swipe orizzontale sull'intera
-area diario (o sull'header) per andare al giorno precedente/successivo.
-Il tasto freccia resta come affordance esplicito.
-
-Implementazione: `react-native-gesture-handler` (già presente)
-PanGestureHandler oppure più semplicemente swipe via touch threshold
-sul contenitore principale. Animazione: cross-fade dei dati come fa
-oggi al cambio data, niente parallax complesso.
-
-**Done quando**: swipe sx/dx sulla home diet cambia giorno con la
-stessa semantica delle frecce; nessuna regressione sullo scroll
-verticale.
-
----
-
-### [26] Categorizzare elenco esercizi
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟢 bassa
-**Area**: UX (fit)
-
-Oggi `ExercisesScreen` mostra una lista lineare (40 esercizi seedati)
-filtrabile per gruppo muscolare / livello / attrezzatura via il
-BottomSheet "Filtri". L'utente trova la lista lunga e i nomi simili
-("Push-up", "Wide push-up", "Diamond push-up", "Push-up declinati"…)
-poco scansionabili.
-
-Proposta: raggruppare visualmente per `muscle_group` con header di
-sezione (`SectionList` invece di `ScrollView` + map), in modo che
-scrollando si vedano stacchi tipo "Petto · Spalle · Tricipiti" e
-sotto i relativi esercizi. I filtri restano funzionanti e si applicano
-intra-sezione.
-
-In una versione più ricca: tab orizzontale superiore (Petto / Gambe /
-Core / Cardio / Mobilità) che fa il jump alla sezione.
-
-**Done quando**: gli esercizi sono raggruppati per categoria con
-header chiari; i nomi simili sono più facili da distinguere; lo scroll
-è più rapido per trovare un esercizio specifico.
-
----
-
----
-
-### [29] Feedback tattile al cambio modalità (fit↔fat)
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟢 bassa
-**Area**: UX
-
-Confermato dall'utente: vibrazione al passaggio fit↔fat (long-press
-home o toggle Settings) per dare feedback "è iniziata la transizione".
-Sinergia con [28] (transizione visiva più lunga) e [17] (haptic
-sport).
-
-Implementazione:
-- Aggiungere `expo-haptics` (allineamento con [17] che lo richiede
-  comunque per completamento set).
-- `Haptics.notificationAsync(NotificationFeedbackType.Success)`
-  invocato all'avvio del long-press / toggle di `setAppMode()`.
-- Flag `hapticEnabled` in app_settings (default true), toggle in
-  Settings (entrambe le modalità).
-
-**Done quando**: long-press su tab Home produce un haptic breve nel
-momento esatto dello switch modalità; il flag è disattivabile da
-SportSettings / SettingsScreen.
 
 ---
 
