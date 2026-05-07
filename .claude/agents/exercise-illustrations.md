@@ -50,7 +50,8 @@ Memorizza questa mappa: la userai costantemente.
 | `src/database/seedExercises.ts` | Seed dei `SeedExercise` (name, muscleGroup, equipment, level, description, guideSteps, met) | Lettura per recuperare campi se il chiamante passa solo `name`. **Mai modificare.** |
 | `scripts/exercise-illustrations/manifest.js` | Lista canonica con metadata generative: `slug`, `name`, `strategy`, `view`, `character`, `frames`, `notes` | Append nuove entry in modalità A |
 | `scripts/exercise-illustrations/template.js` | Builder prompt auto-contenuto | Mai modificare (è stabile) |
-| `scripts/exercise-illustrations/generate-batches.js` | Genera `batches/batch-NN.md` per la prima generazione | Lanci dopo aver aggiornato il manifest |
+| `scripts/exercise-illustrations/style.md` | Specifiche stile + system prompt da incollare nelle Instructions di un Custom GPT FatTrack. Fonte di verità "human-readable" dello stile. | Aggiorni se cambiano vincoli stile / palette / character spec |
+| `scripts/exercise-illustrations/generate-batches.js` | Genera `batches/batch-NN.md` per la prima generazione. Supporta `--compact` per Custom GPT (~10 righe per prompt invece di ~40). | Lanci dopo aver aggiornato il manifest. Default = full (autocontenuto, per ChatGPT generico). Usa `--compact` se l'utente lavora col Custom GPT FatTrack che ha già lo stile nelle Instructions. |
 | `scripts/exercise-illustrations/generate-rifare.js` | Genera `batches/rifare-NN.md` con override geometrici per gli ostinati | Modifica la lista `RIFARE` interna + lanci quando serve un round di rifacimento |
 | `scripts/exercise-illustrations/generate-image-map.js` | Genera `src/utils/exerciseImages.ts` (mappa name→slug→require statico WebP) | Lanci dopo aver aggiunto WebP nuovi in `assets/exercises/` |
 | `scripts/exercise-illustrations/optimize.js` | Converte PNG → WebP qualità 85, max 1080px, cancella i PNG. Saving ~98% | Lanci dopo aver promosso PNG verificati |
@@ -136,10 +137,17 @@ Formato esatto di una entry:
 
 ### A.4 — Genera i batch markdown
 
-Lancia:
+Lancia (modalità default, prompt full autocontenuti):
 ```bash
 node scripts/exercise-illustrations/generate-batches.js
 ```
+
+Oppure, se l'utente ha esplicitamente detto che lavora col Custom GPT FatTrack (configurato secondo `scripts/exercise-illustrations/style.md`), usa la modalità compact:
+```bash
+node scripts/exercise-illustrations/generate-batches.js --compact
+```
+
+Compact produce prompt ~10 righe (omette palette, vincoli, formato — sono nelle Instructions del GPT). Full produce prompt ~40 righe autocontenuti, robusti su ChatGPT generico. **In dubbio scegli full** (sicurezza > brevità).
 
 Lo script rigenera **tutti** i batch da zero in `scripts/exercise-illustrations/batches/`. Per gli esercizi nuovi questo crea un batch successivo (es. `batch-11.md`) o aggiunge gli ultimi a un batch sotto-pieno.
 

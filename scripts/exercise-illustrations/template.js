@@ -64,7 +64,8 @@ function coherenceBlock(strategy) {
   ].join('\n');
 }
 
-function buildPrompt(entry) {
+function buildPrompt(entry, options = {}) {
+  const { compact = false } = options;
   const view = VIEW_DESCRIPTIONS[entry.view];
   if (!view) throw new Error(`View sconosciuta: ${entry.view} per ${entry.slug}`);
   const strategyDesc = STRATEGY_DESCRIPTIONS[entry.strategy];
@@ -73,6 +74,44 @@ function buildPrompt(entry) {
   if (!charBlock) throw new Error(`Character sconosciuto: ${entry.character} per ${entry.slug}`);
   const formatDesc = FORMAT_DESCRIPTIONS[entry.strategy];
 
+  if (compact) {
+    return buildCompactPrompt(entry, view, strategyDesc, charBlock, formatDesc);
+  }
+  return buildFullPrompt(entry, view, strategyDesc, charBlock, formatDesc);
+}
+
+// Modalità COMPACT: per Custom GPT che ha già le specifiche stile nelle
+// Instructions. Omette palette, vincoli no-text, sfondo, composizione,
+// stile visivo (sono nel system prompt del GPT). Tiene solo i dati
+// specifici dell'esercizio. Output ~10 righe invece di ~40.
+function buildCompactPrompt(entry, view, strategyDesc, charBlock, formatDesc) {
+  const lines = [
+    `ESERCIZIO: ${entry.name}`,
+    `STRATEGIA: ${entry.strategy} (${formatDesc})`,
+    ``,
+    framesBlock(entry.frames, entry.strategy),
+    ``,
+    `VISTA: ${view}`,
+    `PERSONAGGIO: ${entry.character} (${entry.character === 'M' ? 'uomo' : 'donna'})`,
+    coherenceBlockCompact(entry.strategy),
+  ];
+
+  if (entry.notes && entry.notes.trim().length > 0) {
+    lines.push(``, `NOTE: ${entry.notes}`);
+  }
+
+  return lines.filter((l) => l !== null).join('\n');
+}
+
+function coherenceBlockCompact(strategy) {
+  if (strategy === 'single') return null;
+  return 'COERENZA: stessa persona in tutti i frame (stesse proporzioni, outfit, pettinatura).';
+}
+
+// Modalità FULL: prompt auto-contenuto, con tutto lo stile ripetuto in
+// ogni blocco. Per ChatGPT generico (non Custom GPT) o quando si vuole
+// massima robustezza contro deriva di sessione.
+function buildFullPrompt(entry, view, strategyDesc, charBlock, formatDesc) {
   const lines = [
     `Crea un'illustrazione di un esercizio fitness coerente con il design system di un'app mobile.`,
     ``,

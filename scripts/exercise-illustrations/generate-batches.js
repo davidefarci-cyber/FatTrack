@@ -1,12 +1,23 @@
 #!/usr/bin/env node
 // Genera i file batch markdown da incollare in chat GPT separate.
 //
-// Uso: node scripts/exercise-illustrations/generate-batches.js
+// Uso:
+//   node scripts/exercise-illustrations/generate-batches.js
+//   node scripts/exercise-illustrations/generate-batches.js --compact
+//
+// Modalità:
+//   - default (full): ogni prompt è auto-contenuto con palette/vincoli/
+//     formato ripetuti. Per ChatGPT generico, robusto contro deriva
+//     sessione.
+//   - --compact: prompt brevi (~10 righe) che omettono i blocchi stile
+//     ripetitivi (palette, no-text, sfondo, composizione). Pensato per
+//     un Custom GPT che ha già queste specifiche nelle Instructions
+//     (vedi scripts/exercise-illustrations/style.md).
 //
 // Output: `scripts/exercise-illustrations/batches/batch-NN.md` (uno per
 // gruppo di esercizi). Ogni batch contiene istruzioni di header per GPT
 // (compreso il packaging finale in ZIP con filename corretti) seguite da
-// N prompt auto-contenuti, separati visivamente.
+// N prompt, separati visivamente.
 
 const fs = require('fs');
 const path = require('path');
@@ -16,16 +27,36 @@ const { buildPrompt } = require('./template');
 
 const BATCH_SIZE = 7;
 const OUTPUT_DIR = path.join(__dirname, 'batches');
+const COMPACT = process.argv.includes('--compact');
 
 function batchHeader(batchNum, totalBatches, entries) {
   const zipName = `fattrack-exercises-batch-${String(batchNum).padStart(2, '0')}.zip`;
   const filenameList = entries.map((e) => `- ${e.slug}.png`).join('\n');
+  const modeLabel = COMPACT ? ' (modalità compact)' : '';
+  const modeIntro = COMPACT
+    ? `Genera UNA immagine per ognuno dei ${entries.length} prompt elencati sotto. Lo stile, palette, formato e vincoli sono già nelle Instructions del Custom GPT — ogni prompt qui ripete SOLO i dati specifici dell'esercizio. Applica le specifiche stile delle Instructions a ogni immagine.`
+    : `Genera UNA immagine per ognuno dei ${entries.length} prompt elencati sotto. Ogni prompt è auto-contenuto: stile, palette e formato sono ripetuti in ogni blocco. Segui ESATTAMENTE il prompt di ciascuno.`;
+  const commonRules = COMPACT
+    ? [
+        `## Regole comuni`,
+        ``,
+        `Tutte le immagini di questo batch seguono le specifiche stile FatTrack già nelle tue Instructions: palette stretta (#FF7A1A / #D45C00 / #FFE0C8 / #1E2532 / #FFFFFF), niente testo nell'immagine, sfondo bianco/trasparente, stile vettoriale flat moderno, formato in base alla strategy.`,
+      ]
+    : [
+        `## Regole comuni a tutte le immagini di questo batch`,
+        ``,
+        `- Formato PNG, dimensioni indicate nel singolo prompt.`,
+        `- Sfondo bianco puro (#FFFFFF) o trasparente.`,
+        `- Palette rigida: #FF7A1A / #D45C00 / #FFE0C8 / #1E2532 / #FFFFFF. Nessun altro colore.`,
+        `- NESSUN testo nelle immagini, NESSUNO sfondo scenografico, NESSUNA freccia/etichetta/numero.`,
+        `- Stile vettoriale flat moderno, coerente tra tutte le immagini.`,
+      ];
   return [
-    `# BATCH ${String(batchNum).padStart(2, '0')} / ${String(totalBatches).padStart(2, '0')} — illustrazioni esercizi FatTrack`,
+    `# BATCH ${String(batchNum).padStart(2, '0')} / ${String(totalBatches).padStart(2, '0')} — illustrazioni esercizi FatTrack${modeLabel}`,
     ``,
     `## Istruzioni per la chat GPT`,
     ``,
-    `Genera UNA immagine per ognuno dei ${entries.length} prompt elencati sotto. Ogni prompt è auto-contenuto: stile, palette e formato sono ripetuti in ogni blocco. Segui ESATTAMENTE il prompt di ciascuno.`,
+    modeIntro,
     ``,
     `Al termine di tutte le ${entries.length} immagini, raggruppale in un singolo file ZIP chiamato \`${zipName}\` con i PNG nominati esattamente come indicato nel campo "**Nome file**" di ogni blocco. I nomi devono essere:`,
     ``,
@@ -33,13 +64,7 @@ function batchHeader(batchNum, totalBatches, entries) {
     ``,
     `Niente cartelle interne nello ZIP, file PNG flat alla radice.`,
     ``,
-    `## Regole comuni a tutte le immagini di questo batch`,
-    ``,
-    `- Formato PNG, dimensioni indicate nel singolo prompt.`,
-    `- Sfondo bianco puro (#FFFFFF) o trasparente.`,
-    `- Palette rigida: #FF7A1A / #D45C00 / #FFE0C8 / #1E2532 / #FFFFFF. Nessun altro colore.`,
-    `- NESSUN testo nelle immagini, NESSUNO sfondo scenografico, NESSUNA freccia/etichetta/numero.`,
-    `- Stile vettoriale flat moderno, coerente tra tutte le immagini.`,
+    ...commonRules,
     ``,
     `---`,
     ``,
@@ -62,7 +87,7 @@ function batchFooter(batchNum, entries) {
 function entryBlock(index, entry) {
   const heading = `## ${index}. ${entry.name}`;
   const fileLine = `**Nome file**: \`${entry.slug}.png\``;
-  const prompt = buildPrompt(entry);
+  const prompt = buildPrompt(entry, { compact: COMPACT });
   return [
     heading,
     ``,
