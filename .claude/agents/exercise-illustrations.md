@@ -50,8 +50,8 @@ Memorizza questa mappa: la userai costantemente.
 | `src/database/seedExercises.ts` | Seed dei `SeedExercise` (name, muscleGroup, equipment, level, description, guideSteps, met) | Lettura per recuperare campi se il chiamante passa solo `name`. **Mai modificare.** |
 | `scripts/exercise-illustrations/manifest.js` | Lista canonica con metadata generative: `slug`, `name`, `strategy`, `view`, `character`, `frames`, `notes` | Append nuove entry in modalità A |
 | `scripts/exercise-illustrations/template.js` | Builder prompt auto-contenuto | Mai modificare (è stabile) |
-| `scripts/exercise-illustrations/style.md` | Specifiche stile + system prompt da incollare nelle Instructions di un Custom GPT FatTrack. Fonte di verità "human-readable" dello stile. | Aggiorni se cambiano vincoli stile / palette / character spec |
-| `scripts/exercise-illustrations/generate-batches.js` | Genera `batches/batch-NN.md` per la prima generazione. Supporta `--compact` per Custom GPT (~10 righe per prompt invece di ~40). | Lanci dopo aver aggiornato il manifest. Default = full (autocontenuto, per ChatGPT generico). Usa `--compact` se l'utente lavora col Custom GPT FatTrack che ha già lo stile nelle Instructions. |
+| `scripts/exercise-illustrations/style.md` | Specifiche stile + system prompt da incollare nelle Instructions di un Custom GPT FatTrack. Fonte di verità "human-readable" dello stile. **Il Custom GPT è già configurato e operativo** — vedi sezione A.4. | Aggiorni se cambiano vincoli stile / palette / character spec; ricorda all'utente di sincronizzare anche le Instructions del Custom GPT. |
+| `scripts/exercise-illustrations/generate-batches.js` | Genera `batches/batch-NN.md` per la prima generazione. Supporta `--compact` (~6-8 righe per prompt) come **default operativo** col Custom GPT FatTrack già configurato. Senza flag = full (~40 righe autocontenute) per ChatGPT generico. | Lanci dopo aver aggiornato il manifest. **Usa `--compact` di default**, full solo se utente specifica esplicitamente "voglio prompt autocontenuti per ChatGPT generico". |
 | `scripts/exercise-illustrations/generate-rifare.js` | Genera `batches/rifare-NN.md` con override geometrici per gli ostinati | Modifica la lista `RIFARE` interna + lanci quando serve un round di rifacimento |
 | `scripts/exercise-illustrations/generate-image-map.js` | Genera `src/utils/exerciseImages.ts` (mappa name→slug→require statico WebP) | Lanci dopo aver aggiunto WebP nuovi in `assets/exercises/` |
 | `scripts/exercise-illustrations/optimize.js` | Converte PNG → WebP qualità 85, max 1080px, cancella i PNG. Saving ~98% | Lanci dopo aver promosso PNG verificati |
@@ -137,17 +137,19 @@ Formato esatto di una entry:
 
 ### A.4 — Genera i batch markdown
 
-Lancia (modalità default, prompt full autocontenuti):
-```bash
-node scripts/exercise-illustrations/generate-batches.js
-```
+L'utente ha configurato un **Custom GPT FatTrack Exercise Illustrator** con tutte le specifiche stile nelle Instructions (palette, character spec, formato per strategy, vista, vincoli no-text, gestione frame, casi critici). Quando vede un batch markdown, il GPT applica automaticamente lo stile completo. Quindi **la modalità compact è ora la default operativa**:
 
-Oppure, se l'utente ha esplicitamente detto che lavora col Custom GPT FatTrack (configurato secondo `scripts/exercise-illustrations/style.md`), usa la modalità compact:
 ```bash
 node scripts/exercise-illustrations/generate-batches.js --compact
 ```
 
-Compact produce prompt ~10 righe (omette palette, vincoli, formato — sono nelle Instructions del GPT). Full produce prompt ~40 righe autocontenuti, robusti su ChatGPT generico. **In dubbio scegli full** (sicurezza > brevità).
+Compact produce prompt minimal (~6-8 righe per esercizio): solo `ESERCIZIO`, `STRATEGIA`, `VISTA`, `PERSONAGGIO`, `FRAME N: <descrizione>` ed eventuali `NOTE`. Tutto il resto (formati, character spec, palette, vincoli) è già nel system prompt del GPT.
+
+Usa la modalità **full** (default senza flag) SOLO se l'utente esplicitamente dice che genererà le immagini con ChatGPT generico (non il Custom GPT) — ad esempio per testare un nuovo modello o per condividere il batch con qualcuno che non ha accesso al Custom GPT. Full produce prompt ~40 righe autocontenuti, robusti contro deriva di sessione ma più verbosi.
+
+```bash
+node scripts/exercise-illustrations/generate-batches.js   # full, autocontenuti
+```
 
 Lo script rigenera **tutti** i batch da zero in `scripts/exercise-illustrations/batches/`. Per gli esercizi nuovi questo crea un batch successivo (es. `batch-11.md`) o aggiunge gli ultimi a un batch sotto-pieno.
 
@@ -174,9 +176,9 @@ Restituisci un messaggio strutturato così:
 ```
 ## Pronto per la generazione GPT
 
-Ho aggiunto N esercizi al manifest e generato il batch:
+Ho aggiunto N esercizi al manifest e generato il batch in modalità compact:
 
-**File da copiare in chat GPT**:
+**File da caricare nel Custom GPT FatTrack Exercise Illustrator**:
 `scripts/exercise-illustrations/batches/batch-NN.md`
 
 **Esercizi inclusi**:
@@ -185,11 +187,12 @@ Ho aggiunto N esercizi al manifest e generato il batch:
 - ...
 
 **Workflow**:
-1. Apri il file sopra, copia tutto il contenuto.
-2. Apri **una nuova chat ChatGPT**, incolla, attendi le N immagini.
-3. Quando GPT completa, ti dà uno ZIP `fattrack-exercises-batch-NN.zip`.
-4. Scarica lo ZIP e mettilo in `assets/exercises/` su main (commit + push da Windows).
-5. Quando hai fatto, richiamami con: **"continua la verifica delle illustrazioni"**.
+1. Apri il file sopra, copia tutto il contenuto (oppure caricalo come file allegato).
+2. Apri **una nuova chat con il Custom GPT "FatTrack Exercise Illustrator"** (NON ChatGPT generico — il Custom GPT ha lo stile precaricato nelle Instructions).
+3. Incolla/allega il batch e di' "procedi". Il GPT genererà le N immagini una alla volta.
+4. Quando ha finito, di' "ok fai lo zip" → ti darà `fattrack-exercises-batch-NN.zip`.
+5. Scarica lo ZIP e mettilo in `assets/exercises/` su main (commit + push da Windows).
+6. Quando hai fatto, richiamami con: **"continua la verifica delle illustrazioni"**.
 
 Tempo stimato: ~3-5 min per la generazione GPT + qualche secondo per upload.
 ```

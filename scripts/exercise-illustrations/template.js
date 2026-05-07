@@ -81,31 +81,55 @@ function buildPrompt(entry, options = {}) {
 }
 
 // Modalità COMPACT: per Custom GPT che ha già le specifiche stile nelle
-// Instructions. Omette palette, vincoli no-text, sfondo, composizione,
-// stile visivo (sono nel system prompt del GPT). Tiene solo i dati
-// specifici dell'esercizio. Output ~10 righe invece di ~40.
+// Instructions. Il GPT sa già:
+// - cosa significano single/dual/triple e i loro formati
+// - cosa significano lateral/frontal/three-quarter/top-down
+// - lo spec character per M/F
+// - che dual/triple vogliono stessa persona, stessa baseline
+// - palette, vincoli no-text, sfondo, composizione
+// Quindi qui mettiamo SOLO i dati specifici dell'esercizio. Output ~6-8
+// righe invece di ~40.
 function buildCompactPrompt(entry, view, strategyDesc, charBlock, formatDesc) {
   const lines = [
     `ESERCIZIO: ${entry.name}`,
-    `STRATEGIA: ${entry.strategy} (${formatDesc})`,
+    `STRATEGIA: ${entry.strategy}`,
+    `VISTA: ${entry.view}`,
+    `PERSONAGGIO: ${entry.character}`,
     ``,
-    framesBlock(entry.frames, entry.strategy),
-    ``,
-    `VISTA: ${view}`,
-    `PERSONAGGIO: ${entry.character} (${entry.character === 'M' ? 'uomo' : 'donna'})`,
-    coherenceBlockCompact(entry.strategy),
+    framesBlockCompact(entry.frames, entry.strategy),
   ];
 
   if (entry.notes && entry.notes.trim().length > 0) {
     lines.push(``, `NOTE: ${entry.notes}`);
   }
 
-  return lines.filter((l) => l !== null).join('\n');
+  return lines.join('\n');
 }
 
-function coherenceBlockCompact(strategy) {
-  if (strategy === 'single') return null;
-  return 'COERENZA: stessa persona in tutti i frame (stesse proporzioni, outfit, pettinatura).';
+// Frames in modalità compact: solo le descrizioni con label minimal,
+// niente header "DUE FRAME affiancati orizzontalmente..." perché
+// implicito nella STRATEGIA dual/triple che il GPT conosce.
+function framesBlockCompact(frames, strategy) {
+  if (strategy === 'single') {
+    return `FRAME: ${frames[0]}`;
+  }
+  if (strategy === 'dual') {
+    return [
+      `FRAME 1: ${frames[0]}`,
+      ``,
+      `FRAME 2: ${frames[1]}`,
+    ].join('\n');
+  }
+  if (strategy === 'triple') {
+    return [
+      `FRAME 1: ${frames[0]}`,
+      ``,
+      `FRAME 2: ${frames[1]}`,
+      ``,
+      `FRAME 3: ${frames[2]}`,
+    ].join('\n');
+  }
+  throw new Error(`Strategia sconosciuta: ${strategy}`);
 }
 
 // Modalità FULL: prompt auto-contenuto, con tutto lo stile ripetuto in
