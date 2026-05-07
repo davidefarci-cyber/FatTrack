@@ -626,12 +626,268 @@ const PROG_CALISTENICO: SeedProgram = {
   ],
 };
 
+// ─── Programma 6 — Calistenico Skill 3 giorni ────────────────────
+// Split Upper / Lower / Skill+Core a corpo libero, complementare al
+// PPL+Core già presente. Punta più sulle skill (handstand, planche,
+// L-sit, crow, muscle-up) e meno sul volume di rep classiche.
+// Equipment: corpo libero + sbarra (Upper Day). Elastico opzionale
+// come assistenza per le trazioni sui meno allenati.
+const PROG_CALISTENICO_SKILL: SeedProgram = {
+  name: 'Calistenico Skill 3 Giorni',
+  goal: 'mantenimento',
+  level: 'principiante',
+  daysPerWeek: 3,
+  notes: PROGRAM_NOTE([
+    'Programma 3×settimana a corpo libero focalizzato sulle skill calisteniche di base.',
+    'Equipment necessario: una sbarra per trazioni (Giorno A — Upper). Elastico opzionale come assistenza.',
+    'Split Upper / Lower / Skill+Core. Le skill (verticale, planche, L-sit, crow) si allenano in tenuta isometrica.',
+    'Le tenute (hold) vanno fermate appena la tecnica peggiora: meglio 3×15s puliti che 1×60s sbilanciato.',
+    'Ruota i giorni con almeno 1 giorno di recupero tra le sedute.',
+    'Progressioni indicate nelle note: passa al livello successivo solo quando la tecnica è solida.',
+  ]),
+  workouts: [
+    {
+      name: 'Calistenico Skill — Giorno A (Upper)',
+      category: 'forza',
+      level: 'principiante',
+      estimatedDurationMin: 45,
+      notes: 'Spinta e tirata complete per la parte superiore. Petto, schiena, spalle, braccia.',
+      requiredEquipment: ['sbarra'],
+      dayLabel: 'Giorno A — Upper',
+      exercises: [
+        ex(
+          'Jumping jacks',
+          dur(2, 45, 60, 30, 'Riscaldamento generale'),
+        ),
+        ex(
+          'Spalle - Shoulder rolls',
+          dur(1, 30, 45, 20, 'Mobilità spalle pre-lavoro'),
+        ),
+        ex(
+          'Dead hang',
+          dur(2, 20, 45, 45, 'Attiva presa e scapole prima delle trazioni.'),
+        ),
+        ex(
+          'Australian pull-up',
+          reps(
+            3,
+            6,
+            12,
+            75,
+            'Progressione: avvicina i piedi alla sbarra per più carico.',
+            'Trazioni assistite con elastico',
+          ),
+        ),
+        ex(
+          'Negativa di trazione',
+          reps(
+            3,
+            3,
+            6,
+            90,
+            'Scendi 3-5 secondi resistendo. Ponte verso le trazioni complete.',
+            'Trazioni assistite con elastico',
+          ),
+        ),
+        ex(
+          'Hindu push-up',
+          reps(
+            3,
+            5,
+            10,
+            60,
+            'Movimento fluido a onda. Regressione: dividi in downward dog + cobra separati.',
+            'Push-up sui ginocchi',
+          ),
+        ),
+        ex(
+          'Pike push-up',
+          reps(
+            3,
+            5,
+            10,
+            60,
+            'Progressione verso la verticale push-up. Più alzi il bacino, più lavorano le spalle.',
+            'Push-up inclinati',
+          ),
+        ),
+        ex(
+          'Tricep dip',
+          reps(3, 6, 12, 60, 'Progressione: gambe distese in avanti per più carico.'),
+        ),
+      ],
+    },
+    {
+      name: 'Calistenico Skill — Giorno B (Lower)',
+      category: 'forza',
+      level: 'principiante',
+      estimatedDurationMin: 45,
+      notes: 'Gambe monopodaliche, glutei, mobilità anche. Forza e controllo unilaterale.',
+      requiredEquipment: [],
+      dayLabel: 'Giorno B — Lower',
+      exercises: [
+        ex(
+          'Anche - Leg swings',
+          reps(2, 10, 15, 20, 'Per lato. Mobilità anche.'),
+        ),
+        ex(
+          'Anche - Hip circles',
+          dur(1, 30, 45, 20, 'Riscaldamento dell’articolazione coxofemorale.'),
+        ),
+        ex(
+          'Squat',
+          reps(
+            3,
+            15,
+            20,
+            60,
+            'Tecnica pulita prima del volume. Progressione: Sumo squat o Cossack squat.',
+          ),
+        ),
+        ex(
+          'Bulgarian split squat',
+          reps(
+            3,
+            6,
+            10,
+            75,
+            'Per gamba. Progressione: pausa di 2s in basso.',
+            'Affondi',
+          ),
+        ),
+        ex(
+          'Box pistol squat',
+          reps(
+            3,
+            5,
+            8,
+            75,
+            'Per gamba. Progressione: abbassa l’altezza della sedia, poi pistol assistito.',
+            'Bulgarian split squat',
+          ),
+        ),
+        ex(
+          'Glute bridge a una gamba',
+          reps(
+            3,
+            8,
+            12,
+            45,
+            'Per gamba. Progressione: schiena su una panca per più ROM.',
+            'Glute bridge',
+          ),
+        ),
+        ex(
+          'Lateral lunge',
+          reps(
+            3,
+            8,
+            12,
+            45,
+            'Per lato. Lavora gli adduttori e l’apertura delle anche.',
+          ),
+        ),
+        ex(
+          'Calf raise',
+          reps(3, 15, 20, 30, 'Spingi forte sulle punte e contrai i polpacci in alto.'),
+        ),
+      ],
+    },
+    {
+      name: 'Calistenico Skill — Giorno C (Skill + Core)',
+      category: 'forza',
+      level: 'principiante',
+      estimatedDurationMin: 40,
+      notes: 'Skill statiche di equilibrio e tenuta + lavoro completo del core.',
+      requiredEquipment: [],
+      dayLabel: 'Giorno C — Skill + Core',
+      exercises: [
+        ex(
+          'Jumping jacks',
+          dur(2, 45, 60, 30, 'Riscaldamento generale'),
+        ),
+        ex(
+          'Polsi - Wrist circles',
+          dur(1, 30, 45, 20, 'Mobilità polsi: fondamentale prima delle skill di appoggio.'),
+        ),
+        ex(
+          'Wall handstand hold',
+          dur(
+            3,
+            15,
+            45,
+            60,
+            'Spalle attive, niente arco lombare. Progressione: allontana le mani dal muro.',
+            'Pike push-up',
+          ),
+        ),
+        ex(
+          'Crow pose',
+          dur(
+            3,
+            10,
+            30,
+            60,
+            'Equilibrio sulle braccia. Inizia con un piede a terra alternato, poi entrambi.',
+          ),
+        ),
+        ex(
+          'Tuck planche hold',
+          dur(
+            3,
+            10,
+            25,
+            60,
+            'Inclina il busto in avanti, scapole protratte. Prima progressione planche.',
+          ),
+        ),
+        ex(
+          'L-sit tuck a terra',
+          dur(
+            3,
+            10,
+            25,
+            45,
+            'Spingi forte le mani per sollevare il bacino. Progressione: estendi le gambe.',
+          ),
+        ),
+        ex(
+          'Hollow hold',
+          dur(
+            3,
+            20,
+            45,
+            45,
+            'Lombari schiacciate a terra: carrier per L-sit e front lever.',
+          ),
+        ),
+        ex(
+          'Knee raise appeso',
+          reps(
+            3,
+            8,
+            12,
+            45,
+            'Niente swing del bacino. Progressione: Leg raise appeso a gambe tese.',
+            'Leg raise',
+          ),
+        ),
+        ex(
+          'Side plank',
+          dur(2, 20, 45, 30, 'Per lato. Obliqui e stabilità del bacino.'),
+        ),
+      ],
+    },
+  ],
+};
+
 const SEED_PROGRAMS: SeedProgram[] = [
   PROG_DIMAGRIMENTO,
   PROG_RESISTENZA,
   PROG_MANTENIMENTO,
   PROG_MOBILITA,
   PROG_CALISTENICO,
+  PROG_CALISTENICO_SKILL,
 ];
 
 export async function seedProgramsIfEmpty(
