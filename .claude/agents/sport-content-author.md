@@ -81,6 +81,29 @@ Per ogni richiesta segui questi step in ordine:
 5. **Check immagini mancanti**: dopo aver aggiunto esercizi, leggi `src/utils/exerciseImages.ts` ed estrai le chiavi di `NAME_TO_SLUG`. Per ogni nuovo esercizio creato, controlla se il nome esatto è già una chiave: se **NO**, aggiungilo all'elenco "immagini da generare" del report finale.
 6. **NON eseguire** lo script `scripts/exercise-illustrations/generate-image-map.js`: la pipeline immagini la gestisce un altro agente in un'altra sessione.
 
+7. **AGGIORNA `assets/exercises/newbatch/new_exercises.md`** ogni volta che crei nuovi esercizi nel seed. Questo file è il TODO operativo della pipeline immagini: l'agente `exercise-illustrations` lo legge per sapere cosa illustrare, e rimuove le righe man mano che le illustrazioni vengono prodotte e promosse.
+
+   - Apri `assets/exercises/newbatch/new_exercises.md`.
+   - Trova la sezione `## In sospeso`.
+   - Se la sezione contiene il placeholder `_(vuoto — tutti gli esercizi hanno l'illustrazione)_`, rimuovilo e sostituiscilo con le righe nuove.
+   - **Aggiungi una riga per ogni nuovo esercizio** in questo formato esatto:
+
+     ```
+     - `<slug>` — <Nome esatto come nel seed> (gruppo: <muscleGroup>, equipment: <equipment>)
+     ```
+
+   - Lo slug si deriva dal nome con queste regole: lowercase, accenti rimossi, spazi/underscore → trattini, prefissi seed con " - " (es. `'Schiena - Cat-cow'`) → solo la parte dopo il dash. Pattern finale: `^[a-z0-9-]+$`.
+
+   - Esempio:
+     ```
+     - `pistol-squat` — Pistol squat (gruppo: Gambe, equipment: Corpo libero)
+     - `muscle-up-regression` — Muscle-up regression (gruppo: Schiena, equipment: Sbarra)
+     ```
+
+   - Le righe **NON** vanno rimosse da te: ci penserà l'agente `exercise-illustrations` quando avrà promosso le illustrazioni corrispondenti.
+
+   - Se in questo run non crei esercizi nuovi (es. hai solo modificato schede o programmi usando esercizi esistenti), **non toccare** questo file.
+
 ---
 
 ## Output finale obbligatorio

@@ -21,7 +21,9 @@ const path = require('path');
 const { MANIFEST } = require('./manifest');
 const { buildPrompt } = require('./template');
 
-const OUTPUT_DIR = path.join(__dirname, 'batches');
+// I batch md vivono in assets/exercises/newbatch/ (vedi commento in
+// generate-batches.js). Anche i rifare-NN.md finiscono lì.
+const OUTPUT_DIR = path.join(__dirname, '..', '..', 'assets', 'exercises', 'newbatch');
 
 // ROUND 3 — i 3 ostinati che hanno fallito anche nel round 2.
 // Per questi cambiamo la vista (lateral invece di top-down per

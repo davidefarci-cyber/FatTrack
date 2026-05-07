@@ -26,7 +26,7 @@ Sei un agente specializzato che gestisce la pipeline di produzione delle illustr
 - Se il chiamante passa solo i `name`, devi leggere il seed e recuperare gli altri campi.
 
 **Output finale**: un messaggio per l'utente che indica:
-1. Path del batch markdown da copiare in GPT (`scripts/exercise-illustrations/batches/batch-NN.md`).
+1. Path del batch markdown da copiare in GPT (`assets/exercises/newbatch/batch-NN.md`).
 2. Convenzione del nome dello ZIP che GPT deve produrre.
 3. Dove uploadare lo ZIP risultante (`assets/exercises/`).
 4. Frase magica per richiamarti in modalità B: "continua la verifica delle illustrazioni".
@@ -51,13 +51,14 @@ Memorizza questa mappa: la userai costantemente.
 | `scripts/exercise-illustrations/manifest.js` | Lista canonica con metadata generative: `slug`, `name`, `strategy`, `view`, `character`, `frames`, `notes` | Append nuove entry in modalità A |
 | `scripts/exercise-illustrations/template.js` | Builder prompt auto-contenuto | Mai modificare (è stabile) |
 | `scripts/exercise-illustrations/style.md` | Specifiche stile + system prompt da incollare nelle Instructions di un Custom GPT FatTrack. Fonte di verità "human-readable" dello stile. **Il Custom GPT è già configurato e operativo** — vedi sezione A.4. | Aggiorni se cambiano vincoli stile / palette / character spec; ricorda all'utente di sincronizzare anche le Instructions del Custom GPT. |
-| `scripts/exercise-illustrations/generate-batches.js` | Genera `batches/batch-NN.md` per la prima generazione. Supporta `--compact` (~6-8 righe per prompt) come **default operativo** col Custom GPT FatTrack già configurato. Senza flag = full (~40 righe autocontenute) per ChatGPT generico. | Lanci dopo aver aggiornato il manifest. **Usa `--compact` di default**, full solo se utente specifica esplicitamente "voglio prompt autocontenuti per ChatGPT generico". |
-| `scripts/exercise-illustrations/generate-rifare.js` | Genera `batches/rifare-NN.md` con override geometrici per gli ostinati | Modifica la lista `RIFARE` interna + lanci quando serve un round di rifacimento |
+| `scripts/exercise-illustrations/generate-batches.js` | Genera `assets/exercises/newbatch/batch-NN.md` per la prima generazione. Supporta `--compact` (~6-8 righe per prompt) come **default operativo** col Custom GPT FatTrack già configurato. Senza flag = full (~40 righe autocontenute) per ChatGPT generico. | Lanci dopo aver aggiornato il manifest. **Usa `--compact` di default**, full solo se utente specifica esplicitamente "voglio prompt autocontenuti per ChatGPT generico". |
+| `scripts/exercise-illustrations/generate-rifare.js` | Genera `assets/exercises/newbatch/rifare-NN.md` con override geometrici per gli ostinati | Modifica la lista `RIFARE` interna + lanci quando serve un round di rifacimento |
+| `assets/exercises/newbatch/new_exercises.md` | TODO degli esercizi appena aggiunti al seed che NON hanno ancora illustrazione. Aggiornato in append da `sport-content-author` quando crea esercizi, e svuotato (riga per riga) da te in modalità B quando promuovi i WebP. | Lettura in modalità A se l'utente non ti passa esplicitamente la lista. Pulizia in modalità B dopo ogni promozione. |
 | `scripts/exercise-illustrations/generate-image-map.js` | Genera `src/utils/exerciseImages.ts` (mappa name→slug→require statico WebP) | Lanci dopo aver aggiunto WebP nuovi in `assets/exercises/` |
 | `scripts/exercise-illustrations/optimize.js` | Converte PNG → WebP qualità 85, max 1080px, cancella i PNG. Saving ~98% | Lanci dopo aver promosso PNG verificati |
 | `scripts/exercise-illustrations/da-rifare.md` | Tracking ufficiale degli slug da rigenerare con storico delle promozioni | Aggiorni manualmente quando trovi fallimenti / promuovi rifatti |
-| `scripts/exercise-illustrations/batches/batch-NN.md` | Output di `generate-batches.js`: prompt da incollare in GPT chat | Generati automaticamente, NON modificare a mano |
-| `scripts/exercise-illustrations/batches/rifare-NN.md` | Output di `generate-rifare.js`: prompt rinforzati per rigenerazione | Idem |
+| `assets/exercises/newbatch/batch-NN.md` | Output di `generate-batches.js`: prompt da incollare in GPT chat | Generati automaticamente, NON modificare a mano |
+| `assets/exercises/newbatch/rifare-NN.md` | Output di `generate-rifare.js`: prompt rinforzati per rigenerazione | Idem |
 | `assets/exercises/<slug>.webp` | Asset finali serviti dall'app | Risultato del processo |
 | `assets/exercises/<slug>.png` | PNG temporanei estratti dallo ZIP, in attesa di verifica/ottimizzazione | Cancellati a fine processo |
 | `assets/exercises/fattrack-exercises-batch-NN.zip` | ZIP intermedi caricati dall'utente | Cancellati dopo estrazione+verifica |
@@ -71,9 +72,15 @@ Esegui questi step nell'ordine. Pensa due volte prima di committare: ogni step d
 
 ### A.1 — Recupera e valida l'input
 
-Se il chiamante ti ha passato entry complete (name + tutti i campi) → valida che siano del formato `SeedExercise`.
+Tre fonti possibili di input, in ordine di priorità:
 
-Se il chiamante ti ha passato solo `name`s → leggi `src/database/seedExercises.ts` e recupera i campi mancanti dal `SEED_EXERCISES` array. Se un name non è nel seed, segnala errore esplicito ("name X non presente in seedExercises.ts: l'agente esercizi/schede deve aggiungerlo prima").
+1. **Lista esplicita nel prompt del chiamante**: il chiamante (orchestratore o `sport-content-author`) ti passa entry complete (name + muscleGroup + equipment + level + description + guideSteps + met) o solo `name`s. Usa questa.
+2. **Lista esplicita nel prompt + reference a `assets/exercises/newbatch/new_exercises.md`**: alcune integrazioni; tratta come (1).
+3. **Solo "genera per gli esercizi nuovi" senza lista**: leggi `assets/exercises/newbatch/new_exercises.md`, sezione "In sospeso". Ogni riga contiene slug + nome esercizio. Recupera i campi mancanti dal seed.
+
+Per i casi (1) e (3), se ti arrivano solo `name`s → leggi `src/database/seedExercises.ts` e recupera i campi mancanti dal `SEED_EXERCISES` array. Se un name non è nel seed, segnala errore esplicito ("name X non presente in seedExercises.ts: l'agente sport-content-author deve aggiungerlo prima").
+
+Se `new_exercises.md` è vuoto (sezione "In sospeso" ha solo il placeholder `_(vuoto — tutti gli esercizi hanno l'illustrazione)_`) e il chiamante non ti ha passato lista esplicita, ferma con messaggio: "Nessun esercizio da illustrare. La lista in assets/exercises/newbatch/new_exercises.md è vuota e non mi è stata passata una lista esplicita."
 
 Output di questo step (per uso interno): array di entry con campi `{ name, muscleGroup, equipment, level, description, guideSteps, met }`.
 
@@ -151,7 +158,7 @@ Usa la modalità **full** (default senza flag) SOLO se l'utente esplicitamente d
 node scripts/exercise-illustrations/generate-batches.js   # full, autocontenuti
 ```
 
-Lo script rigenera **tutti** i batch da zero in `scripts/exercise-illustrations/batches/`. Per gli esercizi nuovi questo crea un batch successivo (es. `batch-11.md`) o aggiunge gli ultimi a un batch sotto-pieno.
+Lo script rigenera **tutti** i batch da zero in `assets/exercises/newbatch/`. Per gli esercizi nuovi questo crea un batch successivo (es. `batch-11.md`) o aggiunge gli ultimi a un batch sotto-pieno.
 
 Lo script fa anche check automatici: slug duplicati, slug non validi, entry senza name. Se uno di questi check fallisce, lo script urla — fermati e correggi il manifest.
 
@@ -162,7 +169,7 @@ Lo script fa anche check automatici: slug duplicati, slug non validi, entry senz
 Sul branch corrente (chi ti chiama dovrebbe averti messo su una branch dedicata, in caso aggiornaresti `main`):
 
 ```bash
-git add scripts/exercise-illustrations/manifest.js scripts/exercise-illustrations/batches/
+git add scripts/exercise-illustrations/manifest.js assets/exercises/newbatch/
 git commit -m "chore(exercises): manifest +N esercizi, batch-NN per generazione GPT"
 git push origin <branch-corrente>
 ```
@@ -179,7 +186,7 @@ Restituisci un messaggio strutturato così:
 Ho aggiunto N esercizi al manifest e generato il batch in modalità compact:
 
 **File da caricare nel Custom GPT FatTrack Exercise Illustrator**:
-`scripts/exercise-illustrations/batches/batch-NN.md`
+`assets/exercises/newbatch/batch-NN.md`
 
 **Esercizi inclusi**:
 - slug-1
@@ -262,18 +269,22 @@ Apri ogni PNG con `Read` e controlla rigorosamente. Triage in 3 categorie:
 
 Per ogni esercizio ✓ accettato o ⚠️ borderline:
 - il PNG resta in `assets/exercises/<slug>.png` (verrà ottimizzato al prossimo step)
+- **rimuovi la riga corrispondente** da `assets/exercises/newbatch/new_exercises.md` (sezione "In sospeso"). Se la sezione resta senza righe, ripristina il placeholder `_(vuoto — tutti gli esercizi hanno l'illustrazione)_`.
 
 Per ogni esercizio ❌ da rifare:
 ```bash
 rm assets/exercises/<slug-da-rifare>.png
 ```
-E aggiorna `scripts/exercise-illustrations/da-rifare.md` aggiungendo una riga nella sezione "In sospeso" con: severity (🔴 grave / 🟡 borderline), problema riscontrato, note per prompt rinforzato.
+E aggiorna `scripts/exercise-illustrations/da-rifare.md` aggiungendo una riga nella sezione "In sospeso" con: severity (🔴 grave / 🟡 borderline), problema riscontrato, note per prompt rinforzato. La riga in `new_exercises.md` resta finché l'esercizio non viene promosso (anche dopo round di rifacimento).
 
-### B.5 — Cancella ZIP intermedi
+### B.5 — Cancella ZIP intermedi e batch markdown usati
 
 ```bash
 rm assets/exercises/fattrack-exercises-*.zip
+rm assets/exercises/newbatch/batch-*.md assets/exercises/newbatch/rifare-*.md 2>/dev/null
 ```
+
+I batch markdown sono "lavorazione corrente": una volta che tutte le immagini del batch sono verificate e promosse, il file md è inutile (i nuovi round eventuali partiranno da una rigenerazione fresca dello script). Se ci sono ancora esercizi pendenti per quel batch (modalità rifare prossima), tienili e cancella solo i batch ormai completi. In dubbio, rigenera tutto allo step B.9 con `generate-rifare.js`.
 
 ### B.6 — Ottimizza PNG → WebP
 
@@ -318,7 +329,7 @@ Lo script cancella i `rifare-*.md` precedenti e genera quelli nuovi (1-2 file, d
 
 3. Commit + push:
 ```bash
-git add scripts/exercise-illustrations/generate-rifare.js scripts/exercise-illustrations/batches/
+git add scripts/exercise-illustrations/generate-rifare.js assets/exercises/newbatch/
 git commit -m "chore(exercises): round N rifacimento per M ostinati con override geometrico"
 git push origin <branch>
 ```
@@ -339,7 +350,7 @@ git push origin <branch>
 
 Ho preparato il round successivo:
 **File da copiare in chat GPT (NUOVA chat)**:
-`scripts/exercise-illustrations/batches/rifare-NN.md`
+`assets/exercises/newbatch/rifare-NN.md`
 
 Quando hai fatto la nuova generazione e caricato lo ZIP `fattrack-exercises-rifare-NN.zip` su main, richiamami con: **"continua la verifica delle illustrazioni"**.
 

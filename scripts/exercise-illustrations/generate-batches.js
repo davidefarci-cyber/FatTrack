@@ -26,8 +26,18 @@ const { MANIFEST } = require('./manifest');
 const { buildPrompt } = require('./template');
 
 const BATCH_SIZE = 7;
-const OUTPUT_DIR = path.join(__dirname, 'batches');
+// I batch md vivono in assets/exercises/newbatch/ così l'utente li trova
+// vicino alle immagini stesse e non sepolti dentro scripts/. La cartella
+// è gestita come "lavorazione corrente": contiene i batch da incollare
+// in GPT + new_exercises.md (TODO degli esercizi senza immagine), si
+// svuota man mano che le immagini vengono prodotte e verificate.
+const OUTPUT_DIR = path.join(__dirname, '..', '..', 'assets', 'exercises', 'newbatch');
+const ASSETS_DIR = path.join(__dirname, '..', '..', 'assets', 'exercises');
 const COMPACT = process.argv.includes('--compact');
+// --all: rigenera batch anche per esercizi che hanno gia' un WebP in
+// assets/exercises/. Default: filtra (genera solo per i nuovi senza
+// illustrazione, coerente col concetto "newbatch = lavorazione corrente").
+const RENDER_ALL = process.argv.includes('--all');
 
 function batchHeader(batchNum, totalBatches, entries) {
   const zipName = `fattrack-exercises-batch-${String(batchNum).padStart(2, '0')}.zip`;
@@ -102,21 +112,46 @@ function entryBlock(index, entry) {
   ].join('\n');
 }
 
+function hasExistingWebp(slug) {
+  return fs.existsSync(path.join(ASSETS_DIR, `${slug}.webp`));
+}
+
 function main() {
   if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   }
 
-  const totalBatches = Math.ceil(MANIFEST.length / BATCH_SIZE);
+  // Cancella eventuali batch-*.md preesistenti per evitare residui
+  // disallineati col manifest corrente.
+  const existing = fs.readdirSync(OUTPUT_DIR).filter((f) => /^batch-\d+\.md$/.test(f));
+  existing.forEach((f) => fs.unlinkSync(path.join(OUTPUT_DIR, f)));
+
+  // Filtra le entry: di default genera solo per esercizi senza WebP in
+  // assets/exercises/. Con --all, ignora il filtro.
+  const entries = RENDER_ALL
+    ? MANIFEST
+    : MANIFEST.filter((e) => !hasExistingWebp(e.slug));
+
+  if (entries.length === 0) {
+    console.log('Nessun esercizio da illustrare:');
+    console.log('  - tutti gli esercizi del manifest hanno gia\' il loro WebP in assets/exercises/');
+    console.log('  - (per rigenerare comunque tutti i batch, usa --all)');
+    return;
+  }
+
+  const totalBatches = Math.ceil(entries.length / BATCH_SIZE);
   const summary = [];
   summary.push(`Manifest size: ${MANIFEST.length} esercizi`);
+  summary.push(`Da illustrare: ${entries.length} esercizi (${MANIFEST.length - entries.length} gia' fatti, saltati)`);
+  if (RENDER_ALL) summary.push('Modalita\': --all (genera anche per esercizi gia\' illustrati)');
+  if (COMPACT) summary.push('Modalita\': --compact (prompt minimal per Custom GPT)');
   summary.push(`Batch size: ${BATCH_SIZE}`);
   summary.push(`Totale batch: ${totalBatches}`);
   summary.push('');
 
   for (let i = 0; i < totalBatches; i += 1) {
     const start = i * BATCH_SIZE;
-    const slice = MANIFEST.slice(start, start + BATCH_SIZE);
+    const slice = entries.slice(start, start + BATCH_SIZE);
     const batchNum = i + 1;
     const fileName = `batch-${String(batchNum).padStart(2, '0')}.md`;
     const filePath = path.join(OUTPUT_DIR, fileName);
