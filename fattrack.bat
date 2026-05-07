@@ -176,7 +176,7 @@ echo ============================================================
 set "_QS_CHOICE="
 set /p "_QS_CHOICE=Inviare ora con Quick Share? [S/n]: "
 if /i not "!_QS_CHOICE!"=="n" (
-    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\quickshare-send.ps1" -FilePath "%~dp0!OUTPUT_APK!"
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\quickshare-send.ps1" "%~dp0!OUTPUT_APK!"
     if !ERRORLEVEL! EQU 2 (
         echo [ ] Quick Share non disponibile: trasferisci !OUTPUT_APK! manualmente.
     )
