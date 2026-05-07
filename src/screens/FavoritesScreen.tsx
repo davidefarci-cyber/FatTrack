@@ -21,6 +21,7 @@ import { FoodSearchList } from '@/components/FoodSearchList';
 import { FoodServingsEditorModal } from '@/components/FoodServingsEditorModal';
 import { GramsInputModal } from '@/components/GramsInputModal';
 import type { GramsInputTarget, ServingOption } from '@/components/GramsInputModal';
+import { HeaderActions } from '@/components/HeaderActions';
 import { Icon } from '@/components/Icon';
 import { Input } from '@/components/Input';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -84,6 +85,7 @@ export default function FavoritesScreen() {
         title="Preferiti"
         subtitle="I tuoi pasti salvati, pronti da riusare"
         style={{ paddingTop: insets.top + spacing.xl }}
+        right={<HeaderActions />}
       />
 
       <ScrollView

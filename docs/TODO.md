@@ -101,21 +101,6 @@ auto-ritentata).
 
 ---
 
-### [7] Proporre PR Workflow CI
-
-**Aperta**: 2026-05-01
-**Area**: infra
-
-Oggi push diretto su `main`. Niente CI. Una GitHub Action minimale che
-esegua `npm ci && npm run typecheck && npm run lint` su ogni PR
-intercetterebbe regressioni prima del merge.
-
-**Done quando**: `.github/workflows/ci.yml` esegue typecheck + lint su
-push a feature branches; il proprietario abilita il branch protection
-per richiederlo prima del merge.
-
----
-
 ### [15] Asset wordmark "FitTrack" definitivi
 
 **Aperta**: 2026-05-02
@@ -144,6 +129,47 @@ Quando arriva l'asset:
 posto del wordmark testuale; gli asset sono nel repo o referenziati
 con import statici; il rerender della transizione non flickera (test
 manuale su device).
+
+---
+
+### [43] Mantieni schermo acceso durante sessione attiva
+
+**Aperta**: 2026-05-07
+**Priorità**: 🟡 media
+**Area**: UX (sport) / codice
+
+Durante una sessione di allenamento attiva (`ActiveSessionScreen`) lo
+schermo si spegne dopo il timeout di sistema Android. Conseguenze:
+il `RestTimer` non è più visibile, l'utente perde il countdown della
+pausa e — peggio — se l'OS sospende il task JS il timer può anche
+freezare, falsando la durata del recupero. Lo stesso problema vale
+per il banner sticky `<ActiveSessionBanner>` durante navigazione tra
+tab e per il `RunningView` di Tabata.
+
+Da fare: usare `expo-keep-awake` (lib ufficiale Expo SDK 51, già
+compatibile) — `useKeepAwake()` hook attivato SOLO durante:
+- `ActiveSessionScreen` con sessione live (o gestione centralizzata
+  in `ActiveSessionContext` quando `state.session != null`)
+- `RunningView` di `TabataScreen` quando il workout è in corso
+- `RestTimerStandaloneModal` quando aperto in fase countdown
+
+Importante: **non** attivarlo per l'intera app — drain batteria
+inaccettabile durante navigazione normale (libreria esercizi,
+storico, settings).
+
+Da considerare:
+- toggle in `SportSettings` ("Tieni schermo acceso durante
+  allenamento", default ON) — qualcuno con device flagship potrebbe
+  voler disattivare per risparmio batteria su sessioni lunghe
+- comportamento al background/foreground: se l'utente mette l'app
+  in background il keep-awake si rilascia (lo fa Android in
+  automatico)
+
+**Done quando**: durante una sessione attiva lo schermo non si
+blocca; il `RestTimer` rimane visibile fino al termine; analoga
+copertura per Tabata in `RunningView` e per il timer pausa
+standalone; chiusura/abbandono sessione disattiva il keep-awake;
+toggle in SportSettings permette di disattivarlo.
 
 ---
 
@@ -229,32 +255,6 @@ con warning.
 
 ---
 
-### [17] Haptic feedback / suoni su completamento set e fine recupero
-
-**Aperta**: 2026-05-02
-**Area**: UX
-
-Il `RestTimer` finisce silenziosamente. Anche il "Set completato"
-non ha feedback tattile. Per un'app sport è una mancanza
-significativa: l'utente vuole vibrazione/suono breve a fine recupero
-mentre sta riprendendo fiato.
-
-Due dipendenze candidate:
-- `expo-haptics` per vibrazione (già usata in molte app Expo,
-  leggera)
-- `expo-av` per suono (più pesante; valutare se basta solo
-  haptic)
-
-Suggerimento MVP: solo haptic (`Haptics.notificationAsync(Success)`)
-a fine recupero e su tap "Set completato". Suono come iterazione
-successiva.
-
-**Done quando**: a fine recupero il device vibra brevemente; al tap
-"Set completato" un haptic leggero conferma l'azione; flag
-`hapticEnabled` nelle SportSettings (default true) per disattivare.
-
----
-
 ### [18] Video URL veri sugli esercizi
 
 **Aperta**: 2026-05-02
@@ -304,34 +304,6 @@ linkare ai gif remoti via URL (con cache RN).
 **Done quando**: la libreria ha ≥150 esercizi; il bundle non cresce
 oltre +15MB; gli esercizi nuovi hanno descrizione + guideSteps +
 videoUrl o gif embed.
-
----
-
-### [20] Spotify integration (deep-link MVP, OAuth Web API v2)
-
-**Aperta**: 2026-05-02
-**Area**: feature
-
-Idea originale Fase 1 dell'esplorazione sport mode: accesso veloce
-alla musica preferita per allenamento. Esclusa dal MVP per
-complessità.
-
-Due opzioni:
-- **MVP (~1g)**: tasto "🎵 Apri Spotify" in `SportHomeScreen` o nel
-  banner della sessione attiva. Usa `Linking.openURL('spotify:')` per
-  aprire l'app nativa. Se l'utente vuole una playlist specifica
-  (es. "Workout"), può fissarla nelle SportSettings come URI
-  `spotify:playlist:xyz`. Niente OAuth, niente backend.
-- **V2 (~3-5g)**: integrazione Spotify Web API con OAuth PKCE.
-  Permette controllo playback in-app (play/pause/next), lettura
-  della playlist corrente, ecc. Richiede redirect URI configurato e
-  account Premium dell'utente per il playback control.
-
-Suggerimento: partire da MVP e valutare se l'utente vuole di più.
-
-**Done quando**: dalle schermate sport è raggiungibile Spotify in
-1 tap; se l'utente ha configurato una playlist preferita, parte
-direttamente da lì.
 
 ---
 
@@ -385,114 +357,6 @@ pasti del diario (vita propria).
 "pizza counter screen", che mostra il totale anno + un + per
 incrementare; il dato è persistito in DB (sopravvive a reinstall via
 backup); export/import del backup la include.
-
----
-
-### [23] Scroll orizzontale per cambiare giorno nella home diet
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟢 bassa
-**Area**: UX (diet)
-
-Oggi nella home diet il giorno corrente si cambia solo via le frecce
-laterali sull'header data. Aggiungere swipe orizzontale sull'intera
-area diario (o sull'header) per andare al giorno precedente/successivo.
-Il tasto freccia resta come affordance esplicito.
-
-Implementazione: `react-native-gesture-handler` (già presente)
-PanGestureHandler oppure più semplicemente swipe via touch threshold
-sul contenitore principale. Animazione: cross-fade dei dati come fa
-oggi al cambio data, niente parallax complesso.
-
-**Done quando**: swipe sx/dx sulla home diet cambia giorno con la
-stessa semantica delle frecce; nessuna regressione sullo scroll
-verticale.
-
----
-
-### [26] Categorizzare elenco esercizi
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟢 bassa
-**Area**: UX (fit)
-
-Oggi `ExercisesScreen` mostra una lista lineare (40 esercizi seedati)
-filtrabile per gruppo muscolare / livello / attrezzatura via il
-BottomSheet "Filtri". L'utente trova la lista lunga e i nomi simili
-("Push-up", "Wide push-up", "Diamond push-up", "Push-up declinati"…)
-poco scansionabili.
-
-Proposta: raggruppare visualmente per `muscle_group` con header di
-sezione (`SectionList` invece di `ScrollView` + map), in modo che
-scrollando si vedano stacchi tipo "Petto · Spalle · Tricipiti" e
-sotto i relativi esercizi. I filtri restano funzionanti e si applicano
-intra-sezione.
-
-In una versione più ricca: tab orizzontale superiore (Petto / Gambe /
-Core / Cardio / Mobilità) che fa il jump alla sezione.
-
-**Done quando**: gli esercizi sono raggruppati per categoria con
-header chiari; i nomi simili sono più facili da distinguere; lo scroll
-è più rapido per trovare un esercizio specifico.
-
----
-
----
-
-### [29] Feedback tattile al cambio modalità (fit↔fat)
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟢 bassa
-**Area**: UX
-
-Confermato dall'utente: vibrazione al passaggio fit↔fat (long-press
-home o toggle Settings) per dare feedback "è iniziata la transizione".
-Sinergia con [28] (transizione visiva più lunga) e [17] (haptic
-sport).
-
-Implementazione:
-- Aggiungere `expo-haptics` (allineamento con [17] che lo richiede
-  comunque per completamento set).
-- `Haptics.notificationAsync(NotificationFeedbackType.Success)`
-  invocato all'avvio del long-press / toggle di `setAppMode()`.
-- Flag `hapticEnabled` in app_settings (default true), toggle in
-  Settings (entrambe le modalità).
-
-**Done quando**: long-press su tab Home produce un haptic breve nel
-momento esatto dello switch modalità; il flag è disattivabile da
-SportSettings / SettingsScreen.
-
----
-
-### [30] Pulsante utente anche in fit (profilo trasversale)
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟢 bassa
-**Area**: UX (fit)
-
-In modalità diet `HomeScreen` ha icone `cog` (Settings) e `user`
-(Profile) nel right slot di `ScreenHeader`. In modalità fit
-`SportHomeScreen` ha solo `cog` (SportSettings). Il profilo utente
-(peso/altezza/età/obiettivo) è trasversale tra le due modalità — il
-peso serve a calcolare le calorie sport via MET — quindi l'utente
-si aspetta di poter editare il profilo anche da fit senza dover
-prima switchare a diet.
-
-Implementazione: aggiungere icona `user` allo stesso slot in
-`SportHomeScreen.tsx`, con `navigate('Profile')`. Ma `Profile` è
-una Tab.Screen di `MainTabNavigator` (diet), non di
-`SportTabNavigator`. Opzioni:
-- Registrare `Profile` come Tab.Screen anche in `SportTabNavigator`
-  (nascosta dalla bar) — duplicato, ma navigazione locale.
-- Switch automatico a diet → tab Profile, poi switch back a fit
-  alla chiusura. Sgraziato.
-- Convertire `ProfileScreen` in modal/stack screen sopra entrambi i
-  tab navigator (cambio architetturale più grosso).
-
-**Done quando**: dalla home fit l'utente può aprire la stessa
-ProfileScreen che vede da diet, modificare peso/etc, salvare, e
-tornare alla home fit; il calcolo calorie sport recepisce il nuovo
-peso.
 
 ---
 
@@ -652,6 +516,113 @@ contro spam.
 ---
 
 ## ✅ Fatto
+
+### [chiusa] [44] Bug: switch fit→fat a volte atterra su BarcodeScreen
+
+**Aperta**: 2026-05-07 — **Chiusa**: 2026-05-07
+
+Root cause: `RootNavigator` aveva un singolo `<NavigationContainer>`
+con due tab navigator condizionali (Main vs Sport) come children.
+React unmontava/montava i tab navigator al cambio di `appMode`, ma
+il NavigationContainer rimaneva lo stesso istante e preservava la
+propria navigation state interna attraverso lo swap.
+
+Se il route focused era un nome che non esisteva nel nuovo navigator
+(es. `Workouts` in sport → swap a diet), il container ricadeva sul
+primo tab dichiarato (`Barcode` in fat = primo nell'ordine di
+Tab.Screen) ignorando `initialRouteName="Home"`. Coincideva col
+sintomo "a volte atterro su Barcode" — succedeva quando l'utente
+prima dello switch era su un tab specifico della modalità sport.
+Da fit a `Tabata`/`Workouts`/`Exercises` il bug si presentava;
+da `Home` (route comune ai due navigator) no.
+
+Fix: aggiunto `key={appMode}` a `<NavigationContainer>` in
+`RootNavigator.tsx`. Forza un full-remount del container ad ogni
+switch di modalità — niente più state carry-over, il nuovo navigator
+parte sempre dallo stato pulito con `initialRouteName="Home"` che
+viene rispettato. Visivamente coperto dal `<ModeTransitionOverlay>`
+(~1500ms cross-fade in `App.tsx`), zero flicker percepito.
+
+Alternativa scartata: `useEffect + navigationRef.reset` nel
+RootNavigator. Più surgical ma race-prone (la `useEffect` fire dopo
+il commit del nuovo navigator, l'utente vede brevemente Barcode prima
+del jump a Home). La key-based remount è deterministica.
+
+Verifica: typecheck OK, lint 0 problems. QA manuale a carico
+dell'utente al prossimo build (riproduzione: fit on Workouts →
+toggle a fat → atterra su Home).
+
+---
+
+### [chiusa] [45] + [30] Pulsante Settings + Utente in tutte le schermate
+
+**Aperta**: 2026-05-02 ([30]) / 2026-05-07 ([45]) — **Chiusa**: 2026-05-07
+
+Chiuse insieme perché [45] è un superset di [30].
+
+Nuovo primitive `src/components/HeaderActions.tsx`: coppia `user` +
+`cog` nel right slot. Decide la rotta del cog via `useAppSettings()`
+(Settings in diet, SportSettings in sport) — un solo punto di verità
+per l'icona impostazioni cross-modalità. Icone size 24 (uniformata —
+SportHomeScreen usava 22).
+
+`Profile` registrato come Tab.Screen nascosta anche in
+`SportTabNavigator` (riusa lo stesso `ProfileScreen` di diet). Path
+locale, niente switch di modalità forzato per accedere al profilo
+da fit. Aggiunto `Profile: undefined` a `SportTabParamList`.
+
+Schermate aggiornate (10 totali):
+- **Diet (5)**: `HomeScreen` (refactor: blocco inline → primitive),
+  `BarcodeScreen`, `FavoritesScreen`, `HistoryScreen`, `FoodSearchScreen`.
+- **Fit (5)**: `SportHomeScreen` (refactor: solo cog → primitive con
+  cog+user), `WorkoutsScreen`, `TabataScreen`, `SportHistoryScreen`,
+  `ExercisesScreen`.
+
+`TabataScreen` aveva già un `cog` per "Personalizza Tabata" — clash
+con il cog di Settings. Sostituito con `pencil` (semantica
+"edit/customize" preservata). Le 4 icone affiancate (pencil + info +
+user + cog) entrano comodamente perché lo header del Tabata non ha
+subtitle.
+
+Skippate volutamente: `Settings`/`SportSettings`/`Profile` (sono
+le destinazioni del cog/user, non avrebbe senso) e
+`ActiveSessionScreen` (modal di sessione live, UX dedicata immersiva
+— interrompere con cog/user durante un set sarebbe un bug).
+
+Cleanup secondario:
+- Stile orfano `headerActions` rimosso da `HomeScreen` (era usato
+  solo dal vecchio blocco inline).
+- Import `useNavigation`/`BottomTabNavigationProp`/`TabParamList` +
+  variable `navigation` rimossi da `HomeScreen` (ora la navigation
+  vive dentro `HeaderActions`).
+
+Verifica: typecheck OK, lint 0 problems.
+
+---
+
+### [chiusa] [7] Proporre PR Workflow CI
+
+**Aperta**: 2026-05-01 — **Chiusa**: 2026-05-07
+
+Commit `63aa976` su branch `claude/review-todo-list-jo3yK`. Aggiunto
+`.github/workflows/ci.yml`: trigger su `push: branches: [main]` +
+`pull_request:` (qualsiasi base). Job singolo `validate` su
+`ubuntu-latest` con Node 20 LTS, cache npm via `actions/setup-node@v4`,
+`npm ci` → `npm run typecheck` → `npm run lint`. Sequenziale per leggere
+chiaro l'output di ogni step e perché lo step di install è già
+condiviso.
+
+I gate locali introdotti in [5]/[41]/[42] (lint+typecheck nel
+`fattrack.bat:menu_release`) restano operativi: il workflow CI è il
+backstop per regressioni che sfuggono al run locale (es. dimenticato
+di lanciare prima del push) e abilita la branch protection sul PR
+flow lato GitHub.
+
+**Follow-up lato proprietario** (non bloccante per la chiusura):
+abilitare branch protection su `main` richiedendo il check `Typecheck
+& Lint` come required prima del merge — rende il gate vincolante.
+
+---
 
 ### [chiusa] [42] Cleanup warning `react-hooks/exhaustive-deps`
 

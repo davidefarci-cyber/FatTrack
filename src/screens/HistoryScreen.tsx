@@ -2,6 +2,7 @@ import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/Card';
+import { HeaderActions } from '@/components/HeaderActions';
 import { HistoryChart } from '@/components/HistoryChart';
 import { HistoryInsightsRow } from '@/components/HistoryInsightsRow';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -41,6 +42,7 @@ export default function HistoryScreen() {
         title="Storico"
         subtitle="Andamento delle tue calorie"
         style={{ paddingTop: insets.top + spacing.xl }}
+        right={<HeaderActions />}
       />
 
       <ScrollView

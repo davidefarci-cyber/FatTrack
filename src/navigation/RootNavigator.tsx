@@ -26,10 +26,15 @@ export const navigationRef = createNavigationContainerRef<
 // (useSyncExternalStore in useProfile / useAppSettings): un cambio di
 // modalità rerendera questo componente e monta l'altro tab navigator.
 //
-// La transizione cross-fade animata arriva in Fase 5: per ora il rerender
-// è "secco". L'ordine `ThemeProvider > NavigationContainer > tabs` fa sì
-// che anche l'OnboardingScreen erediti il tema (irrilevante: usa solo
-// token neutri).
+// `key={appMode}` su NavigationContainer forza un full-remount del
+// container ad ogni switch di modalità. Senza key, il container
+// preservava la propria navigation state attraverso il cambio di
+// child: se l'utente era su un route che non esiste nel nuovo
+// navigator (es. `Workouts` in fit → swap a fat), il container
+// ricadeva sul primo tab dichiarato (`Barcode` in fat) ignorando
+// `initialRouteName="Home"`. Bug "atterro su BarcodeScreen invece
+// che Home" (vedi TODO [44]). Il remount è coperto visivamente da
+// ModeTransitionOverlay (~1500ms cross-fade in App.tsx).
 export function RootNavigator() {
   const { profile, loading: profileLoading } = useProfile();
   const { appMode, loading: settingsLoading } = useAppSettings();
@@ -40,7 +45,7 @@ export function RootNavigator() {
 
   return (
     <ThemeProvider mode={appMode}>
-      <NavigationContainer ref={navigationRef}>
+      <NavigationContainer ref={navigationRef} key={appMode}>
         {profile === null ? (
           <OnboardingScreen />
         ) : appMode === 'sport' ? (

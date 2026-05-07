@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/Card';
+import { HeaderActions } from '@/components/HeaderActions';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { SessionDetailModal } from '@/components/sport/SessionDetailModal';
@@ -133,6 +134,7 @@ export default function SportHistoryScreen() {
         title="Storico"
         subtitle="Le tue sessioni"
         style={{ paddingTop: insets.top + spacing.xl }}
+        right={<HeaderActions />}
       />
 
       <ScrollView

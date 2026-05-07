@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FoodSearchList } from '@/components/FoodSearchList';
+import { HeaderActions } from '@/components/HeaderActions';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useFoodSearch } from '@/hooks/useFoodSearch';
 import { colors, spacing } from '@/theme';
@@ -23,6 +24,7 @@ export default function FoodSearchScreen() {
         title="Cerca alimento"
         subtitle="Database e Open Food Facts"
         style={{ paddingTop: insets.top + spacing.xl }}
+        right={<HeaderActions />}
       />
       <View style={[styles.body, { paddingBottom: insets.bottom + spacing.screen }]}>
         <FoodSearchList

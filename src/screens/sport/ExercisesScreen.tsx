@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { HeaderActions } from '@/components/HeaderActions';
 import { Icon } from '@/components/Icon';
 import { Input } from '@/components/Input';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -156,6 +157,7 @@ export default function ExercisesScreen() {
         title="Esercizi"
         subtitle="Libreria + guida"
         style={{ paddingTop: insets.top + spacing.xl }}
+        right={<HeaderActions />}
       />
 
       <View style={styles.controls}>
