@@ -9,14 +9,24 @@
 #   0 = verb invocato (Quick Share aperto)
 #   1 = errore generico (file non trovato, ParseName fallito, ...)
 #   2 = verb "Quick Share" non registrato sul PC (fallback grazioso)
+#
+# Nota PowerShell: param block intenzionalmente plain — niente
+# [CmdletBinding()] e niente [Parameter(...)]. La combinazione triggava
+# AmbiguousParameterSet su PS 5.1 per via dei common parameters
+# (-Verbose, -Debug, ...) auto-aggiunti che facevano fallire la
+# parameter binding al lancio dello script. Validazione manuale sotto.
 
-[CmdletBinding()]
 param(
-    [Parameter(Mandatory=$true, Position=0)]
     [string]$ApkPath
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($ApkPath)) {
+    Write-Host "ERRORE: passare il path dell'APK come argomento."
+    Write-Host "Uso: powershell -File quickshare-send.ps1 ""C:\path\to\file.apk"""
+    exit 1
+}
 
 if (-not (Test-Path -LiteralPath $ApkPath)) {
     Write-Host "ERRORE: file non trovato: $ApkPath"
