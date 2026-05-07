@@ -2,15 +2,16 @@
 
 ## Istruzioni per la chat GPT
 
-Genera UNA immagine per ognuno dei 5 prompt elencati sotto. Lo stile, palette, formato e vincoli sono già nelle Instructions del Custom GPT — ogni prompt qui ripete SOLO i dati specifici dell'esercizio. Applica le specifiche stile delle Instructions a ogni immagine.
+Genera UNA immagine per ognuno dei 6 prompt elencati sotto. Lo stile, palette, formato e vincoli sono già nelle Instructions del Custom GPT — ogni prompt qui ripete SOLO i dati specifici dell'esercizio. Applica le specifiche stile delle Instructions a ogni immagine.
 
-Al termine di tutte le 5 immagini, raggruppale in un singolo file ZIP chiamato `fattrack-exercises-batch-01.zip` con i PNG nominati esattamente come indicato nel campo "**Nome file**" di ogni blocco. I nomi devono essere:
+Al termine di tutte le 6 immagini, raggruppale in un singolo file ZIP chiamato `fattrack-exercises-batch-01.zip` con i PNG nominati esattamente come indicato nel campo "**Nome file**" di ogni blocco. I nomi devono essere:
 
-- push-up-ginocchia.png
-- push-up-inclinati.png
-- dead-hang.png
-- scapular-pull.png
-- glute-bridge-una-gamba.png
+- muscle-up-regression.png
+- tuck-planche-hold.png
+- l-sit-tuck-a-terra.png
+- crow-pose.png
+- wall-handstand-hold.png
+- hindu-push-up.png
 
 Niente cartelle interne nello ZIP, file PNG flat alla radice.
 
@@ -19,91 +20,99 @@ Niente cartelle interne nello ZIP, file PNG flat alla radice.
 Tutte le immagini di questo batch seguono le specifiche stile FatTrack già nelle tue Instructions: palette stretta (#FF7A1A / #D45C00 / #FFE0C8 / #1E2532 / #FFFFFF), niente testo nell'immagine, sfondo bianco/trasparente, stile vettoriale flat moderno, formato in base alla strategy.
 
 ---
-## 1. Push-up sui ginocchi
+## 1. Muscle-up regression
 
-**Nome file**: `push-up-ginocchia.png`
-
-```text
-ESERCIZIO: Push-up sui ginocchi
-STRATEGIA: dual
-VISTA: lateral
-PERSONAGGIO: F
-
-FRAME 1: Posizione alta: mani a terra alla larghezza delle spalle, braccia tese, ginocchia a terra con caviglie incrociate sollevate, corpo allineato in linea retta dalla testa alle ginocchia, core attivo.
-
-FRAME 2: Posizione bassa: gomiti piegati, petto vicino al pavimento, corpo ancora allineato dalla testa alle ginocchia, ginocchia ancora a terra.
-
-NOTE: Fondamentale che il corpo formi una linea retta da testa a ginocchia (non seduta/arco) in entrambi i frame.
-```
-
----
-## 2. Push-up inclinati
-
-**Nome file**: `push-up-inclinati.png`
+**Nome file**: `muscle-up-regression.png`
 
 ```text
-ESERCIZIO: Push-up inclinati
+ESERCIZIO: Muscle-up regression
 STRATEGIA: dual
 VISTA: lateral
 PERSONAGGIO: M
 
-FRAME 1: Posizione alta: mani sul bordo di una panca bassa (#1E2532) o sedia stabile, braccia tese, piedi a terra distanziati, corpo inclinato in linea retta dalle spalle ai talloni con testa più alta dei piedi.
+FRAME 1: Trazione esplosiva: appeso a una sbarra orizzontale spessa (#1E2532) in alto, presa prona, petto tirato fino alla sbarra, gomiti piegati al massimo, corpo leggermente inclinato in avanti.
 
-FRAME 2: Posizione bassa: gomiti piegati, petto sfiorava il bordo della panca, corpo ancora in linea retta inclinata, piedi fermi a terra.
+FRAME 2: Transizione sopra la sbarra: polsi ruotati e spinti sopra la sbarra, gomiti che passano dall'alto verso il basso, busto inclinato avanti oltre la sbarra, braccia quasi tese che completano il dip.
 
-NOTE: La panca è un rettangolo basso #1E2532 vista laterale su cui poggiano le mani. L'inclinazione deve essere evidente (mani alte, piedi bassi).
+NOTE: La sbarra è una linea orizzontale spessa #1E2532 in cima al frame. I due frame mostrano il momento-chiave prima e dopo la transizione.
 ```
 
 ---
-## 3. Dead hang
+## 2. Tuck planche hold
 
-**Nome file**: `dead-hang.png`
+**Nome file**: `tuck-planche-hold.png`
 
 ```text
-ESERCIZIO: Dead hang
+ESERCIZIO: Tuck planche hold
 STRATEGIA: single
-VISTA: frontal
+VISTA: lateral
 PERSONAGGIO: F
 
-FRAME: Vista frontale: appesa a una sbarra orizzontale spessa (#1E2532) in alto al centro dell'immagine, presa prona alla larghezza delle spalle, braccia completamente distese, corpo verticale con piedi staccati da terra, spalle aperte e attive (non shrugged), gambe unite e rilassate.
+FRAME: Tenuta planche tuck: braccia tese, mani a terra, busto inclinato in avanti a circa 45°, scapole protratte (spalle che spingono il pavimento lontano), ginocchia raccolte al petto con piedi sollevati da terra e appoggiati sui tricipiti, corpo bilanciato sulle sole mani.
 
-NOTE: La sbarra è una linea orizzontale spessa #1E2532 in cima all'immagine. Vista frontale per leggere la verticalità e la presa.
+NOTE: Vista laterale per mostrare l'inclinazione del busto e il sollevamento completo dei piedi da terra.
 ```
 
 ---
-## 4. Scapular pull
+## 3. L-sit tuck a terra
 
-**Nome file**: `scapular-pull.png`
+**Nome file**: `l-sit-tuck-a-terra.png`
 
 ```text
-ESERCIZIO: Scapular pull
-STRATEGIA: dual
-VISTA: frontal
+ESERCIZIO: L-sit tuck a terra
+STRATEGIA: single
+VISTA: lateral
 PERSONAGGIO: M
 
-FRAME 1: Posizione di partenza vista frontale: appeso a una sbarra orizzontale spessa (#1E2532), braccia completamente distese, scapole rilassate/elevate, corpo verticale, piedi staccati da terra.
-
-FRAME 2: Posizione contratta vista frontale: stessa posizione appesa ma scapole abbassate e retratte (corpo salito di pochi centimetri visibili), braccia ancora completamente tese — NESSUNA flessione del gomito, solo movimento scapolare.
-
-NOTE: La differenza tra i due frame deve essere inequivocabile: frame 1 = spalle vicine alle orecchie, frame 2 = spalle abbassate con leggero sollevamento del busto. Braccia TESE in entrambi.
+FRAME: Tenuta L-sit tuck: seduto a terra, mani a terra a fianco dei fianchi con braccia tese, glutei sollevati dal pavimento, ginocchia raccolte al petto con piedi sollevati, spalle basse e lontane dalle orecchie, corpo bilanciato sulle sole mani.
 ```
 
 ---
-## 5. Glute bridge a una gamba
+## 4. Crow pose
 
-**Nome file**: `glute-bridge-una-gamba.png`
+**Nome file**: `crow-pose.png`
 
 ```text
-ESERCIZIO: Glute bridge a una gamba
+ESERCIZIO: Crow pose
+STRATEGIA: single
+VISTA: lateral
+PERSONAGGIO: F
+
+FRAME: Crow pose: mani a terra alla larghezza delle spalle con gomiti leggermente piegati, ginocchia appoggiate sulla parte alta dei tricipiti, piedi sollevati da terra, busto inclinato in avanti, schiena arrotondata verso l'alto, sguardo poco oltre le mani, corpo bilanciato sulle sole mani.
+```
+
+---
+## 5. Wall handstand hold
+
+**Nome file**: `wall-handstand-hold.png`
+
+```text
+ESERCIZIO: Wall handstand hold
+STRATEGIA: single
+VISTA: lateral
+PERSONAGGIO: M
+
+FRAME: Verticale al muro vista laterale: mani a terra a circa 20-30 cm dalla parete (linea verticale spessa #1E2532), braccia tese, corpo completamente invertito, talloni appoggiati al muro, linea retta dalla testa ai talloni, scapole protratte, core e glutei contratti, sguardo tra le mani.
+
+NOTE: Il muro è una linea verticale spessa #1E2532 sul lato destro del frame, i talloni vi si appoggiano.
+```
+
+---
+## 6. Hindu push-up
+
+**Nome file**: `hindu-push-up.png`
+
+```text
+ESERCIZIO: Hindu push-up
 STRATEGIA: dual
 VISTA: lateral
 PERSONAGGIO: F
 
-FRAME 1: Posizione di partenza: distesa supina, una gamba piegata col piede a terra vicino al gluteo, l'altra gamba estesa tesa verso l'alto a circa 45°, braccia lungo i fianchi, bacino a terra.
+FRAME 1: Posizione di partenza: corpo a "V rovesciata" (downward dog), bacino alto, gambe tese, braccia tese, mani e piedi a terra, sguardo verso i piedi.
 
-FRAME 2: Posizione contratta: bacino sollevato formando una linea retta da spalla a ginocchio della gamba piegata, gluteo contratto, gamba estesa ancora tesa in linea col busto (parallela al pavimento o leggermente sopra), bacino livellato senza inclinazioni laterali.
+FRAME 2: Posizione cobra: gomiti distesi, petto sollevato e spinto in avanti e in alto, bacino verso il pavimento, gambe tese ancora a terra, sguardo verso l'alto — movimento fluido in avanti rispetto al frame 1.
 
-NOTE: La differenza tra i frame deve essere netta: bacino a terra vs bacino alto. La gamba estesa rimane tesa e parallela al pavimento nel frame 2.
+NOTE: I due frame mostrano le due posizioni estreme dell'onda: V rovesciata (alto) e cobra (basso-avanti). La differenza deve essere netta.
 ```
 
 ---
@@ -112,4 +121,4 @@ NOTE: La differenza tra i frame deve essere netta: bacino a terra vs bacino alto
 
 ## Output finale richiesto
 
-Quando hai completato tutte le 5 immagini di questo batch, raggruppale in `fattrack-exercises-batch-01.zip` con i nomi file esatti indicati in ciascun blocco. Conferma a fine generazione che ogni filename corrisponde correttamente prima di creare lo ZIP.
+Quando hai completato tutte le 6 immagini di questo batch, raggruppale in `fattrack-exercises-batch-01.zip` con i nomi file esatti indicati in ciascun blocco. Conferma a fine generazione che ogni filename corrisponde correttamente prima di creare lo ZIP.

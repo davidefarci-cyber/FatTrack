@@ -763,6 +763,74 @@ const MANIFEST = [
     notes: 'Vista a 3/4 dall\'alto per leggere la rotazione del busto.',
   },
 
+  // ─── SKILL CALISTENICI (6) ───────────────────────────────────
+  {
+    slug: 'muscle-up-regression',
+    name: 'Muscle-up regression',
+    strategy: 'dual',
+    view: 'lateral',
+    character: 'M',
+    frames: [
+      'Trazione esplosiva: appeso a una sbarra orizzontale spessa (#1E2532) in alto, presa prona, petto tirato fino alla sbarra, gomiti piegati al massimo, corpo leggermente inclinato in avanti.',
+      'Transizione sopra la sbarra: polsi ruotati e spinti sopra la sbarra, gomiti che passano dall\'alto verso il basso, busto inclinato avanti oltre la sbarra, braccia quasi tese che completano il dip.',
+    ],
+    notes: 'La sbarra è una linea orizzontale spessa #1E2532 in cima al frame. I due frame mostrano il momento-chiave prima e dopo la transizione.',
+  },
+  {
+    slug: 'tuck-planche-hold',
+    name: 'Tuck planche hold',
+    strategy: 'single',
+    view: 'lateral',
+    character: 'F',
+    frames: [
+      'Tenuta planche tuck: braccia tese, mani a terra, busto inclinato in avanti a circa 45°, scapole protratte (spalle che spingono il pavimento lontano), ginocchia raccolte al petto con piedi sollevati da terra e appoggiati sui tricipiti, corpo bilanciato sulle sole mani.',
+    ],
+    notes: 'Vista laterale per mostrare l\'inclinazione del busto e il sollevamento completo dei piedi da terra.',
+  },
+  {
+    slug: 'l-sit-tuck-a-terra',
+    name: 'L-sit tuck a terra',
+    strategy: 'single',
+    view: 'lateral',
+    character: 'M',
+    frames: [
+      'Tenuta L-sit tuck: seduto a terra, mani a terra a fianco dei fianchi con braccia tese, glutei sollevati dal pavimento, ginocchia raccolte al petto con piedi sollevati, spalle basse e lontane dalle orecchie, corpo bilanciato sulle sole mani.',
+    ],
+  },
+  {
+    slug: 'crow-pose',
+    name: 'Crow pose',
+    strategy: 'single',
+    view: 'lateral',
+    character: 'F',
+    frames: [
+      'Crow pose: mani a terra alla larghezza delle spalle con gomiti leggermente piegati, ginocchia appoggiate sulla parte alta dei tricipiti, piedi sollevati da terra, busto inclinato in avanti, schiena arrotondata verso l\'alto, sguardo poco oltre le mani, corpo bilanciato sulle sole mani.',
+    ],
+  },
+  {
+    slug: 'wall-handstand-hold',
+    name: 'Wall handstand hold',
+    strategy: 'single',
+    view: 'lateral',
+    character: 'M',
+    frames: [
+      'Verticale al muro vista laterale: mani a terra a circa 20-30 cm dalla parete (linea verticale spessa #1E2532), braccia tese, corpo completamente invertito, talloni appoggiati al muro, linea retta dalla testa ai talloni, scapole protratte, core e glutei contratti, sguardo tra le mani.',
+    ],
+    notes: 'Il muro è una linea verticale spessa #1E2532 sul lato destro del frame, i talloni vi si appoggiano.',
+  },
+  {
+    slug: 'hindu-push-up',
+    name: 'Hindu push-up',
+    strategy: 'dual',
+    view: 'lateral',
+    character: 'F',
+    frames: [
+      'Posizione di partenza: corpo a "V rovesciata" (downward dog), bacino alto, gambe tese, braccia tese, mani e piedi a terra, sguardo verso i piedi.',
+      'Posizione cobra: gomiti distesi, petto sollevato e spinto in avanti e in alto, bacino verso il pavimento, gambe tese ancora a terra, sguardo verso l\'alto — movimento fluido in avanti rispetto al frame 1.',
+    ],
+    notes: 'I due frame mostrano le due posizioni estreme dell\'onda: V rovesciata (alto) e cobra (basso-avanti). La differenza deve essere netta.',
+  },
+
   // ─── MOBILITÀ (3 finali) ─────────────────────────────────────
   {
     slug: 'leg-swings',
