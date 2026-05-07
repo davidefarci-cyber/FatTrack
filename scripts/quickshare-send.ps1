@@ -28,14 +28,18 @@ if ([string]::IsNullOrWhiteSpace($ApkPath)) {
     exit 1
 }
 
-if (-not (Test-Path -LiteralPath $ApkPath)) {
+if (-not [System.IO.File]::Exists($ApkPath)) {
     Write-Host "ERRORE: file non trovato: $ApkPath"
     exit 1
 }
 
-$abs  = (Resolve-Path -LiteralPath $ApkPath).Path
-$dir  = Split-Path -LiteralPath $abs -Parent
-$leaf = Split-Path -LiteralPath $abs -Leaf
+# .NET path API invece di Resolve-Path / Split-Path: i cmdlet PS 5.1
+# hanno parameter set quirks (es. -LiteralPath + -Parent triggera
+# AmbiguousParameterSet in certe config). [System.IO.Path] è statico
+# .NET, niente parameter binding di mezzo.
+$abs  = [System.IO.Path]::GetFullPath($ApkPath)
+$dir  = [System.IO.Path]::GetDirectoryName($abs)
+$leaf = [System.IO.Path]::GetFileName($abs)
 
 try {
     $shell  = New-Object -ComObject Shell.Application
