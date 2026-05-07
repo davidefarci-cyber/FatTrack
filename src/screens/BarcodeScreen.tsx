@@ -6,6 +6,7 @@ import { BarcodeResultCard, BARCODE_SUCCESS_RESET_MS } from '@/components/Barcod
 import type { BarcodeResultCardState } from '@/components/BarcodeResultCard';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { HeaderActions } from '@/components/HeaderActions';
 import { ScannerView } from '@/components/ScannerView';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
@@ -116,6 +117,7 @@ export default function BarcodeScreen() {
         title="Scansiona"
         subtitle="Leggi il barcode di un prodotto"
         style={{ paddingTop: insets.top + spacing.xl }}
+        right={<HeaderActions />}
       />
 
       <ScrollView

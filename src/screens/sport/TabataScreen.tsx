@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { HeaderActions } from '@/components/HeaderActions';
 import { Icon } from '@/components/Icon';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
@@ -210,7 +211,7 @@ export default function TabataScreen() {
               hitSlop={8}
               style={styles.headerIconBtn}
             >
-              <Icon name="cog" size={22} color={colors.textSec} />
+              <Icon name="pencil" size={22} color={colors.textSec} />
             </Pressable>
             <Pressable
               onPress={() => setInfoOpen(true)}
@@ -221,6 +222,7 @@ export default function TabataScreen() {
             >
               <Icon name="info" size={22} color={colors.textSec} />
             </Pressable>
+            <HeaderActions />
           </View>
         }
       />

@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/Card';
 import { FAB } from '@/components/FAB';
+import { HeaderActions } from '@/components/HeaderActions';
 import { Icon } from '@/components/Icon';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
@@ -406,6 +407,7 @@ export default function WorkoutsScreen() {
         title="Schede"
         subtitle="Programmi multi-giorno + schede singole"
         style={{ paddingTop: insets.top + spacing.xl }}
+        right={<HeaderActions />}
       />
 
       <ScrollView

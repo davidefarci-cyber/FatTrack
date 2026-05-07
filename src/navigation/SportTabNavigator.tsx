@@ -11,6 +11,7 @@ import {
   useActiveSession,
 } from '@/contexts/ActiveSessionContext';
 import { useAppSettings } from '@/hooks/useAppSettings';
+import ProfileScreen from '@/screens/ProfileScreen';
 import ActiveSessionScreen from '@/screens/sport/ActiveSessionScreen';
 import ExercisesScreen from '@/screens/sport/ExercisesScreen';
 import SportHistoryScreen from '@/screens/sport/SportHistoryScreen';
@@ -117,6 +118,7 @@ export function SportTabNavigator() {
         <Tab.Screen name="History" component={SportHistoryScreen} />
         <Tab.Screen name="Exercises" component={ExercisesScreen} />
         <Tab.Screen name="SportSettings" component={SportSettingsScreen} />
+        <Tab.Screen name="Profile" component={ProfileScreen} />
       </Tab.Navigator>
 
       {activeSessionState && !sessionVisible ? (

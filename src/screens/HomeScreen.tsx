@@ -1,5 +1,3 @@
-import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { useNavigation } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   LayoutAnimation,
@@ -18,6 +16,7 @@ import { AddFoodSheet } from '@/components/AddFoodSheet';
 import { CoachMarkHost } from '@/components/CoachMarkHost';
 import { EditMealModal } from '@/components/EditMealModal';
 import { FavoritesModal } from '@/components/FavoritesModal';
+import { HeaderActions } from '@/components/HeaderActions';
 import { HomeSummaryCard } from '@/components/HomeSummaryCard';
 import { Icon } from '@/components/Icon';
 import { MealSection } from '@/components/MealSection';
@@ -34,7 +33,6 @@ import { useDailyLog } from '@/hooks/useDailyLog';
 import type { NewMealInput } from '@/hooks/useDailyLog';
 import { useProfile } from '@/hooks/useProfile';
 import { colors, radii, spacing, typography } from '@/theme';
-import type { TabParamList } from '@/types';
 import { DEFAULT_TARGET_KCAL } from '@/utils/calorieCalculator';
 import { lightHaptic } from '@/utils/haptics';
 import { computeMacroTargets } from '@/utils/macroTargets';
@@ -51,7 +49,6 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 // si apre qui sopra.
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<BottomTabNavigationProp<TabParamList>>();
   const toast = useToast();
   const { targetCalories } = useProfile();
   const { setAppMode, markSportModeSeen } = useAppSettings();
@@ -241,26 +238,7 @@ export default function HomeScreen() {
         title="Diario di oggi"
         subtitle="Pasti e calorie giornaliere"
         style={{ paddingTop: insets.top + spacing.xl }}
-        right={
-          <View style={styles.headerActions}>
-            <Pressable
-              onPress={() => navigation.navigate('Profile')}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Apri profilo"
-            >
-              <Icon name="user" size={24} color={colors.textSec} />
-            </Pressable>
-            <Pressable
-              onPress={() => navigation.navigate('Settings')}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Apri impostazioni"
-            >
-              <Icon name="cog" size={24} color={colors.textSec} />
-            </Pressable>
-          </View>
-        }
+        right={<HeaderActions />}
       />
 
       <GestureDetector gesture={swipeDayGesture}>
@@ -439,10 +417,5 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     gap: spacing.xxs,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xl,
   },
 });

@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/Button';
 import { CalorieRing } from '@/components/CalorieRing';
 import { Card } from '@/components/Card';
+import { HeaderActions } from '@/components/HeaderActions';
 import { Icon } from '@/components/Icon';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
@@ -220,16 +221,7 @@ export default function SportHomeScreen() {
         title={APP_NAME_SPORT}
         subtitle="Modalità sport"
         style={{ paddingTop: insets.top + spacing.xl }}
-        right={
-          <Pressable
-            onPress={() => navigation.navigate('SportSettings')}
-            accessibilityRole="button"
-            accessibilityLabel="Apri impostazioni sport"
-            hitSlop={8}
-          >
-            <Icon name="cog" size={22} color={colors.textSec} />
-          </Pressable>
-        }
+        right={<HeaderActions />}
       />
 
       <ScrollView
