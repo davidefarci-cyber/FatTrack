@@ -132,47 +132,6 @@ manuale su device).
 
 ---
 
-### [43] Mantieni schermo acceso durante sessione attiva
-
-**Aperta**: 2026-05-07
-**Priorità**: 🟡 media
-**Area**: UX (sport) / codice
-
-Durante una sessione di allenamento attiva (`ActiveSessionScreen`) lo
-schermo si spegne dopo il timeout di sistema Android. Conseguenze:
-il `RestTimer` non è più visibile, l'utente perde il countdown della
-pausa e — peggio — se l'OS sospende il task JS il timer può anche
-freezare, falsando la durata del recupero. Lo stesso problema vale
-per il banner sticky `<ActiveSessionBanner>` durante navigazione tra
-tab e per il `RunningView` di Tabata.
-
-Da fare: usare `expo-keep-awake` (lib ufficiale Expo SDK 51, già
-compatibile) — `useKeepAwake()` hook attivato SOLO durante:
-- `ActiveSessionScreen` con sessione live (o gestione centralizzata
-  in `ActiveSessionContext` quando `state.session != null`)
-- `RunningView` di `TabataScreen` quando il workout è in corso
-- `RestTimerStandaloneModal` quando aperto in fase countdown
-
-Importante: **non** attivarlo per l'intera app — drain batteria
-inaccettabile durante navigazione normale (libreria esercizi,
-storico, settings).
-
-Da considerare:
-- toggle in `SportSettings` ("Tieni schermo acceso durante
-  allenamento", default ON) — qualcuno con device flagship potrebbe
-  voler disattivare per risparmio batteria su sessioni lunghe
-- comportamento al background/foreground: se l'utente mette l'app
-  in background il keep-awake si rilascia (lo fa Android in
-  automatico)
-
-**Done quando**: durante una sessione attiva lo schermo non si
-blocca; il `RestTimer` rimane visibile fino al termine; analoga
-copertura per Tabata in `RunningView` e per il timer pausa
-standalone; chiusura/abbandono sessione disattiva il keep-awake;
-toggle in SportSettings permette di disattivarlo.
-
----
-
 ## 🟢 Priorità bassa
 
 ### [8] Persistere il consenso `REQUEST_INSTALL_PACKAGES`
@@ -516,6 +475,44 @@ contro spam.
 ---
 
 ## ✅ Fatto
+
+### [chiusa] [43] Mantieni schermo acceso durante sessione attiva
+
+**Aperta**: 2026-05-07 — **Chiusa**: 2026-05-14
+
+Aggiunta dipendenza `expo-keep-awake@~13.0.2`. Nuovo primitive
+`src/components/sport/KeepAwakeWhen.tsx`: piccolo wrapper che attiva
+`useKeepAwake(tag)` finché è montato — il caller controlla il mount con la
+condizione di scope.
+
+Tre punti di attivazione, tutti gated dal nuovo flag `keepAwakeEnabled`
+(default ON) salvato in `app_settings.keep_awake_enabled`:
+
+- **`ActiveSessionContext`**: mount nel Provider quando `state !== null`.
+  Copre sia `ActiveSessionScreen` che il banner sticky
+  `<ActiveSessionBanner>` durante la navigazione tra tab — un solo punto di
+  verità per la sessione live. Tag `fattrack-active-session`.
+- **`TabataScreen`**: mount quando `running && intervalState?.phase !== 'done'`.
+  Niente keep-awake nella brochure di config o a workout terminato. Tag
+  `fattrack-tabata-running`.
+- **`RestTimerStandaloneModal`**: mount quando `phase === 'running' || phase === 'paused'`.
+  Niente keep-awake in fase config o done. Tag `fattrack-rest-standalone`.
+
+Nuovo toggle "Mantieni schermo acceso durante allenamento" nella card
+"Allenamento" di `SportSettingsScreen`, sotto il toggle guide esercizio.
+Pattern copiato 1:1 dagli altri toggle (haptic + guide). Disabilita tutti
+e 3 i punti di attivazione con una sola riga.
+
+Schema DB: nuova colonna `app_settings.keep_awake_enabled INTEGER NOT NULL
+DEFAULT 1`, aggiunta sia al CREATE TABLE sia come `ALTER TABLE ADD COLUMN`
+idempotente in `db.ts`. Il backup l'include automaticamente via
+introspection `PRAGMA table_info` in `dbBackup.ts` (niente bump di
+`BACKUP_SCHEMA_VERSION`).
+
+Android rilascia il keep-awake automaticamente quando l'app va in
+background — nessun cleanup esplicito necessario.
+
+---
 
 ### [chiusa] [44] Bug: switch fit→fat a volte atterra su BarcodeScreen
 

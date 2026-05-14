@@ -26,6 +26,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   tabataRounds: 8,
   coachMarksSeen: {},
   exerciseGuidesEnabled: true,
+  keepAwakeEnabled: true,
   updatedAt: '',
 };
 
@@ -97,6 +98,12 @@ async function setExerciseGuidesEnabled(
   return updated;
 }
 
+async function setKeepAwakeEnabled(enabled: boolean): Promise<AppSettings> {
+  const updated = await appSettingsDB.setKeepAwakeEnabled(enabled);
+  setSnapshot({ settings: updated, loading: false, error: null });
+  return updated;
+}
+
 async function setSpotifyPlaylistUri(uri: string | null): Promise<AppSettings> {
   const updated = await appSettingsDB.setSpotifyPlaylistUri(uri);
   setSnapshot({ settings: updated, loading: false, error: null });
@@ -136,6 +143,7 @@ export type UseAppSettingsResult = {
   tabataRounds: number;
   coachMarksSeen: CoachMarksSeen;
   exerciseGuidesEnabled: boolean;
+  keepAwakeEnabled: boolean;
   loading: boolean;
   error: Error | null;
   setAppMode: (mode: AppMode) => Promise<AppSettings>;
@@ -143,6 +151,7 @@ export type UseAppSettingsResult = {
   setWeeklyTarget: (days: number) => Promise<AppSettings>;
   setHapticEnabled: (enabled: boolean) => Promise<AppSettings>;
   setExerciseGuidesEnabled: (enabled: boolean) => Promise<AppSettings>;
+  setKeepAwakeEnabled: (enabled: boolean) => Promise<AppSettings>;
   setSpotifyPlaylistUri: (uri: string | null) => Promise<AppSettings>;
   setTabataConfig: (config: {
     workSec: number;
@@ -165,6 +174,10 @@ export function useAppSettings(): UseAppSettingsResult {
   const setHapticFn = useCallback((e: boolean) => setHapticEnabled(e), []);
   const setExerciseGuidesFn = useCallback(
     (e: boolean) => setExerciseGuidesEnabled(e),
+    [],
+  );
+  const setKeepAwakeFn = useCallback(
+    (e: boolean) => setKeepAwakeEnabled(e),
     [],
   );
   const setSpotifyFn = useCallback(
@@ -192,6 +205,7 @@ export function useAppSettings(): UseAppSettingsResult {
     tabataRounds: settings.tabataRounds,
     coachMarksSeen: settings.coachMarksSeen,
     exerciseGuidesEnabled: settings.exerciseGuidesEnabled,
+    keepAwakeEnabled: settings.keepAwakeEnabled,
     loading: state.loading,
     error: state.error,
     setAppMode: setModeFn,
@@ -199,6 +213,7 @@ export function useAppSettings(): UseAppSettingsResult {
     setWeeklyTarget: setWeeklyTargetFn,
     setHapticEnabled: setHapticFn,
     setExerciseGuidesEnabled: setExerciseGuidesFn,
+    setKeepAwakeEnabled: setKeepAwakeFn,
     setSpotifyPlaylistUri: setSpotifyFn,
     setTabataConfig: setTabataFn,
     markCoachMarkSeen: markCoachFn,

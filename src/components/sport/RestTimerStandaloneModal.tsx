@@ -5,6 +5,8 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { BottomSheet } from '@/components/BottomSheet';
 import { Button } from '@/components/Button';
 import { Icon } from '@/components/Icon';
+import { KeepAwakeWhen } from '@/components/sport/KeepAwakeWhen';
+import { useAppSettings } from '@/hooks/useAppSettings';
 import { colors, radii, spacing, typography } from '@/theme';
 import { useAppTheme } from '@/theme/ThemeContext';
 import { lightHaptic, successHaptic } from '@/utils/haptics';
@@ -45,6 +47,7 @@ const BIP_SECONDS = [5, 4, 3, 2, 1] as const;
 
 export function RestTimerStandaloneModal({ visible, onClose }: Props) {
   const theme = useAppTheme();
+  const { keepAwakeEnabled } = useAppSettings();
   const [phase, setPhase] = useState<Phase>('config');
   const [durationSec, setDurationSec] = useState(DEFAULT_SEC);
   const [endsAt, setEndsAt] = useState<number | null>(null);
@@ -189,6 +192,9 @@ export function RestTimerStandaloneModal({ visible, onClose }: Props) {
 
   return (
     <BottomSheet visible={visible} onClose={handleClose} maxHeightPercent={90}>
+      {(phase === 'running' || phase === 'paused') && keepAwakeEnabled && (
+        <KeepAwakeWhen tag="fattrack-rest-standalone" />
+      )}
       <View style={styles.header}>
         <Pressable
           onPress={handleClose}

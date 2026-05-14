@@ -50,6 +50,8 @@ export default function SportSettingsScreen() {
     setHapticEnabled,
     exerciseGuidesEnabled,
     setExerciseGuidesEnabled,
+    keepAwakeEnabled,
+    setKeepAwakeEnabled,
     spotifyPlaylistUri,
     setSpotifyPlaylistUri,
   } = useAppSettings();
@@ -110,6 +112,12 @@ export default function SportSettingsScreen() {
     const next = !exerciseGuidesEnabled;
     await setExerciseGuidesEnabled(next);
     if (next) void successHaptic();
+  }
+
+  async function handleToggleKeepAwake() {
+    const next = !keepAwakeEnabled;
+    await setKeepAwakeEnabled(next);
+    if (next && hapticEnabled) void successHaptic();
   }
 
   async function handleSpotifyBlur() {
@@ -289,6 +297,41 @@ export default function SportSettingsScreen() {
                 ]}
               >
                 {exerciseGuidesEnabled ? 'ON' : 'OFF'}
+              </Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={handleToggleKeepAwake}
+            accessibilityRole="switch"
+            accessibilityLabel="Mantieni schermo acceso durante allenamento"
+            accessibilityState={{ checked: keepAwakeEnabled }}
+            style={styles.toggleRow}
+          >
+            <View style={styles.toggleText}>
+              <Text style={typography.bodyBold}>
+                Mantieni schermo acceso durante allenamento
+              </Text>
+              <Text style={typography.caption}>
+                Evita che lo schermo si blocchi durante sessioni attive, round
+                Tabata e timer pausa.
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.toggleChip,
+                keepAwakeEnabled
+                  ? { backgroundColor: theme.accent, borderColor: theme.accent }
+                  : { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.toggleChipText,
+                  { color: keepAwakeEnabled ? '#FFFFFF' : colors.textSec },
+                ]}
+              >
+                {keepAwakeEnabled ? 'ON' : 'OFF'}
               </Text>
             </View>
           </Pressable>

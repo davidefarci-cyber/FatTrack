@@ -25,6 +25,9 @@ export type AppSettings = {
   // mostra una "guida" overlay (immagine + step) prima del tracking input.
   // Default true. Disattivabile da SportSettings o dalla guida stessa.
   exerciseGuidesEnabled: boolean;
+  // Se true, durante sessione attiva / round Tabata / timer pausa standalone
+  // lo schermo resta acceso (via expo-keep-awake). Default true.
+  keepAwakeEnabled: boolean;
   updatedAt: string;
 };
 
@@ -39,6 +42,7 @@ const COLUMNS = `
   tabata_rounds AS tabataRounds,
   coach_marks_seen AS coachMarksSeen,
   exercise_guides_enabled AS exerciseGuidesEnabled,
+  keep_awake_enabled AS keepAwakeEnabled,
   updated_at AS updatedAt
 `;
 
@@ -53,6 +57,7 @@ type Row = {
   tabataRounds: number;
   coachMarksSeen: string;
   exerciseGuidesEnabled: number;
+  keepAwakeEnabled: number;
   updatedAt: string;
 };
 
@@ -85,6 +90,7 @@ function rowToSettings(row: Row): AppSettings {
     tabataRounds: row.tabataRounds,
     coachMarksSeen: parseCoachMarks(row.coachMarksSeen),
     exerciseGuidesEnabled: row.exerciseGuidesEnabled === 1,
+    keepAwakeEnabled: row.keepAwakeEnabled === 1,
     updatedAt: row.updatedAt,
   };
 }
@@ -152,6 +158,17 @@ export async function setExerciseGuidesEnabled(
   const db = await getDatabase();
   await db.runAsync(
     `UPDATE app_settings SET exercise_guides_enabled = ?, updated_at = datetime('now') WHERE id = 1`,
+    enabled ? 1 : 0,
+  );
+  return getAppSettings();
+}
+
+export async function setKeepAwakeEnabled(
+  enabled: boolean,
+): Promise<AppSettings> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `UPDATE app_settings SET keep_awake_enabled = ?, updated_at = datetime('now') WHERE id = 1`,
     enabled ? 1 : 0,
   );
   return getAppSettings();
