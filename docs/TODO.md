@@ -603,24 +603,23 @@ Verifica: typecheck OK, lint 0 problems.
 ### [chiusa] [7] Proporre PR Workflow CI
 
 **Aperta**: 2026-05-01 — **Chiusa**: 2026-05-07
+**Rivalutata e rimossa**: 2026-05-07
 
-Commit `63aa976` su branch `claude/review-todo-list-jo3yK`. Aggiunto
-`.github/workflows/ci.yml`: trigger su `push: branches: [main]` +
-`pull_request:` (qualsiasi base). Job singolo `validate` su
-`ubuntu-latest` con Node 20 LTS, cache npm via `actions/setup-node@v4`,
-`npm ci` → `npm run typecheck` → `npm run lint`. Sequenziale per leggere
-chiaro l'output di ogni step e perché lo step di install è già
-condiviso.
+Implementazione (commit `63aa976`): aggiunto `.github/workflows/ci.yml`
+con trigger su `push: branches: [main]` + `pull_request:` (qualsiasi
+base), job singolo su `ubuntu-latest` con Node 20 LTS, cache npm via
+`actions/setup-node@v4`, `npm ci` → `npm run typecheck` → `npm run lint`.
 
-I gate locali introdotti in [5]/[41]/[42] (lint+typecheck nel
-`fattrack.bat:menu_release`) restano operativi: il workflow CI è il
-backstop per regressioni che sfuggono al run locale (es. dimenticato
-di lanciare prima del push) e abilita la branch protection sul PR
-flow lato GitHub.
+**Rimosso lo stesso giorno** (commit di rimozione): il proprietario
+ha valutato che il check remoto era ridondante rispetto al gate
+locale già operativo in `fattrack.bat:menu_release` (voce [5]). Il
+repo è single-developer, ogni release passa dal bat che esegue
+typecheck + lint prima di buildare l'APK. Il valore aggiunto del
+backstop remoto (catch su push diretti senza bat, es. da Claude
+Code) non giustifica il rumore visivo su ogni PR.
 
-**Follow-up lato proprietario** (non bloccante per la chiusura):
-abilitare branch protection su `main` richiedendo il check `Typecheck
-& Lint` come required prima del merge — rende il gate vincolante.
+Se in futuro entrasse un secondo contributor o si volesse merit
+branch protection vincolante, riaprire come voce nuova.
 
 ---
 
