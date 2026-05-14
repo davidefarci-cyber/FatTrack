@@ -98,6 +98,7 @@ async function saveProfile(input: ProfileInput): Promise<UserProfile> {
     targetWeightKg: input.targetWeightKg ?? snapshot.profile?.targetWeightKg ?? null,
     startWeightKg: input.startWeightKg ?? snapshot.profile?.startWeightKg ?? null,
     availableEquipment: snapshot.profile?.availableEquipment ?? [],
+    avatarUri: snapshot.profile?.avatarUri ?? null,
   });
   setSnapshot({ profile: saved, loading: false, error: null });
   return saved;

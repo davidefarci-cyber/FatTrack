@@ -5,6 +5,8 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import { Alert, AppState, Linking, Platform } from 'react-native';
 import type { AppStateStatus } from 'react-native';
 
+import { compareVersions } from './semver';
+
 // GitHub Releases API: cache lato server praticamente assente, tag_name è
 // la versione, body contiene le note, asset .apk il link al binario.
 const RELEASES_API_URL =
@@ -42,16 +44,18 @@ export type ManualCheckResult =
   | 'up-to-date' // gia' all'ultima versione
   | 'error'; // network / payload / runtime non determinabile
 
-// Entry point: fire-and-forget dall'App.tsx. Non lancia mai: qualunque
-// errore (offline, JSON malformato, ecc.) viene soffocato.
+// Entry point: invocato dall'App.tsx al cold-start. Non lancia mai:
+// qualunque errore (offline, JSON malformato, ecc.) viene soffocato.
+// Ritorna l'esito così il chiamante può orchestrare check successivi
+// (es. il popup "in arrivo" non si mostra se l'alert update è aperto).
 // Si registra anche un listener AppState così se l'utente lascia l'app
 // aperta in background per un po', al rientro ricontrolla.
-export async function checkForUpdates(): Promise<void> {
+export async function checkForUpdates(): Promise<ManualCheckResult> {
   if (!appStateSubscribed) {
     appStateSubscribed = true;
     AppState.addEventListener('change', handleAppStateChange);
   }
-  await runCheck();
+  return runCheck();
 }
 
 // Variante invocata dal bottone "Cerca aggiornamenti" in Settings:
@@ -170,27 +174,6 @@ function isReleasesApiPayload(
       typeof (a as Record<string, unknown>).name === 'string' &&
       typeof (a as Record<string, unknown>).browser_download_url === 'string',
   );
-}
-
-// Confronto semver leggero: gestisce stringhe dot-separated numeriche.
-// Ritorna 1 se a > b, -1 se a < b, 0 se uguali. Segmenti non numerici
-// sono trattati come 0 (es. "1.0.0-beta" ≈ "1.0.0").
-function compareVersions(a: string, b: string): number {
-  const pa = a.split('.').map(toInt);
-  const pb = b.split('.').map(toInt);
-  const len = Math.max(pa.length, pb.length);
-  for (let i = 0; i < len; i++) {
-    const x = pa[i] ?? 0;
-    const y = pb[i] ?? 0;
-    if (x > y) return 1;
-    if (x < y) return -1;
-  }
-  return 0;
-}
-
-function toInt(segment: string): number {
-  const n = parseInt(segment, 10);
-  return Number.isFinite(n) ? n : 0;
 }
 
 function buildAlertBody(remote: RemoteVersion): string {

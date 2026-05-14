@@ -28,6 +28,10 @@ export type UserProfile = {
   // Attrezzatura disponibile in casa: filtra/rank schede ed esercizi.
   // Default [] = non specificato (nessun filtro applicato).
   availableEquipment: EquipmentTag[];
+  // URI restituito dal photo picker. null = niente foto, mostra l'iniziale.
+  // Non viene copiato in documentDirectory: se Android pulisce la cache,
+  // l'<Image> degrada gracefully via onError → wipe automatico del campo.
+  avatarUri: string | null;
 };
 
 type Row = Omit<UserProfile, 'availableEquipment'> & {
@@ -46,7 +50,8 @@ const COLUMNS = `
   name,
   target_weight_kg AS targetWeightKg,
   start_weight_kg AS startWeightKg,
-  available_equipment AS availableEquipment
+  available_equipment AS availableEquipment,
+  avatar_uri AS avatarUri
 `;
 
 function rowToProfile(row: Row): UserProfile {
@@ -63,6 +68,7 @@ function rowToProfile(row: Row): UserProfile {
     targetWeightKg: row.targetWeightKg,
     startWeightKg: row.startWeightKg,
     availableEquipment: parseEquipmentTags(row.availableEquipment),
+    avatarUri: row.avatarUri ?? null,
   };
 }
 
@@ -78,8 +84,8 @@ export async function upsertProfile(profile: UserProfile): Promise<UserProfile> 
   const db = await getDatabase();
   await db.runAsync(
     `INSERT INTO user_profile
-       (id, weight_kg, height_cm, age, gender, activity_level, weekly_goal_kg, tdee, target_calories, name, target_weight_kg, start_weight_kg, available_equipment)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       (id, weight_kg, height_cm, age, gender, activity_level, weekly_goal_kg, tdee, target_calories, name, target_weight_kg, start_weight_kg, available_equipment, avatar_uri)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        weight_kg = excluded.weight_kg,
        height_cm = excluded.height_cm,
@@ -92,7 +98,8 @@ export async function upsertProfile(profile: UserProfile): Promise<UserProfile> 
        name = excluded.name,
        target_weight_kg = excluded.target_weight_kg,
        start_weight_kg = excluded.start_weight_kg,
-       available_equipment = excluded.available_equipment`,
+       available_equipment = excluded.available_equipment,
+       avatar_uri = excluded.avatar_uri`,
     profile.weightKg,
     profile.heightCm,
     profile.age,
@@ -105,6 +112,7 @@ export async function upsertProfile(profile: UserProfile): Promise<UserProfile> 
     profile.targetWeightKg,
     profile.startWeightKg,
     serializeEquipmentTags(profile.availableEquipment),
+    profile.avatarUri,
   );
   const saved = await getProfile();
   if (!saved) throw new Error('Profile upsert failed');

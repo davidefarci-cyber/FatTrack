@@ -185,35 +185,6 @@ offline finché non lo dismissa o aggiorna.
 
 ---
 
-### [13] Foto profilo (avatar reale invece dell'iniziale)
-
-**Aperta**: 2026-05-01
-**Area**: UX / codice
-
-`ProfileScreen` mostra come avatar un cerchio con l'iniziale del nome.
-Carino e a costo zero ma poco personale. Idea: aggiungere
-`expo-image-picker` per permettere all'utente di scegliere una foto
-dalla galleria. URI persistito su `user_profile.avatar_uri` (il file
-sopravvive al reinstall? in realtà no — i picker restituiscono URI
-content:// non stabili. Va copiato in `FileSystem.documentDirectory`
-con `expo-file-system` per garantire persistenza).
-
-Implica:
-- nuova dipendenza `expo-image-picker` (richiede aggiunta permessi
-  `READ_MEDIA_IMAGES` su Android in `app.json`)
-- copia file in storage app + cleanup del file precedente
-- migrazione DB con colonna `avatar_uri TEXT`
-- export/import del backup deve gestire anche il file binario o
-  almeno re-encodarlo in base64 nel JSON
-
-**Done quando**: l'utente può scegliere una foto dalla galleria che
-appare come avatar in `ProfileScreen` e nello shortcut "Il tuo
-profilo" in `SettingsScreen`; la foto sopravvive al riavvio
-dell'app; l'export di backup la include o la salta esplicitamente
-con warning.
-
----
-
 ### [18] Video URL veri sugli esercizi
 
 **Aperta**: 2026-05-02
@@ -372,51 +343,6 @@ sport copertura come iterazione successiva o bonus se semplice.
 
 ---
 
-### [38] Popup "in arrivo" — teaser per feature future
-
-**Aperta**: 2026-05-05
-**Priorità**: 🟢 bassa
-**Area**: feature / codice / UX
-
-Idea: un file remoto nel repo (es. `upcoming.json` accanto a
-`version.json`, oppure una sezione dedicata nel body delle GitHub
-Releases) elenca le feature in arrivo con voci tipo:
-
-```
-{
-  "id": "spotify-oauth",
-  "title": "Controllo musica in-app",
-  "description": "Play/pause/next senza uscire dall'allenamento",
-  "eta_human": "prossime settimane",
-  "target_version": "2.1.0"
-}
-```
-
-All'avvio l'app fa fetch (riusando pattern + throttle di
-`updateChecker.ts`) e confronta con `seenUpcomingIds` salvati in
-AsyncStorage. Se trova voci nuove, mostra un popup informativo
-("Sta arrivando: <title> — <description>. Torna a trovarci tra
-<eta_human>!"). Stesso slot UI del messaggio "Novità" post-update,
-ma triggherato PRIMA del rilascio invece che dopo.
-
-Da decidere:
-- file dedicato vs sezione del body Releases (se sezione, va parsata
-  con un marker tipo `<!-- upcoming-start -->` ... `<!-- upcoming-end -->`)
-- frequenza fetch (allineata al throttle 1h di updateChecker o
-  rilassata a ogni cold-start)
-- vita dell'avviso: visto una volta basta? "non mostrare più"?
-  auto-dismiss quando `target_version` è stata rilasciata davvero
-  (così non si duplica con il messaggio Novità del post-update)?
-- design popup (riuso `Card` + bottone "Ho capito", o BottomSheet
-  per voci più ricche)
-
-**Done quando**: aggiornando un file remoto con una voce nuova,
-entro ~1h tutti gli utenti vedono un popup teaser; ogni voce viene
-mostrata una volta sola per device; quando la feature esce davvero
-il teaser non duplica il messaggio "Novità" post-aggiornamento.
-
----
-
 ### [39] Raccolta suggerimenti utente anonima
 
 **Aperta**: 2026-05-05
@@ -475,6 +401,86 @@ contro spam.
 ---
 
 ## ✅ Fatto
+
+### [chiusa] [13] Foto profilo (avatar reale invece dell'iniziale)
+
+**Aperta**: 2026-05-01 — **Chiusa**: 2026-05-14
+
+Approccio minimale rispetto alla bozza originale: nessuna copia in
+`FileSystem.documentDirectory`, nessuna inclusione nel backup, nessun
+warning. Salviamo solo l'URI restituito da `expo-image-picker` in
+`user_profile.avatar_uri`. Se Android ripulisce la cache o l'utente
+sposta il file, l'`<Image>` triggera `onError` → wipe automatico del
+campo via `patchProfile({ avatarUri: null })` → al prossimo render
+torna l'iniziale, niente errore visibile.
+
+UX in `IdentityCard` di `ProfileScreen`: tap diretto sull'avatar apre
+il photo picker della galleria (con crop quadrato `aspect: [1,1]` +
+`quality: 0.85`); se c'è già una foto, una piccola X rossa in basso a
+destra apre `Alert.alert` con conferma destruttiva per rimuoverla.
+Permessi gestiti dal plugin `expo-image-picker` (foto-only,
+`cameraPermission: false`, `microphonePermission: false`).
+
+DB:
+- nuova colonna `user_profile.avatar_uri TEXT` (nullable), aggiunta sia
+  al CREATE sia come ALTER TABLE idempotente in `db.ts`.
+- type `UserProfile` esteso con `avatarUri: string | null`,
+  `upsertProfile()` aggiornato. `useProfile.saveProfile` (onboarding)
+  preserva l'avatar corrente; `patchProfile()` gestisce già il merge.
+- `dbBackup.ts` introduce un'allowlist `EXCLUDED_EXPORT_COLUMNS`:
+  `user_profile.avatar_uri` non viene mai esportato (l'URI vive nella
+  cache locale del device, non ha senso trasferirlo). Backup vecchi
+  senza la colonna restano compatibili via intersection.
+
+File toccati: `package.json` (+`expo-image-picker@~15.0.0`),
+`app.json` (plugin), `src/database/db.ts`, `src/database/profileDB.ts`,
+`src/utils/dbBackup.ts`, `src/hooks/useProfile.ts`,
+`src/screens/ProfileScreen.tsx`.
+
+---
+
+### [chiusa] [38] Popup "in arrivo" — teaser per feature future
+
+**Aperta**: 2026-05-05 — **Chiusa**: 2026-05-14
+
+`upcoming.json` a root del repo, fetchato via
+`https://raw.githubusercontent.com/davidefarci-cyber/fattrack/main/upcoming.json`
+SOLO al cold-start dell'app (no throttle, no AppState retrigger). Ogni
+voce ha id, title, description, etaHuman e targetVersion opzionale per
+l'auto-dismiss.
+
+Filtri client-side in `src/utils/upcomingChecker.ts`:
+- skip se `id` già in `@fattrack/upcoming/seenIds` (AsyncStorage,
+  array JSON di stringhe);
+- skip se `targetVersion` presente e `<=` versione installata
+  (`Constants.expoConfig?.version`) — la feature è già uscita, il
+  messaggio "Novità" del post-update copre già la comunicazione.
+
+UI: nuovo `<UpcomingSheet>` basato sul primitive `BottomSheet`
+esistente. Header con icona bolt + sottotitolo, lista di card per ogni
+voce (titolo + descrizione + ETA con icona timer), bottone "Ho
+capito" che chiama `dismissUpcoming(items)` e marca tutti gli id
+come visti. Più voci nuove vengono mostrate insieme in un solo sheet.
+
+Orchestrazione in `App.tsx`: cold-start → `await checkForUpdates()`
+(refactor leggero: ora ritorna `ManualCheckResult` invece di `void`)
+→ se l'esito non è `'prompted'` lancio `checkForUpcoming()` e mostro
+il sheet. Se invece c'è un alert update aperto, l'upcoming aspetta il
+prossimo cold-start (priorità all'azionabile, niente popup
+sovrapposti).
+
+Refactor collaterale: estratto `compareVersions()` da `updateChecker.ts`
+in nuovo modulo `src/utils/semver.ts`, importato sia da updateChecker
+sia da upcomingChecker. Niente duplicazione.
+
+File toccati: `src/utils/semver.ts` (nuovo),
+`src/utils/upcomingChecker.ts` (nuovo),
+`src/components/UpcomingSheet.tsx` (nuovo),
+`src/utils/updateChecker.ts` (import semver + firma `checkForUpdates`),
+`App.tsx` (orchestrazione + mount sheet),
+`upcoming.json` (root, array vuoto di partenza).
+
+---
 
 ### [chiusa] [43] Mantieni schermo acceso durante sessione attiva
 
