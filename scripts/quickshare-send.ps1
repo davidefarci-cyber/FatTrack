@@ -1,14 +1,26 @@
 # Invia un file all'app Samsung Quick Share invocando il verb del context
-# menu di Windows. Apre la finestra Quick Share con il file pre-caricato:
-# l'utente sceglie il device di destinazione e conferma.
+# menu di Windows.
+#
+# Strategia:
+# 1. Se Quick Share è esposto come verb legacy (raro), lo invochiamo
+#    direttamente -> si apre Quick Share con il file precaricato.
+# 2. Altrimenti invochiamo il verb "Condividi" (Italiano) / "Share"
+#    -> si apre lo share picker di Windows, dove Quick Share appare
+#    come opzione. Workflow: l'utente fa un tap su Quick Share nel
+#    picker, poi sceglie il device e conferma.
+#
+# Quick Share su Windows 11 è un'app UWP/moderna e il suo verb non è
+# enumerato da Shell.Application.Verbs() (che vede solo il context
+# menu legacy), quindi nella stragrande maggioranza dei casi siamo
+# sullo step 2.
 #
 # Uso (positional):
 #   powershell -File quickshare-send.ps1 "C:\path\to\file.apk"
 #
 # Exit codes:
-#   0 = verb invocato (Quick Share aperto)
+#   0 = verb invocato (Quick Share diretto o share picker aperto)
 #   1 = errore generico (file non trovato, ParseName fallito, ...)
-#   2 = verb "Quick Share" non registrato sul PC (fallback grazioso)
+#   2 = nessun verb di condivisione trovato (fallback grazioso)
 #
 # Nota PowerShell: param block intenzionalmente plain — niente
 # [CmdletBinding()] e niente [Parameter(...)]. La combinazione triggava
@@ -54,11 +66,16 @@ try {
         exit 1
     }
 
-    # Il nome del verb dipende dalla versione di Quick Share e dal locale OS.
-    # Su Windows IT con Samsung Quick Share installato è tipicamente
-    # "Quick Share" (l'app conserva il nome inglese), ma copriamo anche
-    # eventuali traduzioni future. Normalizziamo togliendo '&' (mnemonico
-    # da tastiera, es. "&Quick Share") prima del match.
+    # Strategia in due step:
+    # 1. Provo a invocare direttamente Quick Share se esposto come verb
+    #    legacy (rare — Quick Share di solito è UWP/moderno, non
+    #    enumerato da Shell.Application.Verbs).
+    # 2. Fallback: invoco il verb "Condividi" (Italiano) / "Share" che
+    #    apre lo share picker di sistema. Quick Share appare come
+    #    opzione lì dentro — un tap dell'utente. Aggira il limite del
+    #    context menu legacy senza dipendere dal nome localizzato di
+    #    Quick Share.
+    # Normalizziamo togliendo '&' (mnemonico tastiera) prima del match.
     $allVerbs = @($item.Verbs())
     $normalized = @($allVerbs | ForEach-Object {
         @{
@@ -72,7 +89,8 @@ try {
         if ($n.Clean) { Write-Host "  - $($n.Clean)" }
     }
 
-    $match = $normalized | Where-Object {
+    # Step 1: Quick Share diretto (probabilmente assente, ma proviamo)
+    $direct = $normalized | Where-Object {
         $_.Clean -match 'Quick.?Share' -or
         $_.Clean -match 'Condivisione rapida' -or
         $_.Clean -match 'Condivisione vicina' -or
@@ -80,21 +98,32 @@ try {
         $_.Clean -match 'Galaxy.*Share'
     } | Select-Object -First 1
 
-    $verb = if ($match) { $match.Verb } else { $null }
-
-    if ($verb) {
-        Write-Host "Apro Quick Share con '$leaf'..."
-        $verb.DoIt()
-        exit 0
-    } else {
+    if ($direct) {
         Write-Host ""
-        Write-Host "Quick Share non trovato nei verb del context menu legacy."
-        Write-Host "Possibile causa: Quick Share usa il context menu 'moderno' di"
-        Write-Host "Windows 11 che non viene enumerato da Shell.Application.Verbs()."
-        Write-Host "APK pronto in: $abs"
-        Write-Host "Trasferiscilo manualmente sul telefono (tasto destro -> Quick Share)."
-        exit 2
+        Write-Host "Apro Quick Share con '$leaf'..."
+        $direct.Verb.DoIt()
+        exit 0
     }
+
+    # Step 2: share picker di sistema ("Condividi" / "Share")
+    $picker = $normalized | Where-Object {
+        $_.Clean -match '^Condividi$' -or
+        $_.Clean -match '^Share$'
+    } | Select-Object -First 1
+
+    if ($picker) {
+        Write-Host ""
+        Write-Host "Apro il menu Condividi di Windows con '$leaf'."
+        Write-Host "Scegli 'Quick Share' nel popup."
+        $picker.Verb.DoIt()
+        exit 0
+    }
+
+    Write-Host ""
+    Write-Host "Nessun verb di condivisione trovato."
+    Write-Host "APK pronto in: $abs"
+    Write-Host "Trasferiscilo manualmente sul telefono (tasto destro -> Quick Share)."
+    exit 2
 } catch {
     Write-Host "ERRORE durante l'invocazione di Quick Share: $($_.Exception.Message)"
     exit 1
