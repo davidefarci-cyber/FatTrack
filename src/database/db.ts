@@ -115,7 +115,8 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       name TEXT,
       target_weight_kg REAL,
       start_weight_kg REAL,
-      available_equipment TEXT
+      available_equipment TEXT,
+      avatar_uri TEXT
     );
 
     CREATE TABLE IF NOT EXISTS app_settings (
@@ -320,6 +321,11 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     // numerico per i set di durata. Default 'reps' = comportamento storico.
     `ALTER TABLE exercises ADD COLUMN default_mode TEXT NOT NULL DEFAULT 'reps'`,
     `ALTER TABLE exercises ADD COLUMN default_duration_sec INTEGER`,
+    // Foto profilo (TODO [13]): URI restituito da expo-image-picker. Non
+    // copiamo il file in documentDirectory: se Android pulisce la cache
+    // o l'utente sposta il file, l'<Image> degrada all'iniziale via
+    // onError. Esclusa esplicitamente dal backup (vedi dbBackup.ts).
+    `ALTER TABLE user_profile ADD COLUMN avatar_uri TEXT`,
   ]) {
     try {
       await db.execAsync(sql);

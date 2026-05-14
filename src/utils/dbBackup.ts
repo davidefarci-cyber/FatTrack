@@ -40,6 +40,13 @@ const TABLES = [
 
 type TableName = (typeof TABLES)[number];
 
+// Colonne escluse dall'export per tabella. Caso d'uso: dati locali al device
+// che non ha senso trasferire altrove (es. URI di un file in cache, foto
+// profilo). L'import gestisce comunque le colonne mancanti via intersection.
+const EXCLUDED_EXPORT_COLUMNS: Partial<Record<TableName, readonly string[]>> = {
+  user_profile: ['avatar_uri'],
+};
+
 type RawRow = Record<string, unknown>;
 type Db = Awaited<ReturnType<typeof getDatabase>>;
 
@@ -123,7 +130,17 @@ async function buildBackupJson(): Promise<string> {
   const db = await getDatabase();
   const tables: Record<string, RawRow[]> = {};
   for (const name of TABLES) {
-    tables[name] = await db.getAllAsync<RawRow>(`SELECT * FROM ${name}`);
+    const excluded = EXCLUDED_EXPORT_COLUMNS[name];
+    if (excluded && excluded.length > 0) {
+      const cols = (await getTableColumns(db, name)).filter(
+        (c) => !excluded.includes(c),
+      );
+      tables[name] = await db.getAllAsync<RawRow>(
+        `SELECT ${cols.join(', ')} FROM ${name}`,
+      );
+    } else {
+      tables[name] = await db.getAllAsync<RawRow>(`SELECT * FROM ${name}`);
+    }
   }
   const payload: BackupFile = {
     schemaVersion: BACKUP_SCHEMA_VERSION,

@@ -1,6 +1,7 @@
+import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
@@ -134,6 +135,54 @@ export default function ProfileScreen() {
     await patchProfile({ targetWeightKg: null, startWeightKg: null });
   };
 
+  const handlePickAvatar = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        toast.show('Serve il permesso per accedere alla galleria');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+      if (result.canceled) return;
+      const uri = result.assets[0]?.uri;
+      if (!uri) return;
+      await patchProfile({ avatarUri: uri });
+    } catch {
+      // Errori silenziosi: niente alert intrusivi se il picker fallisce.
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    Alert.alert(
+      'Rimuovi foto profilo',
+      'Tornerai all’iniziale del nome. Puoi sempre rimetterne una più tardi.',
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Rimuovi',
+          style: 'destructive',
+          onPress: () => {
+            void patchProfile({ avatarUri: null });
+          },
+        },
+      ],
+    );
+  };
+
+  // Se l'<Image> non riesce a caricare l'URI (cache pulita, file spostato),
+  // wipe automatico del campo: al prossimo render torna l'iniziale, niente
+  // errore visibile all'utente.
+  const handleAvatarLoadError = () => {
+    if (profile.avatarUri) {
+      void patchProfile({ avatarUri: null });
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ScreenHeader
@@ -153,8 +202,12 @@ export default function ProfileScreen() {
           name={profile.name}
           age={profile.age}
           gender={profile.gender}
+          avatarUri={profile.avatarUri}
           control={control}
           error={errors.name?.message}
+          onPickAvatar={handlePickAvatar}
+          onRemoveAvatar={handleRemoveAvatar}
+          onAvatarLoadError={handleAvatarLoadError}
         />
 
         <WeightCard
@@ -277,21 +330,57 @@ function IdentityCard({
   name,
   age,
   gender,
+  avatarUri,
   control,
   error,
+  onPickAvatar,
+  onRemoveAvatar,
+  onAvatarLoadError,
 }: {
   name: string | null;
   age: number;
   gender: Gender;
+  avatarUri: string | null;
   control: ReturnType<typeof useForm<FormValues>>['control'];
   error?: string;
+  onPickAvatar: () => void;
+  onRemoveAvatar: () => void;
+  onAvatarLoadError: () => void;
 }) {
   const initial = (name ?? '').trim().charAt(0).toUpperCase() || '?';
   const subtitle = `${age} anni · ${gender === 'M' ? 'Uomo' : 'Donna'}`;
   return (
     <Card style={styles.identityCard}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{initial}</Text>
+      <View style={styles.avatarWrap}>
+        <Pressable
+          onPress={onPickAvatar}
+          accessibilityRole="button"
+          accessibilityLabel={
+            avatarUri ? 'Cambia foto profilo' : 'Scegli foto profilo'
+          }
+          style={({ pressed }) => [styles.avatar, pressed && styles.avatarPressed]}
+        >
+          {avatarUri ? (
+            <Image
+              source={{ uri: avatarUri }}
+              style={styles.avatarImage}
+              onError={onAvatarLoadError}
+            />
+          ) : (
+            <Text style={styles.avatarText}>{initial}</Text>
+          )}
+        </Pressable>
+        {avatarUri ? (
+          <Pressable
+            onPress={onRemoveAvatar}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Rimuovi foto profilo"
+            style={styles.avatarRemoveBadge}
+          >
+            <Icon name="close" size={14} color={colors.card} />
+          </Pressable>
+        ) : null}
       </View>
       <View style={styles.identityRight}>
         <Controller
@@ -665,6 +754,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xl,
   },
+  avatarWrap: {
+    width: 64,
+    height: 64,
+    position: 'relative',
+  },
   avatar: {
     width: 64,
     height: 64,
@@ -672,11 +766,32 @@ const styles = StyleSheet.create({
     backgroundColor: colors.greenLight,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarPressed: {
+    opacity: 0.85,
+  },
+  avatarImage: {
+    width: 64,
+    height: 64,
   },
   avatarText: {
     ...typography.display,
     fontSize: 28,
     color: colors.green,
+  },
+  avatarRemoveBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 22,
+    height: 22,
+    borderRadius: radii.round,
+    backgroundColor: colors.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.card,
   },
   identityRight: {
     flex: 1,
