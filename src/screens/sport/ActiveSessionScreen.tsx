@@ -16,17 +16,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Icon } from '@/components/Icon';
-import { Input } from '@/components/Input';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
 import { WheelPicker } from '@/components/WheelPicker';
+import { ExerciseTimer } from '@/components/sport/ExerciseTimer';
 import { RestTimer } from '@/components/sport/RestTimer';
 import {
   getElapsedSec,
   useActiveSession,
 } from '@/contexts/ActiveSessionContext';
 import type { ActiveSessionState } from '@/contexts/ActiveSessionContext';
-import type { Session, WorkoutExercise } from '@/database';
+import type { LastCompletedSet, Session, WorkoutExercise } from '@/database';
+import { sessionsDB } from '@/database';
 import { useAppSettings } from '@/hooks/useAppSettings';
 import {
   colors,
@@ -41,6 +42,7 @@ import {
   getExerciseAspectRatio,
   getExerciseImage,
 } from '@/utils/exerciseImages';
+import { formatDuration } from '@/utils/formatDuration';
 import { lightHaptic } from '@/utils/haptics';
 
 // Modal full-screen della sessione live. Montata in SportTabNavigator
@@ -304,6 +306,12 @@ function LiveBody({
   const [reps, setReps] = useState<string>('');
   const [duration, setDuration] = useState<string>('');
   const [rpe, setRpe] = useState<number | null>(null);
+  // Carry-over: ultimo set fatto su QUESTA scheda + QUESTO esercizio +
+  // STESSO set_number (vedi sessionsDB.getLastCompletedSet). Null = primo
+  // allenamento per la combinazione o fetch in corso. Quando valorizzato,
+  // sostituisce la prescrizione come prefill (reps + durata) e viene
+  // mostrato come caption sotto al picker / bottone Avvia.
+  const [lastSet, setLastSet] = useState<LastCompletedSet | null>(null);
 
   // Set di exerciseIndex per cui la guida è già stata "vista" in questa
   // sessione. Solo locale (in-memory): si resetta a sessione conclusa /
@@ -324,9 +332,10 @@ function LiveBody({
     !viewedGuides.has(exIdx) &&
     !(state.restEndsAt !== null);
 
-  // Reset degli input quando cambia esercizio o set: i default sono
-  // i valori prescritti (placeholder che l'utente può accettare premendo
-  // direttamente "Set completato").
+  // Reset sincrono al cambio esercizio/set: prefill con prescrizione come
+  // floor. Il carry-over arriva async sotto e sovrascrive se trovato.
+  // Resettiamo subito a prescrizione per evitare flash di valori della
+  // sessione precedente quando si cambia esercizio.
   useEffect(() => {
     setReps(ex?.reps !== null && ex?.reps !== undefined ? String(ex.reps) : '');
     setDuration(
@@ -335,7 +344,41 @@ function LiveBody({
         : '',
     );
     setRpe(null);
+    setLastSet(null);
   }, [ex, state.currentSetNumber]);
+
+  // Fetch async del carry-over a ogni cambio (esercizio, set, scheda).
+  // Cancellation flag per evitare race se l'utente avanza prima del fetch.
+  const workoutId = state.workout.id;
+  const currentSetNumber = state.currentSetNumber;
+  useEffect(() => {
+    if (!ex) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const last = await sessionsDB.getLastCompletedSet(
+          workoutId,
+          ex.exerciseId,
+          currentSetNumber,
+        );
+        if (cancelled || !last) return;
+        setLastSet(last);
+        // Sovrascrive il prefill con il valore reale fatto la volta scorsa.
+        if (last.repsDone !== null && last.repsDone > 0) {
+          setReps(String(last.repsDone));
+        }
+        if (last.durationSec !== null && last.durationSec > 0) {
+          setDuration(String(last.durationSec));
+        }
+      } catch {
+        // Carry-over è ottimistico: in caso di errore restiamo sulla
+        // prescrizione (comportamento storico). Niente toast/log invasivi.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ex, workoutId, currentSetNumber]);
 
   const elapsed = getElapsedSec(state);
 
@@ -480,21 +523,49 @@ function LiveBody({
               Set {state.currentSetNumber} / {totalSets}
             </Text>
             {isDurationBased ? (
-              <Input
-                label="Durata"
-                unit="sec"
-                keyboardType="numeric"
-                value={duration}
-                onChangeText={setDuration}
-                placeholder={ex.durationSec ? String(ex.durationSec) : ''}
-              />
+              <View style={styles.timerBlock}>
+                <ExerciseTimer
+                  key={`${exIdx}-${state.currentSetNumber}`}
+                  durationSec={
+                    lastSet?.durationSec && lastSet.durationSec > 0
+                      ? lastSet.durationSec
+                      : ex.durationSec
+                  }
+                  onDone={(secondsRun) => {
+                    if (secondsRun > 0) setDuration(String(secondsRun));
+                  }}
+                />
+                {lastSet?.durationSec &&
+                lastSet.durationSec !== ex.durationSec ? (
+                  <Text
+                    style={[typography.caption, styles.carryOverCaption]}
+                  >
+                    Prescritto:{' '}
+                    {ex.durationSec
+                      ? formatDuration(ex.durationSec)
+                      : '—'}{' '}
+                    · ultima volta {formatDuration(lastSet.durationSec)}
+                  </Text>
+                ) : null}
+              </View>
             ) : (
-              <RepsPicker
-                reps={reps}
-                prescribed={ex.reps}
-                onChange={(n) => setReps(String(n))}
-                accent={accent}
-              />
+              <View style={styles.timerBlock}>
+                <RepsPicker
+                  reps={reps}
+                  prescribed={ex.reps}
+                  onChange={(n) => setReps(String(n))}
+                  accent={accent}
+                />
+                {lastSet?.repsDone &&
+                ex.reps !== null &&
+                lastSet.repsDone !== ex.reps ? (
+                  <Text
+                    style={[typography.caption, styles.carryOverCaption]}
+                  >
+                    Prescritto: {ex.reps} · ultima volta {lastSet.repsDone}
+                  </Text>
+                ) : null}
+              </View>
             )}
             <Text style={[typography.label, { marginTop: spacing.md }]}>
               Com&apos;è andato? — opzionale
@@ -879,7 +950,7 @@ function formatPrescription(
 ): string {
   if (!ex) return '';
   if (ex.durationSec !== null && ex.durationSec !== undefined) {
-    return `Durata: ${ex.durationSec}s`;
+    return `Durata: ${formatDuration(ex.durationSec)}`;
   }
   if (ex.reps !== null) {
     return `${currentSet} / ${totalSets} set · ${ex.reps} reps`;
@@ -1005,6 +1076,14 @@ const styles = StyleSheet.create({
   },
   repsDelta: {
     textAlign: 'center',
+  },
+  timerBlock: {
+    gap: spacing.sm,
+    alignItems: 'center',
+  },
+  carryOverCaption: {
+    textAlign: 'center',
+    color: colors.textSec,
   },
   guideContainer: {
     flex: 1,

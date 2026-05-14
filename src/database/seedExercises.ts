@@ -23,6 +23,12 @@ type SeedExercise = {
   guideSteps: string[];
   videoUrl: string | null;
   met: number | null;
+  // Modalità di prescrizione di default: 'reps' (default) oppure 'time'
+  // per gli esercizi naturalmente a tempo (isometrici, cardio AMRAP,
+  // mobilità/stretching statici). Il WorkoutEditorModal pre-compila la
+  // prescrizione di conseguenza quando aggiungi l'esercizio a una scheda.
+  defaultMode: 'reps' | 'time';
+  defaultDurationSec: number | null;
 };
 
 export const SEED_EXERCISES: SeedExercise[] = [
@@ -41,6 +47,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Risali spingendo dai talloni fino alla posizione iniziale.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Affondi',
@@ -56,6 +64,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Spingi sul tallone anteriore per tornare in piedi e cambia gamba.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Bulgarian split squat',
@@ -71,6 +81,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Spingi con il tallone anteriore per risalire mantenendo il busto eretto.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Wall sit',
@@ -86,6 +98,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Resta in posizione respirando regolarmente.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 30,
   },
   {
     name: 'Calf raise',
@@ -101,6 +115,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato senza far rimbalzare i talloni.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Single-leg deadlift',
@@ -116,6 +132,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Risali contraendo i glutei, alterna lato dopo le ripetizioni.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Hip thrust',
@@ -131,6 +149,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Contrai i glutei in cima e scendi controllato.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Glute bridge',
@@ -146,6 +166,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato senza appoggiare del tutto il bacino.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Step-up',
@@ -161,6 +183,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato e ripeti, alternando o restando sullo stesso lato.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Sumo squat',
@@ -176,6 +200,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Risali spingendo con i talloni e contraendo i glutei.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── PETTO / SPALLE / TRICIPITI ────────────────────────────────
@@ -193,6 +219,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Spingi per tornare alla posizione di partenza con braccia tese.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Push-up declinati',
@@ -208,6 +236,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Spingi per risalire mantenendo i gomiti a circa 45°.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Diamond push-up',
@@ -223,6 +253,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Spingi per risalire mantenendo i gomiti il più vicino possibile al corpo.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Pike push-up',
@@ -238,6 +270,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Spingi per risalire mantenendo bacino e bacino in alto.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Tricep dip',
@@ -253,6 +287,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Spingi sui palmi per risalire fino a quasi distendere le braccia.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Wide push-up',
@@ -268,6 +304,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Spingi per risalire mantenendo il corpo dritto.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Plank to push-up',
@@ -283,6 +321,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Alterna il braccio guida ad ogni ripetizione, core sempre attivo.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── CORE ──────────────────────────────────────────────────────
@@ -300,6 +340,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni la posizione respirando regolarmente.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 30,
   },
   {
     name: 'Side plank',
@@ -315,6 +357,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni la posizione respirando, poi cambia lato.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 25,
   },
   {
     name: 'Crunch',
@@ -330,6 +374,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi lentamente senza far cadere la testa di colpo.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Russian twist',
@@ -345,6 +391,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Ruota a sinistra in modo controllato senza muovere le gambe.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Hollow hold',
@@ -360,6 +408,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni la posizione respirando senza staccare le lombari.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 20,
   },
   {
     name: 'Bird-dog',
@@ -375,6 +425,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Torna lentamente al centro e alterna lato.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Dead bug',
@@ -390,6 +442,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Torna al centro e alterna lato senza inarcare la schiena.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Leg raise',
@@ -405,6 +459,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato senza toccare terra fino alla fine della serie.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── CARDIO / FULL BODY ────────────────────────────────────────
@@ -422,6 +478,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Salta verticalmente con le braccia distese sopra la testa.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Mountain climber',
@@ -437,6 +495,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni il bacino basso e i glutei in linea con la schiena.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 30,
   },
   {
     name: 'Jumping jacks',
@@ -452,6 +512,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni un ritmo costante e respirazione regolare.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 30,
   },
   {
     name: 'High knees',
@@ -467,6 +529,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Coordina con braccia in movimento alternato.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 30,
   },
   {
     name: 'Skater jumps',
@@ -482,6 +546,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Salta nel verso opposto in modo fluido e ritmato.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Squat jumps',
@@ -497,6 +563,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Riparti subito col salto successivo senza pause lunghe.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── MOBILITÀ ──────────────────────────────────────────────────
@@ -514,6 +582,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Alterna i due movimenti seguendo il respiro.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 45,
   },
   {
     name: 'Schiena - Cobra',
@@ -529,6 +599,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni qualche secondo respirando, poi torna giù lento.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 30,
   },
   {
     name: 'Schiena - Child pose',
@@ -544,6 +616,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Appoggia la fronte e respira mantenendo la posizione.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 30,
   },
   {
     name: 'Full body - Downward dog',
@@ -559,6 +633,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Spalle lontane dalle orecchie, sguardo tra i piedi.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 30,
   },
   {
     name: 'Anche - Hip circles',
@@ -574,6 +650,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Cambia lato dopo le ripetizioni.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 20,
   },
   {
     name: 'Spalle - Shoulder rolls',
@@ -589,6 +667,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni il collo lungo e rilassato.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 20,
   },
   {
     name: 'Anche - Pigeon pose',
@@ -604,6 +684,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni la posizione respirando, poi cambia lato.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 30,
   },
 
   // ─── RECUPERO / STRETCHING ─────────────────────────────────────
@@ -621,6 +703,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni la posizione respirando, poi cambia lato.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 30,
   },
   {
     name: 'Quad stretch',
@@ -636,6 +720,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni la posizione respirando, poi cambia lato.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 30,
   },
   {
     name: 'Chest opener',
@@ -651,6 +737,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni la posizione respirando profondamente.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 30,
   },
   {
     name: 'Spinal twist',
@@ -666,6 +754,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni la posizione respirando, poi cambia lato.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 30,
   },
 
   // ─── SCHIENA / DORSALI ─────────────────────────────────────────
@@ -683,6 +773,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni 1–2 secondi e scendi controllato.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Reverse snow angel',
@@ -698,6 +790,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Torna alla posizione iniziale lentamente e ripeti.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Rematore con bottiglie',
@@ -713,6 +807,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato fino a braccia tese senza arrotondare la schiena.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Pull-apart con elastico',
@@ -728,6 +824,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Torna lentamente al centro mantenendo le braccia tese.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Trazioni assistite con elastico',
@@ -743,6 +841,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato fino a braccia distese senza dondolare.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── BICIPITI ──────────────────────────────────────────────────
@@ -760,6 +860,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato fino a braccia tese senza dondolare il busto.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Curl isometrico con asciugamano',
@@ -775,6 +877,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni la tensione per il tempo previsto, poi rilascia controllato.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 20,
   },
 
   // ─── SPALLE ────────────────────────────────────────────────────
@@ -792,6 +896,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni il core attivo: i fianchi non devono oscillare.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Y-T-W prone',
@@ -808,6 +914,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni il collo lungo e rilassato per tutto il movimento.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── GLUTEI ────────────────────────────────────────────────────
@@ -825,6 +933,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi lentamente senza ruotare il bacino, poi cambia lato.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Donkey kick',
@@ -840,6 +950,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Torna controllato e alterna lato dopo le ripetizioni.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Fire hydrant',
@@ -855,6 +967,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato e cambia lato dopo le ripetizioni.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── GAMBE VARIANTI ────────────────────────────────────────────
@@ -872,6 +986,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Spingi per tornare in piedi e alterna lato.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Cossack squat',
@@ -887,6 +1003,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Risali e trasferisci il peso sull’altro lato in modo fluido.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Goblet squat con bottiglia',
@@ -902,6 +1020,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Risali spingendo dai talloni mantenendo il busto eretto.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── STACCHI VARIANTI ──────────────────────────────────────────
@@ -919,6 +1039,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Risali contraendo i glutei e spingendo le anche in avanti.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Good morning',
@@ -934,6 +1056,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Risali contraendo glutei e posteriori senza arrotondare la schiena.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── PLIOMETRIA ────────────────────────────────────────────────
@@ -951,6 +1075,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Riparti subito col salto successivo mantenendo il ritmo.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Broad jump',
@@ -966,6 +1092,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Recupera in piedi e riparti, mantenendo l’atterraggio controllato.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── ESERCIZI SEDUTI ───────────────────────────────────────────
@@ -983,6 +1111,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni un ritmo costante respirando regolarmente.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 60,
   },
   {
     name: 'Alzata gambe da seduti',
@@ -998,6 +1128,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato e alterna lato dopo le ripetizioni.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Twist da seduti',
@@ -1013,6 +1145,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Torna al centro e ruota a sinistra in modo controllato.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── MOBILITÀ ──────────────────────────────────────────────────
@@ -1030,6 +1164,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Cambia lato e ripeti, poi prova oscillazioni laterali.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 20,
   },
   {
     name: 'Polsi - Wrist circles',
@@ -1045,6 +1181,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni le spalle rilassate e le braccia ferme.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 15,
   },
   {
     name: 'Caviglie - Ankle circles',
@@ -1060,6 +1198,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Cambia piede e ripeti.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 15,
   },
 
   // ─── CARDIO (con/senza attrezzatura) ───────────────────────────
@@ -1077,6 +1217,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Per intensità maggiore aumenta velocità o pendenza.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 1200,
   },
   {
     name: 'Cyclette',
@@ -1092,6 +1234,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Aumenta resistenza per intensità maggiore, non solo cadenza.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 900,
   },
 
   // ─── GAMBE / GLUTEI con manubri ────────────────────────────────
@@ -1109,6 +1253,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Risali spingendo dai talloni mantenendo i manubri immobili.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Goblet squat con manubri',
@@ -1124,6 +1270,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Risali spingendo dai talloni senza inclinare il busto in avanti.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Sumo squat con manubri',
@@ -1139,6 +1287,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Risali spingendo i talloni e contraendo i glutei.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Affondi con manubri',
@@ -1154,6 +1304,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Spingi sul tallone anteriore per tornare in piedi, alterna gamba.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Stacco rumeno con manubri',
@@ -1169,6 +1321,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Risali contraendo glutei e femorali, spingendo il bacino in avanti.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Step-up con manubri',
@@ -1184,6 +1338,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato e alterna gamba di salita.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Bulgarian split squat con manubri',
@@ -1199,6 +1355,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Risali spingendo dal tallone della gamba anteriore.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── PETTO / SPALLE con panca e manubri ───────────────────────
@@ -1216,6 +1374,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Spingi i manubri verso l’alto senza farli toccare in cima.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Panca inclinata con manubri',
@@ -1231,6 +1391,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Spingi verso l’alto contraendo il petto.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Pullover con manubrio',
@@ -1246,6 +1408,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Riporta il manubrio sopra il petto senza piegare di più i gomiti.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Shoulder press con manubri',
@@ -1261,6 +1425,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato fino alla posizione di partenza.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Arnold press',
@@ -1276,6 +1442,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Inverti la rotazione mentre scendi alla posizione iniziale.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Alzate laterali con manubri',
@@ -1291,6 +1459,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato senza far rimbalzare i manubri.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── SCHIENA con manubri ──────────────────────────────────────
@@ -1308,6 +1478,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato, mantenendo la schiena dritta. Cambia lato dopo le ripetizioni.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── BRACCIA con manubri ──────────────────────────────────────
@@ -1325,6 +1497,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato fino a estendere completamente.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Curl martello con manubri',
@@ -1340,6 +1514,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato. Coinvolge anche brachiale e brachioradiale.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Estensioni tricipiti con manubrio',
@@ -1355,6 +1531,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni il busto stabile, evita di inarcare la schiena.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Kickback tricipiti con manubri',
@@ -1370,6 +1548,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Riporta lentamente alla posizione iniziale, gomiti fermi.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── CORE ─────────────────────────────────────────────────────
@@ -1387,6 +1567,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Mantieni la zona lombare aderente al pavimento, ritmo controllato.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── CALISTENICO — TIRATE / SCHIENA ────────────────────────────
@@ -1405,6 +1587,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato fino alla completa estensione delle braccia.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Chin-up',
@@ -1421,6 +1605,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato fino a braccia tese senza dondolare.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Australian pull-up',
@@ -1437,6 +1623,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato fino a braccia tese senza far cadere il bacino.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Negativa di trazione',
@@ -1452,6 +1640,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Arrivato a braccia tese, risali con un salto e ripeti.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Trazione esplosiva al petto',
@@ -1468,6 +1658,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato e ripeti senza dondolare.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── CALISTENICO — DIP / SPINTE AVANZATE ───────────────────────
@@ -1486,6 +1678,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Estendi quasi completamente in cima senza bloccare le articolazioni.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Archer push-up',
@@ -1502,6 +1696,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Alterna lato ad ogni ripetizione.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Pseudo-planche push-up',
@@ -1518,6 +1714,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Spingi per risalire continuando a inclinarti in avanti.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── CALISTENICO — GAMBE MONOPODALICHE ─────────────────────────
@@ -1536,6 +1734,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Risali spingendo dal tallone senza appoggiare l’altra gamba.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Pistol squat assistito',
@@ -1552,6 +1752,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Cambia lato dopo le ripetizioni.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Box pistol squat',
@@ -1568,6 +1770,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Più la sedia è bassa, più aumenta la difficoltà.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── CALISTENICO — CORE APPESO ─────────────────────────────────
@@ -1586,6 +1790,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Evita di prendere slancio col bacino, movimento solo dagli addominali.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Leg raise appeso',
@@ -1602,6 +1808,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Niente swing del bacino: muoviti solo con gli addominali.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 
   // ─── CALISTENICO — REGRESSIONI E BASI PRINCIPIANTI ─────────────
@@ -1620,6 +1828,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Spingi per risalire mantenendo la linea testa-bacino-ginocchia.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Push-up inclinati',
@@ -1636,6 +1846,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Spingi per risalire mantenendo il corpo dritto e il core attivo.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Dead hang',
@@ -1651,6 +1863,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Respira regolarmente mantenendo la presa per il tempo previsto.',
     ],
     videoUrl: null,
+    defaultMode: 'time',
+    defaultDurationSec: 20,
   },
   {
     name: 'Scapular pull',
@@ -1667,6 +1881,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Niente movimento delle braccia: il lavoro è solo scapolare.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
   {
     name: 'Glute bridge a una gamba',
@@ -1683,6 +1899,8 @@ export const SEED_EXERCISES: SeedExercise[] = [
       'Scendi controllato e completa la serie prima di cambiare lato.',
     ],
     videoUrl: null,
+    defaultMode: 'reps',
+    defaultDurationSec: null,
   },
 ];
 
@@ -1829,8 +2047,8 @@ async function insertExercise(
   const tags = SEED_EQUIPMENT_TAGS[ex.name];
   await db.runAsync(
     `${verb} exercises
-       (name, muscle_group, equipment, equipment_tags, level, description, guide_steps, video_url, met)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (name, muscle_group, equipment, equipment_tags, level, description, guide_steps, video_url, met, default_mode, default_duration_sec)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ex.name,
     ex.muscleGroup,
     ex.equipment,
@@ -1840,6 +2058,8 @@ async function insertExercise(
     JSON.stringify(ex.guideSteps),
     ex.videoUrl,
     ex.met,
+    ex.defaultMode,
+    ex.defaultDurationSec,
   );
 }
 
@@ -1876,6 +2096,13 @@ export async function seedExercisesIfEmpty(
   // colonna NULL. Solo le righe NULL vengono toccate, così eventuali
   // edit utente futuri sono preservati.
   await backfillEquipmentTags(db);
+
+  // Backfill `default_mode` / `default_duration_sec` sugli esercizi
+  // pre-timer che esistono nel DB con i default schema ('reps' / NULL).
+  // Tocchiamo solo le righe ancora ai default, così eventuali utenti
+  // che avessero già marcato un esercizio come a tempo non vengono
+  // sovrascritti.
+  await backfillDefaultMode(db);
 }
 
 async function backfillEquipmentTags(
@@ -1888,6 +2115,24 @@ async function backfillEquipmentTags(
        WHERE name = ? AND equipment_tags IS NULL`,
       serializeEquipmentTags(tags),
       name,
+    );
+  }
+}
+
+async function backfillDefaultMode(
+  db: SQLite.SQLiteDatabase,
+): Promise<void> {
+  for (const ex of SEED_EXERCISES) {
+    if (ex.defaultMode !== 'time') continue;
+    await db.runAsync(
+      `UPDATE exercises
+         SET default_mode = ?, default_duration_sec = ?
+       WHERE name = ?
+         AND default_mode = 'reps'
+         AND default_duration_sec IS NULL`,
+      ex.defaultMode,
+      ex.defaultDurationSec,
+      ex.name,
     );
   }
 }

@@ -8,6 +8,12 @@ import { EquipmentTag, parseEquipmentTags } from '../types/equipment';
 
 export type ExerciseLevel = 'principiante' | 'intermedio' | 'avanzato';
 
+// 'reps' (default) → l'editor scheda prefilla `reps` su add; la sessione
+// live mostra l'input numerico delle reps fatte.
+// 'time' → l'editor scheda prefilla `durationSec` con `defaultDurationSec`
+// (fallback 30s); la sessione live mostra il timer countdown.
+export type ExerciseDefaultMode = 'reps' | 'time';
+
 export type Exercise = {
   id: number;
   name: string;
@@ -21,6 +27,8 @@ export type Exercise = {
   guideSteps: string[] | null;
   videoUrl: string | null;
   met: number | null;
+  defaultMode: ExerciseDefaultMode;
+  defaultDurationSec: number | null;
 };
 
 type Row = {
@@ -34,6 +42,8 @@ type Row = {
   guideSteps: string | null;
   videoUrl: string | null;
   met: number | null;
+  defaultMode: ExerciseDefaultMode | null;
+  defaultDurationSec: number | null;
 };
 
 const COLUMNS = `
@@ -46,7 +56,9 @@ const COLUMNS = `
   description,
   guide_steps AS guideSteps,
   video_url AS videoUrl,
-  met
+  met,
+  default_mode AS defaultMode,
+  default_duration_sec AS defaultDurationSec
 `;
 
 function parseGuideSteps(raw: string | null): string[] | null {
@@ -71,6 +83,8 @@ function rowToExercise(row: Row): Exercise {
     guideSteps: parseGuideSteps(row.guideSteps),
     videoUrl: row.videoUrl,
     met: row.met,
+    defaultMode: row.defaultMode === 'time' ? 'time' : 'reps',
+    defaultDurationSec: row.defaultDurationSec,
   };
 }
 

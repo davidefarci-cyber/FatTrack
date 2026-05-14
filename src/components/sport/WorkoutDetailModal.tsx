@@ -6,6 +6,7 @@ import { Button } from '@/components/Button';
 import { exercisesDB } from '@/database';
 import type { Exercise, Workout } from '@/database';
 import { colors, radii, spacing, sportPalette, typography } from '@/theme';
+import { formatDuration } from '@/utils/formatDuration';
 
 // Dettaglio scheda: vista read-only con header (nome + badge categoria)
 // e lista esercizi numerata. Il bottone "Inizia allenamento" parte la
@@ -27,7 +28,7 @@ function formatPrescription(
 ): string {
   if (ex.durationSec !== null && ex.durationSec !== undefined) {
     const rest = ex.restSec ? ` (riposo ${ex.restSec}s)` : '';
-    return `${exName} — ${ex.durationSec}s${rest}`;
+    return `${exName} — ${formatDuration(ex.durationSec)}${rest}`;
   }
   if (ex.sets !== null && ex.reps !== null) {
     const rest = ex.restSec ? ` (riposo ${ex.restSec}s)` : '';

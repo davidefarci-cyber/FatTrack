@@ -145,6 +145,8 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       guide_steps TEXT,
       video_url TEXT,
       met REAL,
+      default_mode TEXT NOT NULL DEFAULT 'reps' CHECK (default_mode IN ('reps','time')),
+      default_duration_sec INTEGER,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_exercises_muscle ON exercises(muscle_group);
@@ -311,6 +313,13 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
     `ALTER TABLE workout_exercises ADD COLUMN duration_max_sec INTEGER`,
     `ALTER TABLE workout_exercises ADD COLUMN alternative_exercise_id INTEGER REFERENCES exercises(id) ON DELETE SET NULL`,
     `ALTER TABLE app_settings ADD COLUMN programs_intro_initialized INTEGER NOT NULL DEFAULT 0`,
+    // Fase timer-esercizio: distingue esercizi con natura "a tempo" (plank,
+    // wall sit, corsa…) da quelli "a reps". L'editor scheda usa questi due
+    // campi per prefilare la prescrizione quando l'utente aggiunge un
+    // esercizio; la sessione live mostra il timer countdown invece dell'input
+    // numerico per i set di durata. Default 'reps' = comportamento storico.
+    `ALTER TABLE exercises ADD COLUMN default_mode TEXT NOT NULL DEFAULT 'reps'`,
+    `ALTER TABLE exercises ADD COLUMN default_duration_sec INTEGER`,
   ]) {
     try {
       await db.execAsync(sql);

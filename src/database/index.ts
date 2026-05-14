@@ -53,4 +53,5 @@ export type {
   SessionSet,
   ActiveSessionRow,
   NewSessionSet,
+  LastCompletedSet,
 } from './sessionsDB';

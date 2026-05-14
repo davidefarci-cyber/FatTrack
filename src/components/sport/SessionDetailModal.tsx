@@ -6,6 +6,7 @@ import { Button } from '@/components/Button';
 import { exercisesDB, sessionsDB } from '@/database';
 import type { Exercise, Session, SessionSet } from '@/database';
 import { colors, radii, spacing, sportPalette, typography } from '@/theme';
+import { formatDuration } from '@/utils/formatDuration';
 
 // Riepilogo sessione (Fase 4): nome scheda, data, badge categoria, stats
 // (durata/calorie/set), elenco esercizi con i set registrati. Il feedback
@@ -47,7 +48,7 @@ function formatFullDate(startedAt: string): string {
 
 function formatSet(set: SessionSet): string {
   if (set.durationSec !== null && set.durationSec !== undefined) {
-    return `${set.durationSec}s`;
+    return formatDuration(set.durationSec);
   }
   const reps = set.repsDone ?? 0;
   return `${reps} reps`;
