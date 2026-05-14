@@ -1,26 +1,29 @@
-# Invia un file all'app Samsung Quick Share invocando il verb del context
-# menu di Windows.
+# Invia un file all'app Samsung Quick Share.
 #
 # Strategia:
-# 1. Se Quick Share è esposto come verb legacy (raro), lo invochiamo
-#    direttamente -> si apre Quick Share con il file precaricato.
-# 2. Altrimenti invochiamo il verb "Condividi" (Italiano) / "Share"
-#    -> si apre lo share picker di Windows, dove Quick Share appare
-#    come opzione. Workflow: l'utente fa un tap su Quick Share nel
-#    picker, poi sceglie il device e conferma.
+# 1. Se Quick Share è esposto come verb legacy (Win32, raro), lo
+#    invochiamo direttamente con un HWND host -> si apre Quick Share
+#    con il file precaricato.
+# 2. Fallback (caso normale Win11): apro Esplora risorse con l'APK
+#    pre-selezionato. L'utente fa tasto destro -> Condividi -> Quick
+#    Share per inviare al telefono.
 #
-# Quick Share su Windows 11 è un'app UWP/moderna e il suo verb non è
-# enumerato da Shell.Application.Verbs() (che vede solo il context
-# menu legacy), quindi nella stragrande maggioranza dei casi siamo
-# sullo step 2.
+# Perché non invochiamo direttamente il verb "Condividi" dal context
+# menu legacy: il verb funziona, ma su Windows 11 apre la share UI
+# moderna che richiede un HWND parent fornito via
+# IDataTransferManagerInterop::ShowShareUIForWindow + callback
+# DataRequested settati via WinRT projection. Da console PowerShell
+# (anche con WinForms host) la share UI rifiuta l'HWND e fallisce
+# con "Handle di finestra non valido". L'approccio Explorer-pre-select
+# delega il setup HWND a Explorer.exe (che lo fa correttamente) e
+# aggiunge solo 2-3 click in più al workflow.
 #
 # Uso (positional):
 #   powershell -File quickshare-send.ps1 "C:\path\to\file.apk"
 #
 # Exit codes:
-#   0 = verb invocato (Quick Share diretto o share picker aperto)
+#   0 = OK (Quick Share aperto direttamente OR Explorer aperto sul file)
 #   1 = errore generico (file non trovato, ParseName fallito, ...)
-#   2 = nessun verb di condivisione trovato (fallback grazioso)
 #
 # Nota PowerShell: param block intenzionalmente plain — niente
 # [CmdletBinding()] e niente [Parameter(...)]. La combinazione triggava
@@ -34,24 +37,16 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Lo share picker di Windows 11 si aggancia all'HWND della finestra
-# foreground del processo chiamante. PowerShell da console non ha
-# una sua finestra Win32 utile (la console host non vale), quindi
-# Verbs().DoIt() fallisce con "Handle di finestra non valido".
-# Workaround: carichiamo System.Windows.Forms e creiamo una Form
-# invisibile prima del DoIt(). La Form fornisce l'HWND parent. Una
-# volta che lo share picker è aperto, Windows lo tiene in vita
-# indipendentemente dalla nostra Form.
+# Add-Type per WinForms solo se serve (path Quick Share legacy diretto)
 Add-Type -AssemblyName System.Windows.Forms | Out-Null
 Add-Type -AssemblyName System.Drawing | Out-Null
 
 function Invoke-VerbWithHostWindow {
     param($Verb)
 
-    # Form 1x1 px, opacity 0, posizionata fuori schermo. L'utente non
-    # la vede ma fornisce un HWND parent valido. Activate() la porta
-    # in foreground così Shell.Application la usa come parent della
-    # share UI.
+    # Form 1x1 px, opacity 0, fuori schermo. Fornisce HWND parent.
+    # Funziona per verb legacy (Quick Share Win32). NON funziona per
+    # la share UI moderna di Win11 — quella va invocata da Explorer.
     $form = New-Object System.Windows.Forms.Form
     $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
     $form.ShowInTaskbar = $false
@@ -69,9 +64,6 @@ function Invoke-VerbWithHostWindow {
 
         $Verb.DoIt()
 
-        # Pompo messaggi per ~1.5s così la share UI fa in tempo ad
-        # agganciare l'HWND e a "vivere di vita propria" prima che
-        # la Form si chiuda.
         $deadline = [DateTime]::Now.AddMilliseconds(1500)
         while ([DateTime]::Now -lt $deadline) {
             [System.Windows.Forms.Application]::DoEvents()
@@ -102,78 +94,42 @@ $abs  = [System.IO.Path]::GetFullPath($ApkPath)
 $dir  = [System.IO.Path]::GetDirectoryName($abs)
 $leaf = [System.IO.Path]::GetFileName($abs)
 
+# Step 1: Quick Share come verb legacy (best effort, raro su Win11).
 try {
     $shell  = New-Object -ComObject Shell.Application
     $folder = $shell.Namespace($dir)
-    if (-not $folder) {
-        Write-Host "ERRORE: impossibile aprire la cartella '$dir'."
-        exit 1
-    }
-    $item = $folder.ParseName($leaf)
-    if (-not $item) {
-        Write-Host "ERRORE: ParseName fallito per '$leaf'."
-        exit 1
-    }
+    if ($folder) {
+        $item = $folder.ParseName($leaf)
+        if ($item) {
+            $allVerbs = @($item.Verbs())
+            $direct = $allVerbs | ForEach-Object {
+                $clean = ($_.Name -replace '&', '').Trim()
+                if ($clean -match 'Quick.?Share' -or
+                    $clean -match 'Condivisione rapida' -or
+                    $clean -match 'Condivisione vicina' -or
+                    $clean -match 'Samsung.*Share' -or
+                    $clean -match 'Galaxy.*Share') {
+                    $_
+                }
+            } | Select-Object -First 1
 
-    # Strategia in due step:
-    # 1. Provo a invocare direttamente Quick Share se esposto come verb
-    #    legacy (rare — Quick Share di solito è UWP/moderno, non
-    #    enumerato da Shell.Application.Verbs).
-    # 2. Fallback: invoco il verb "Condividi" (Italiano) / "Share" che
-    #    apre lo share picker di sistema. Quick Share appare come
-    #    opzione lì dentro — un tap dell'utente. Aggira il limite del
-    #    context menu legacy senza dipendere dal nome localizzato di
-    #    Quick Share.
-    # Normalizziamo togliendo '&' (mnemonico tastiera) prima del match.
-    $allVerbs = @($item.Verbs())
-    $normalized = @($allVerbs | ForEach-Object {
-        @{
-            Verb = $_
-            Clean = ($_.Name -replace '&', '').Trim()
+            if ($direct) {
+                Write-Host "Apro Quick Share con '$leaf'..."
+                Invoke-VerbWithHostWindow -Verb $direct
+                exit 0
+            }
         }
-    })
-
-    Write-Host "Verbi disponibili per '$leaf':"
-    foreach ($n in $normalized) {
-        if ($n.Clean) { Write-Host "  - $($n.Clean)" }
     }
-
-    # Step 1: Quick Share diretto (probabilmente assente, ma proviamo)
-    $direct = $normalized | Where-Object {
-        $_.Clean -match 'Quick.?Share' -or
-        $_.Clean -match 'Condivisione rapida' -or
-        $_.Clean -match 'Condivisione vicina' -or
-        $_.Clean -match 'Samsung.*Share' -or
-        $_.Clean -match 'Galaxy.*Share'
-    } | Select-Object -First 1
-
-    if ($direct) {
-        Write-Host ""
-        Write-Host "Apro Quick Share con '$leaf'..."
-        Invoke-VerbWithHostWindow -Verb $direct.Verb
-        exit 0
-    }
-
-    # Step 2: share picker di sistema ("Condividi" / "Share")
-    $picker = $normalized | Where-Object {
-        $_.Clean -match '^Condividi$' -or
-        $_.Clean -match '^Share$'
-    } | Select-Object -First 1
-
-    if ($picker) {
-        Write-Host ""
-        Write-Host "Apro il menu Condividi di Windows con '$leaf'."
-        Write-Host "Scegli 'Quick Share' nel popup."
-        Invoke-VerbWithHostWindow -Verb $picker.Verb
-        exit 0
-    }
-
-    Write-Host ""
-    Write-Host "Nessun verb di condivisione trovato."
-    Write-Host "APK pronto in: $abs"
-    Write-Host "Trasferiscilo manualmente sul telefono (tasto destro -> Quick Share)."
-    exit 2
 } catch {
-    Write-Host "ERRORE durante l'invocazione di Quick Share: $($_.Exception.Message)"
-    exit 1
+    # Best-effort: se il path legacy fallisce per qualsiasi motivo,
+    # cadiamo silenziosamente sullo step 2 (Explorer fallback).
 }
+
+# Step 2: fallback Explorer pre-select. Funziona sempre.
+Write-Host "APK pronto: $abs"
+Write-Host ""
+Write-Host "Apro Esplora risorse sul file."
+Write-Host "Tasto destro -> Condividi -> Quick Share per inviare al telefono."
+
+Start-Process "explorer.exe" -ArgumentList "/select,`"$abs`""
+exit 0
