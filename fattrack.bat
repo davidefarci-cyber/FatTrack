@@ -174,12 +174,9 @@ echo  Build completata: !OUTPUT_APK!
 echo ============================================================
 
 set "_QS_CHOICE="
-set /p "_QS_CHOICE=Inviare ora con Quick Share? [S/n]: "
+set /p "_QS_CHOICE=Aprire ora Esplora risorse sull'APK per condividerlo? [S/n]: "
 if /i not "!_QS_CHOICE!"=="n" (
     powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\quickshare-send.ps1" "%~dp0!OUTPUT_APK!"
-    if !ERRORLEVEL! EQU 2 (
-        echo [ ] Quick Share non disponibile: trasferisci !OUTPUT_APK! manualmente.
-    )
 )
 
 echo.
