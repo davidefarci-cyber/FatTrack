@@ -11,6 +11,7 @@ import type { ReactNode } from 'react';
 import { AppState } from 'react-native';
 import type { AppStateStatus } from 'react-native';
 
+import { KeepAwakeWhen } from '@/components/sport/KeepAwakeWhen';
 import {
   exercisesDB,
   profileDB,
@@ -23,6 +24,7 @@ import {
   findProgramWorkoutForActive,
   reloadActiveProgram,
 } from '@/hooks/useActiveProgram';
+import { useAppSettings } from '@/hooks/useAppSettings';
 import {
   cancelRestEndNotification,
   scheduleRestEndNotification,
@@ -112,6 +114,7 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ActiveSessionState | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingOpen, setPendingOpen] = useState(false);
+  const { keepAwakeEnabled } = useAppSettings();
 
   // Tick periodico per forzare i re-render del banner/screen sui timer
   // in corso. Il banner ne ha bisogno per mostrare l'elapsed live; lo
@@ -530,6 +533,9 @@ export function ActiveSessionProvider({ children }: { children: ReactNode }) {
 
   return (
     <ActiveSessionContext.Provider value={value}>
+      {state !== null && keepAwakeEnabled && (
+        <KeepAwakeWhen tag="fattrack-active-session" />
+      )}
       {children}
     </ActiveSessionContext.Provider>
   );

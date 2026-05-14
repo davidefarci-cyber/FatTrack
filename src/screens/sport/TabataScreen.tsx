@@ -11,6 +11,7 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { useToast } from '@/components/Toast';
 import { CountdownOverlay } from '@/components/sport/CountdownOverlay';
 import { HoldToStartButton } from '@/components/sport/HoldToStartButton';
+import { KeepAwakeWhen } from '@/components/sport/KeepAwakeWhen';
 import { TabataConfigModal } from '@/components/sport/TabataConfigModal';
 import { TabataInfoSheet } from '@/components/sport/TabataInfoSheet';
 import { useAppSettings } from '@/hooks/useAppSettings';
@@ -45,6 +46,7 @@ export default function TabataScreen() {
     tabataWorkSec,
     tabataRestSec,
     tabataRounds,
+    keepAwakeEnabled,
     setTabataConfig,
   } = useAppSettings();
 
@@ -318,6 +320,10 @@ export default function TabataScreen() {
       />
 
       <TabataInfoSheet visible={infoOpen} onClose={() => setInfoOpen(false)} />
+
+      {running && intervalState?.phase !== 'done' && keepAwakeEnabled && (
+        <KeepAwakeWhen tag="fattrack-tabata-running" />
+      )}
     </View>
   );
 }
