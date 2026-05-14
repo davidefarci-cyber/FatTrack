@@ -34,6 +34,55 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Lo share picker di Windows 11 si aggancia all'HWND della finestra
+# foreground del processo chiamante. PowerShell da console non ha
+# una sua finestra Win32 utile (la console host non vale), quindi
+# Verbs().DoIt() fallisce con "Handle di finestra non valido".
+# Workaround: carichiamo System.Windows.Forms e creiamo una Form
+# invisibile prima del DoIt(). La Form fornisce l'HWND parent. Una
+# volta che lo share picker è aperto, Windows lo tiene in vita
+# indipendentemente dalla nostra Form.
+Add-Type -AssemblyName System.Windows.Forms | Out-Null
+Add-Type -AssemblyName System.Drawing | Out-Null
+
+function Invoke-VerbWithHostWindow {
+    param($Verb)
+
+    # Form 1x1 px, opacity 0, posizionata fuori schermo. L'utente non
+    # la vede ma fornisce un HWND parent valido. Activate() la porta
+    # in foreground così Shell.Application la usa come parent della
+    # share UI.
+    $form = New-Object System.Windows.Forms.Form
+    $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
+    $form.ShowInTaskbar = $false
+    $form.Opacity = 0
+    $form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+    $form.Location = New-Object System.Drawing.Point(-5000, -5000)
+    $form.Size = New-Object System.Drawing.Size(1, 1)
+    $form.TopMost = $true
+
+    try {
+        $form.Show()
+        $form.Activate()
+        [System.Windows.Forms.Application]::DoEvents()
+        Start-Sleep -Milliseconds 200
+
+        $Verb.DoIt()
+
+        # Pompo messaggi per ~1.5s così la share UI fa in tempo ad
+        # agganciare l'HWND e a "vivere di vita propria" prima che
+        # la Form si chiuda.
+        $deadline = [DateTime]::Now.AddMilliseconds(1500)
+        while ([DateTime]::Now -lt $deadline) {
+            [System.Windows.Forms.Application]::DoEvents()
+            Start-Sleep -Milliseconds 50
+        }
+    } finally {
+        $form.Close()
+        $form.Dispose()
+    }
+}
+
 if ([string]::IsNullOrWhiteSpace($ApkPath)) {
     Write-Host "ERRORE: passare il path dell'APK come argomento."
     Write-Host "Uso: powershell -File quickshare-send.ps1 ""C:\path\to\file.apk"""
@@ -101,7 +150,7 @@ try {
     if ($direct) {
         Write-Host ""
         Write-Host "Apro Quick Share con '$leaf'..."
-        $direct.Verb.DoIt()
+        Invoke-VerbWithHostWindow -Verb $direct.Verb
         exit 0
     }
 
@@ -115,7 +164,7 @@ try {
         Write-Host ""
         Write-Host "Apro il menu Condividi di Windows con '$leaf'."
         Write-Host "Scegli 'Quick Share' nel popup."
-        $picker.Verb.DoIt()
+        Invoke-VerbWithHostWindow -Verb $picker.Verb
         exit 0
     }
 
