@@ -55,21 +55,44 @@ try {
     }
 
     # Il nome del verb dipende dalla versione di Quick Share e dal locale OS.
-    # Su Windows IT con Samsung Quick Share installato e' tipicamente
+    # Su Windows IT con Samsung Quick Share installato è tipicamente
     # "Quick Share" (l'app conserva il nome inglese), ma copriamo anche
-    # eventuali traduzioni future.
-    $verb = $item.Verbs() | Where-Object {
-        $_.Name -match 'Quick Share|Condivisione rapida|Condivisione vicina'
+    # eventuali traduzioni future. Normalizziamo togliendo '&' (mnemonico
+    # da tastiera, es. "&Quick Share") prima del match.
+    $allVerbs = @($item.Verbs())
+    $normalized = @($allVerbs | ForEach-Object {
+        @{
+            Verb = $_
+            Clean = ($_.Name -replace '&', '').Trim()
+        }
+    })
+
+    Write-Host "Verbi disponibili per '$leaf':"
+    foreach ($n in $normalized) {
+        if ($n.Clean) { Write-Host "  - $($n.Clean)" }
+    }
+
+    $match = $normalized | Where-Object {
+        $_.Clean -match 'Quick.?Share' -or
+        $_.Clean -match 'Condivisione rapida' -or
+        $_.Clean -match 'Condivisione vicina' -or
+        $_.Clean -match 'Samsung.*Share' -or
+        $_.Clean -match 'Galaxy.*Share'
     } | Select-Object -First 1
+
+    $verb = if ($match) { $match.Verb } else { $null }
 
     if ($verb) {
         Write-Host "Apro Quick Share con '$leaf'..."
         $verb.DoIt()
         exit 0
     } else {
-        Write-Host "Quick Share non disponibile su questo PC."
+        Write-Host ""
+        Write-Host "Quick Share non trovato nei verb del context menu legacy."
+        Write-Host "Possibile causa: Quick Share usa il context menu 'moderno' di"
+        Write-Host "Windows 11 che non viene enumerato da Shell.Application.Verbs()."
         Write-Host "APK pronto in: $abs"
-        Write-Host "Trasferiscilo manualmente sul telefono."
+        Write-Host "Trasferiscilo manualmente sul telefono (tasto destro -> Quick Share)."
         exit 2
     }
 } catch {
