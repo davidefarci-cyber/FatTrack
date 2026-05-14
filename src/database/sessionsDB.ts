@@ -288,3 +288,66 @@ export async function getSessionSets(
     sessionId,
   );
 }
+
+export type LastCompletedSet = {
+  repsDone: number | null;
+  weightKg: number | null;
+  durationSec: number | null;
+  setNumber: number;
+  sessionEndedAt: string;
+};
+
+// Carry-over reps/durata/peso: cerca il set fatto la volta scorsa che hai
+// allenato QUESTA scheda su QUESTO esercizio col MEDESIMO set_number.
+// L'idea è seguire la curva di fatica intra-workout: set1 vs set1, set3
+// vs set3. Fallback: ultimo set qualsiasi della sessione precedente,
+// utile quando oggi stai facendo più set del solito (es. 3 → 4).
+// Restituisce null se non c'è una sessione completata precedente per
+// questa combinazione (primo allenamento → fallback alla prescrizione).
+export async function getLastCompletedSet(
+  workoutId: number,
+  exerciseId: number,
+  setNumber: number,
+): Promise<LastCompletedSet | null> {
+  const db = await getDatabase();
+  const lastSession = await db.getFirstAsync<{
+    id: number;
+    endedAt: string;
+  }>(
+    `SELECT id, ended_at AS endedAt FROM sessions
+     WHERE workout_id = ? AND ended_at IS NOT NULL
+     ORDER BY ended_at DESC LIMIT 1`,
+    workoutId,
+  );
+  if (!lastSession) return null;
+
+  type SetRow = {
+    repsDone: number | null;
+    weightKg: number | null;
+    durationSec: number | null;
+    setNumber: number;
+  };
+  let row = await db.getFirstAsync<SetRow>(
+    `SELECT reps_done AS repsDone, weight_kg AS weightKg,
+            duration_sec AS durationSec, set_number AS setNumber
+     FROM session_sets
+     WHERE session_id = ? AND exercise_id = ? AND set_number = ?
+     ORDER BY completed_at DESC LIMIT 1`,
+    lastSession.id,
+    exerciseId,
+    setNumber,
+  );
+  if (!row) {
+    row = await db.getFirstAsync<SetRow>(
+      `SELECT reps_done AS repsDone, weight_kg AS weightKg,
+              duration_sec AS durationSec, set_number AS setNumber
+       FROM session_sets
+       WHERE session_id = ? AND exercise_id = ?
+       ORDER BY set_number DESC LIMIT 1`,
+      lastSession.id,
+      exerciseId,
+    );
+  }
+  if (!row) return null;
+  return { ...row, sessionEndedAt: lastSession.endedAt };
+}

@@ -41,15 +41,22 @@ const PRESCRIPTION_OPTIONS = [
 
 type PrescriptionMode = 'reps' | 'duration';
 
+// `durationValue` è il testo digitato dall'utente nell'unità corrente
+// (`durationUnit`). Sul save lo convertiamo in secondi. Distinguiamo sec
+// da min nell'editor così esercizi tipo "Corsa 20 min" si digitano come
+// 20 invece che 1200 — il seed/cargo invece arriva sempre in secondi.
 type DraftExercise = {
   exerciseId: number;
   mode: PrescriptionMode;
   sets: string;
   reps: string;
-  durationSec: string;
+  durationValue: string;
+  durationUnit: 'sec' | 'min';
   restSec: string;
   notes: string;
 };
+
+const DURATION_MIN_SWITCH_SEC = 120;
 
 type Props = {
   visible: boolean;
@@ -71,19 +78,32 @@ function workoutToDraft(w: Workout): {
     category: w.category,
     duration:
       w.estimatedDurationMin !== null ? String(w.estimatedDurationMin) : '',
-    exercises: w.exercises.map((ex) => ({
-      exerciseId: ex.exerciseId,
-      mode: ex.durationSec !== null && ex.durationSec !== undefined ? 'duration' : 'reps',
-      sets: ex.sets !== null && ex.sets !== undefined ? String(ex.sets) : '',
-      reps: ex.reps !== null && ex.reps !== undefined ? String(ex.reps) : '',
-      durationSec:
-        ex.durationSec !== null && ex.durationSec !== undefined
-          ? String(ex.durationSec)
+    exercises: w.exercises.map((ex) => {
+      const hasDuration =
+        ex.durationSec !== null && ex.durationSec !== undefined;
+      // Su durate lunghe (>=120s) entriamo direttamente in modalità min
+      // così l'utente non si ritrova a editare "1200" — tanto la
+      // conversione sec → min è esatta solo per multipli di 60.
+      const useMin =
+        hasDuration &&
+        (ex.durationSec as number) >= DURATION_MIN_SWITCH_SEC &&
+        (ex.durationSec as number) % 60 === 0;
+      return {
+        exerciseId: ex.exerciseId,
+        mode: hasDuration ? 'duration' : 'reps',
+        sets: ex.sets !== null && ex.sets !== undefined ? String(ex.sets) : '',
+        reps: ex.reps !== null && ex.reps !== undefined ? String(ex.reps) : '',
+        durationValue: hasDuration
+          ? String(useMin ? (ex.durationSec as number) / 60 : ex.durationSec)
           : '',
-      restSec:
-        ex.restSec !== null && ex.restSec !== undefined ? String(ex.restSec) : '',
-      notes: ex.notes ?? '',
-    })),
+        durationUnit: useMin ? 'min' : 'sec',
+        restSec:
+          ex.restSec !== null && ex.restSec !== undefined
+            ? String(ex.restSec)
+            : '',
+        notes: ex.notes ?? '',
+      };
+    }),
   };
 }
 
@@ -189,20 +209,43 @@ export function WorkoutEditorModal({
     setExercises((prev) => prev.filter((_, i) => i !== idx));
   }, []);
 
-  const handlePickExercise = useCallback((exerciseId: number) => {
-    setExercises((prev) => [
-      ...prev,
-      {
-        exerciseId,
-        mode: 'reps',
-        sets: '',
-        reps: '',
-        durationSec: '',
-        restSec: '',
-        notes: '',
-      },
-    ]);
-  }, []);
+  const handlePickExercise = useCallback(
+    (exerciseId: number) => {
+      // Prefill basato sul metadato `default_mode` dell'esercizio: Plank
+      // / Corsa / Wall sit arrivano in modalità "Tempo" con la loro
+      // durata suggerita (vedi seedExercises). Tutti gli altri partono
+      // in "Serie × reps" vuoti. Se il metadata non è ancora caricato
+      // (caso raro: utente apre il picker prima del fetch), defaulta a
+      // reps — al prossimo render con `meta` valorizzato l'utente può
+      // togglare manualmente.
+      const meta = exerciseMeta.get(exerciseId);
+      const wantsTime = meta?.defaultMode === 'time';
+      const defaultDur = meta?.defaultDurationSec ?? null;
+      const useMin =
+        wantsTime &&
+        defaultDur !== null &&
+        defaultDur >= DURATION_MIN_SWITCH_SEC &&
+        defaultDur % 60 === 0;
+      setExercises((prev) => [
+        ...prev,
+        {
+          exerciseId,
+          mode: wantsTime ? 'duration' : 'reps',
+          sets: '',
+          reps: '',
+          durationValue: wantsTime
+            ? defaultDur !== null
+              ? String(useMin ? defaultDur / 60 : defaultDur)
+              : ''
+            : '',
+          durationUnit: useMin ? 'min' : 'sec',
+          restSec: '',
+          notes: '',
+        },
+      ]);
+    },
+    [exerciseMeta],
+  );
 
   const handleSave = useCallback(async () => {
     const trimmedName = name.trim();
@@ -242,13 +285,15 @@ export function WorkoutEditorModal({
           notes: row.notes.trim() ? row.notes.trim() : null,
         });
       } else {
-        const durationSec = parsePositiveInt(row.durationSec);
-        if (durationSec === null) {
+        const rawValue = parsePositiveInt(row.durationValue);
+        if (rawValue === null) {
           onValidationError(
-            `Esercizio ${i + 1}: imposta i secondi o passa a Serie × reps.`,
+            `Esercizio ${i + 1}: imposta la durata o passa a Serie × reps.`,
           );
           return;
         }
+        const durationSec =
+          row.durationUnit === 'min' ? rawValue * 60 : rawValue;
         payloadExercises.push({
           exerciseId: row.exerciseId,
           position: i,
@@ -462,30 +507,70 @@ export function WorkoutEditorModal({
                         />
                       </View>
                     ) : (
-                      <View style={styles.fieldsRow}>
-                        <Input
-                          containerStyle={styles.fieldHalf}
-                          label="Durata"
-                          unit="s"
-                          value={row.durationSec}
-                          onChangeText={(v) =>
-                            updateExerciseField(idx, { durationSec: v })
-                          }
-                          placeholder="30"
-                          keyboardType="number-pad"
-                        />
-                        <Input
-                          containerStyle={styles.fieldHalf}
-                          label="Riposo"
-                          unit="s"
-                          value={row.restSec}
-                          onChangeText={(v) =>
-                            updateExerciseField(idx, { restSec: v })
-                          }
-                          placeholder="45"
-                          keyboardType="number-pad"
-                        />
-                      </View>
+                      <>
+                        <View style={styles.fieldsRow}>
+                          <Input
+                            containerStyle={styles.fieldHalf}
+                            label="Durata"
+                            unit={row.durationUnit === 'min' ? 'min' : 's'}
+                            value={row.durationValue}
+                            onChangeText={(v) =>
+                              updateExerciseField(idx, { durationValue: v })
+                            }
+                            placeholder={
+                              row.durationUnit === 'min' ? '5' : '30'
+                            }
+                            keyboardType="number-pad"
+                          />
+                          <Input
+                            containerStyle={styles.fieldHalf}
+                            label="Riposo"
+                            unit="s"
+                            value={row.restSec}
+                            onChangeText={(v) =>
+                              updateExerciseField(idx, { restSec: v })
+                            }
+                            placeholder="45"
+                            keyboardType="number-pad"
+                          />
+                        </View>
+                        <Pressable
+                          onPress={() => {
+                            // Toggle unità + converte il valore visualizzato
+                            // se è un intero (1200s → 20min, 30s → 0.5min →
+                            // chiudiamo a stringa vuota e l'utente ridigita).
+                            const raw = parsePositiveInt(row.durationValue);
+                            const nextUnit =
+                              row.durationUnit === 'min' ? 'sec' : 'min';
+                            let nextValue = row.durationValue;
+                            if (raw !== null) {
+                              if (nextUnit === 'min') {
+                                nextValue =
+                                  raw % 60 === 0 ? String(raw / 60) : '';
+                              } else {
+                                nextValue = String(raw * 60);
+                              }
+                            }
+                            updateExerciseField(idx, {
+                              durationUnit: nextUnit,
+                              durationValue: nextValue,
+                            });
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Cambia unità in ${
+                            row.durationUnit === 'min' ? 'secondi' : 'minuti'
+                          }`}
+                          style={styles.unitToggle}
+                        >
+                          <Text
+                            style={[typography.caption, { color: accent }]}
+                          >
+                            {row.durationUnit === 'min'
+                              ? 'Passa ai secondi'
+                              : 'Passa ai minuti'}
+                          </Text>
+                        </Pressable>
+                      </>
                     )}
 
                     <Input
@@ -623,6 +708,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: radii.md,
     borderWidth: 1.5,
+  },
+  unitToggle: {
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
   },
   footer: {
     gap: spacing.md,
