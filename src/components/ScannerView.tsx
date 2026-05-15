@@ -119,7 +119,7 @@ export function ScannerView({
         <Text style={[typography.caption, { color: colors.card, textAlign: 'center' }]}>
           {canAsk
             ? 'FatTrack usa la fotocamera per leggere i codici a barre.'
-            : 'Hai negato il permesso. Riabilitalo dalle impostazioni di sistema per scansionare i codici a barre.'}
+            : 'Apri Impostazioni → Permessi → Fotocamera → Consenti, poi torna qui.'}
         </Text>
         <Button
           label={canAsk ? 'Consenti accesso' : 'Apri impostazioni'}
