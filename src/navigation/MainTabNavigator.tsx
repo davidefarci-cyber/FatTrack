@@ -10,6 +10,7 @@ import FavoritesScreen from '@/screens/FavoritesScreen';
 import FoodSearchScreen from '@/screens/FoodSearchScreen';
 import HistoryScreen from '@/screens/HistoryScreen';
 import HomeScreen from '@/screens/HomeScreen';
+import PizzaCounterScreen from '@/screens/PizzaCounterScreen';
 import ProfileScreen from '@/screens/ProfileScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
 import type { TabParamList } from '@/types';
@@ -39,6 +40,15 @@ export function MainTabNavigator() {
     await setAppMode('sport');
     await markSportModeSeen();
   }, [setAppMode, markSportModeSeen]);
+
+  // Long-press sul tab "Storico" → apre l'easter egg conta pizze. Solo in
+  // diet mode (lo SportTabNavigator non passa il callback).
+  // Cast `as never` perché navigationRef è tipato come unione diet|sport e
+  // PizzaCounter esiste solo nel TabParamList diet.
+  const handleHistoryLongPress = useCallback(() => {
+    if (!navigationRef.isReady()) return;
+    navigationRef.navigate('PizzaCounter' as never);
+  }, []);
 
   // Back hardware Android: il default del bottom-tab navigator e' "torna al
   // tab visitato in precedenza", che genera comportamenti confusi (Home ->
@@ -86,7 +96,11 @@ export function MainTabNavigator() {
       // L'unico gestore del back hardware e' l'useEffect qui sopra.
       backBehavior="none"
       tabBar={(props) => (
-        <BottomTabBar {...props} onHomeLongPress={handleHomeLongPress} />
+        <BottomTabBar
+          {...props}
+          onHomeLongPress={handleHomeLongPress}
+          onHistoryLongPress={handleHistoryLongPress}
+        />
       )}
       screenOptions={{ headerShown: false }}
     >
@@ -97,6 +111,7 @@ export function MainTabNavigator() {
       <Tab.Screen name="FoodSearch" component={FoodSearchScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen name="PizzaCounter" component={PizzaCounterScreen} />
     </Tab.Navigator>
   );
 }

@@ -11,6 +11,9 @@ export type TabParamList = {
   FoodSearch: undefined;
   Settings: undefined;
   Profile: undefined;
+  // Easter egg: conta pizze annuale. Schermata Tab.Screen nascosta dalla bar
+  // (come Settings/Profile), raggiungibile via long-press del tab "Storico".
+  PizzaCounter: undefined;
 };
 
 // Bottom tab della modalità Sport: Tabata · Schede · Home · Storico · Esercizi.

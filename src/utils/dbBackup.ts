@@ -36,6 +36,8 @@ const TABLES = [
   'workout_exercises',
   'sessions',
   'session_sets',
+  // Easter egg conta pizze (no FK, ordine indifferente).
+  'pizza_log',
 ] as const;
 
 type TableName = (typeof TABLES)[number];

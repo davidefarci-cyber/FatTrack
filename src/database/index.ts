@@ -17,6 +17,7 @@ export * as exercisesDB from './exercisesDB';
 export * as workoutsDB from './workoutsDB';
 export * as programsDB from './programsDB';
 export * as sessionsDB from './sessionsDB';
+export * as pizzaLogDB from './pizzaLogDB';
 
 export {
   EQUIPMENT_TAGS,

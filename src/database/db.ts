@@ -255,6 +255,12 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       paused_total_sec INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS pizza_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      eaten_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_pizza_log_eaten_at ON pizza_log(eaten_at);
   `);
 
   // Migrazione: la colonna `target_calories` su `daily_settings` è stata
