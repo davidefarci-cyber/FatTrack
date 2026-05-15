@@ -115,27 +115,6 @@ manuale su device).
 
 ## 🟢 Priorità bassa
 
-### [8] Persistere il consenso `REQUEST_INSTALL_PACKAGES`
-
-**Aperta**: 2026-05-01
-**Area**: UX
-**Effort**: M (rivalutato 2026-05-02 — richiede bridge nativo Android o
-`expo-intent-launcher`, non è una semplice riga in app.json)
-
-Ogni volta che l'utente preme "Aggiorna" sull'alert di update, Android
-chiede di nuovo "Consenti install da fonti sconosciute" (anche se l'ha
-già concesso una volta). È fastidioso.
-
-`PackageManager.canRequestPackageInstalls()` su Android 8+ permette di
-sapere se il consenso è già attivo. Si potrebbe mostrare un'istruzione
-one-shot la prima volta e saltare l'alert nelle successive.
-
-**Done quando**: utente concede una volta, le successive l'app naviga
-direttamente al download senza chiedere di nuovo (a meno che il consenso
-sia stato revocato).
-
----
-
 ### [9] Pre-release env (canale "preview" ring)
 
 **Aperta**: 2026-05-01
@@ -314,6 +293,35 @@ contro spam.
 ---
 
 ## ✅ Fatto
+
+### [annullata] [8] Persistere il consenso `REQUEST_INSTALL_PACKAGES`
+
+**Aperta**: 2026-05-01 — **Chiusa**: 2026-05-15
+
+Annullata: la premessa del TODO non corrisponde al comportamento reale di
+Android. Dopo aver concesso una volta il permesso "fonti sconosciute" a
+FatTrack come installer, Android 8+ lo persiste a tempo indefinito (finché
+l'utente non lo revoca o disinstalla l'app); le update successive partono
+senza riproporre il prompt. Verificato sul device dell'autore: dopo il
+primo install non appare più la richiesta.
+
+Quello che ancora si vede ad ogni update è la **scansione Play Protect**
+("Google sta verificando l'app…"), che è una feature di sicurezza di sistema
+non disabilitabile da un'app: l'utente può solo toglierla globalmente da
+Play Store → Play Protect → Impostazioni. Non c'è API client per saltarla.
+
+Quindi non c'è attrito reale da rimuovere: il primo install richiede una
+configurazione manuale una tantum (Android porta da solo nelle Settings,
+l'utente attiva, torna), tutti i successivi sono dritti al download/install
++ scan Play Protect non scriptabile. Implementare
+`canRequestPackageInstalls()` via bridge nativo non gioverebbe a nessun
+flusso reale degli utenti correnti.
+
+Se in futuro emergesse un caso documentato di revoca involontaria del
+consenso (es. policy MDM, factory reset parziale), riaprire come voce nuova
+con repro chiara.
+
+---
 
 ### [chiusa] [22] Inserire conta pizze
 
