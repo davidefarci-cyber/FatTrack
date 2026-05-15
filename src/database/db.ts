@@ -123,7 +123,7 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
       id INTEGER PRIMARY KEY CHECK (id = 1),
       app_mode TEXT NOT NULL DEFAULT 'diet' CHECK (app_mode IN ('diet','sport')),
       sport_mode_seen INTEGER NOT NULL DEFAULT 0,
-      weekly_target_days INTEGER NOT NULL DEFAULT 4,
+      weekly_target_days INTEGER NOT NULL DEFAULT 4 CHECK (weekly_target_days BETWEEN 1 AND 7),
       haptic_enabled INTEGER NOT NULL DEFAULT 1,
       spotify_playlist_uri TEXT,
       tabata_work_sec INTEGER NOT NULL DEFAULT 20,
@@ -341,6 +341,77 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   // Singleton di `app_settings`: una sola riga con id=1, default mode='diet'.
   // Idempotente come `daily_settings` e `user_profile`.
   await db.runAsync(`INSERT OR IGNORE INTO app_settings (id) VALUES (1)`);
+
+  // Migrazione [21]: aggiunge CHECK (weekly_target_days BETWEEN 1 AND 7).
+  // SQLite non supporta ALTER TABLE ADD CONSTRAINT, serve ricreare la
+  // tabella. Idempotente: controlliamo se la CHECK è già presente nello
+  // schema attuale tramite sqlite_master. La CHECK è difesa in profondità
+  // contro import di backup malevoli o bug futuri (l'UI è già bounded 1-7).
+  const appSettingsSchema = await db.getFirstAsync<{ sql: string }>(
+    `SELECT sql FROM sqlite_master WHERE type='table' AND name='app_settings'`,
+  );
+  const hasWeeklyTargetCheck =
+    typeof appSettingsSchema?.sql === 'string' &&
+    /weekly_target_days[^,]*BETWEEN\s+1\s+AND\s+7/i.test(appSettingsSchema.sql);
+
+  if (!hasWeeklyTargetCheck) {
+    try {
+      // Defensive: prima di ricreare la tabella, normalizza eventuali valori
+      // out-of-range a 4 (default), così INSERT INTO ... SELECT non fallisce
+      // sulla CHECK. In pratica improbabile (l'unica write path è la UI 1-7).
+      await db.runAsync(
+        `UPDATE app_settings SET weekly_target_days = 4 WHERE weekly_target_days NOT BETWEEN 1 AND 7`,
+      );
+
+      await db.execAsync('BEGIN TRANSACTION');
+      try {
+        await db.execAsync(`
+          CREATE TABLE app_settings_new (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            app_mode TEXT NOT NULL DEFAULT 'diet' CHECK (app_mode IN ('diet','sport')),
+            sport_mode_seen INTEGER NOT NULL DEFAULT 0,
+            weekly_target_days INTEGER NOT NULL DEFAULT 4 CHECK (weekly_target_days BETWEEN 1 AND 7),
+            haptic_enabled INTEGER NOT NULL DEFAULT 1,
+            spotify_playlist_uri TEXT,
+            tabata_work_sec INTEGER NOT NULL DEFAULT 20,
+            tabata_rest_sec INTEGER NOT NULL DEFAULT 10,
+            tabata_rounds INTEGER NOT NULL DEFAULT 8,
+            coach_marks_seen TEXT NOT NULL DEFAULT '{}',
+            exercise_guides_enabled INTEGER NOT NULL DEFAULT 1,
+            keep_awake_enabled INTEGER NOT NULL DEFAULT 1,
+            programs_intro_initialized INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+          );
+        `);
+        await db.execAsync(`
+          INSERT INTO app_settings_new (
+            id, app_mode, sport_mode_seen, weekly_target_days,
+            haptic_enabled, spotify_playlist_uri,
+            tabata_work_sec, tabata_rest_sec, tabata_rounds,
+            coach_marks_seen, exercise_guides_enabled, keep_awake_enabled,
+            programs_intro_initialized, updated_at
+          )
+          SELECT
+            id, app_mode, sport_mode_seen, weekly_target_days,
+            haptic_enabled, spotify_playlist_uri,
+            tabata_work_sec, tabata_rest_sec, tabata_rounds,
+            coach_marks_seen, exercise_guides_enabled, keep_awake_enabled,
+            programs_intro_initialized, updated_at
+          FROM app_settings;
+        `);
+        await db.execAsync(`DROP TABLE app_settings`);
+        await db.execAsync(`ALTER TABLE app_settings_new RENAME TO app_settings`);
+        await db.execAsync('COMMIT');
+      } catch (err) {
+        await db.execAsync('ROLLBACK');
+        throw err;
+      }
+    } catch (err) {
+      // Difesa in profondità: meglio app funzionante senza CHECK che app rotta.
+      // La migrazione verrà ritentata al prossimo cold-start.
+      console.warn('[migrate] CHECK constraint migration failed:', err);
+    }
+  }
 
   // Marker idempotente: indica se i `quick_addons` di default sono già
   // stati seedati almeno una volta. Su DB nuovi viene aggiunta dall'ALTER
