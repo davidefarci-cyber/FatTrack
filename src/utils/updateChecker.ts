@@ -26,6 +26,11 @@ const RECHECK_MS = 60 * 60 * 1000;
 
 const STORAGE_KEY_LAST_CHECK = '@fattrack/updateCheck/lastCheckAt';
 const STORAGE_KEY_DISMISSED = '@fattrack/updateCheck/dismissedVersion';
+// Cache della RemoteVersion: serve a mostrare il prompt anche offline /
+// quando il fetch fallisce (TODO [10]). Aggiornata a ogni fetch riuscito;
+// la comparison con `Constants.expoConfig.version` la invalida naturalmente
+// dopo che l'utente ha aggiornato (cached.version <= current → niente prompt).
+const STORAGE_KEY_REMOTE_CACHE = '@fattrack/updateCheck/cachedRemote';
 
 let isPromptOpen = false;
 let appStateSubscribed = false;
@@ -73,38 +78,63 @@ function handleAppStateChange(state: AppStateStatus) {
 async function runCheck({ force = false }: { force?: boolean } = {}): Promise<ManualCheckResult> {
   if (isPromptOpen) return 'prompted';
 
-  if (!force) {
-    // Throttle persistito: rispettato anche al cold-start.
-    const lastCheckAt = await readLastCheckAt();
-    if (Date.now() - lastCheckAt < RECHECK_MS) return 'up-to-date';
-  }
-  void AsyncStorage.setItem(STORAGE_KEY_LAST_CHECK, String(Date.now()));
+  const current = getCurrentVersion();
+  if (!current) return 'error';
 
-  try {
-    const remote = await fetchFromReleasesApi();
-    if (!remote) return 'error';
+  // Decide se fare davvero il fetch o solo provare la cache. Il throttle
+  // riduce le chiamate API ma NON la possibilità di mostrare il prompt
+  // dalla cache: dentro la finestra throttle leggiamo comunque la cache
+  // così l'utente che era offline al fetch precedente vede comunque
+  // l'update se nel frattempo l'app è tornata in foreground (TODO [10]).
+  const lastCheckAt = await readLastCheckAt();
+  const shouldFetch = force || Date.now() - lastCheckAt >= RECHECK_MS;
 
-    const current = getCurrentVersion();
-    if (!current) return 'error';
+  let remote: RemoteVersion | null = null;
+  let fetchFailed = false;
 
-    if (compareVersions(remote.version, current) > 0) {
-      // Se l'utente ha già detto "Dopo" per questa versione non riproporre
-      // il prompt finché non esce una versione successiva. Eccezione: con
-      // force=true (bottone manuale) vogliamo sempre il prompt.
-      if (!force) {
-        const dismissed = await AsyncStorage.getItem(STORAGE_KEY_DISMISSED);
-        if (dismissed === remote.version) return 'up-to-date';
+  if (shouldFetch) {
+    void AsyncStorage.setItem(STORAGE_KEY_LAST_CHECK, String(Date.now()));
+    try {
+      remote = await fetchFromReleasesApi();
+      if (remote) {
+        void writeCachedRemote(remote);
+      } else {
+        fetchFailed = true;
       }
-
-      promptUpdate(remote);
-      return 'prompted';
+    } catch {
+      fetchFailed = true;
     }
-    return 'up-to-date';
-  } catch {
-    // Silenziosi per design: update check automatico è un "nice to have".
-    // Il chiamante manuale traduce 'error' in toast.
-    return 'error';
   }
+
+  // Fallback su cache se non abbiamo fetchato o se il fetch è fallito.
+  // La cache viene invalidata naturalmente dalla compareVersions sotto:
+  // se l'utente ha aggiornato, current >= cached.version → niente prompt.
+  if (!remote) {
+    remote = await readCachedRemote();
+  }
+
+  if (!remote) {
+    // Né rete né cache: errore solo se abbiamo provato a fetchare, altrimenti
+    // 'up-to-date' (non sappiamo nulla, comportamento storico del throttle).
+    return shouldFetch ? 'error' : 'up-to-date';
+  }
+
+  if (compareVersions(remote.version, current) > 0) {
+    // Se l'utente ha già detto "Dopo" per questa versione non riproporre
+    // il prompt finché non esce una versione successiva. Eccezione: con
+    // force=true (bottone manuale) vogliamo sempre il prompt.
+    if (!force) {
+      const dismissed = await AsyncStorage.getItem(STORAGE_KEY_DISMISSED);
+      if (dismissed === remote.version) return 'up-to-date';
+    }
+
+    promptUpdate(remote);
+    return 'prompted';
+  }
+
+  // Versione corrente >= cache: se il fetch è fallito segnaliamo error al
+  // chiamante manuale (toast "non riesco a controllare"), altrimenti tutto ok.
+  return fetchFailed && force ? 'error' : 'up-to-date';
 }
 
 async function readLastCheckAt(): Promise<number> {
@@ -115,6 +145,36 @@ async function readLastCheckAt(): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+async function readCachedRemote(): Promise<RemoteVersion | null> {
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY_REMOTE_CACHE);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isCachedRemoteVersion(parsed)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCachedRemote(remote: RemoteVersion): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEY_REMOTE_CACHE, JSON.stringify(remote));
+  } catch {
+    // Best-effort: la cache è opzionale, il prompt corrente è già stato mostrato.
+  }
+}
+
+function isCachedRemoteVersion(data: unknown): data is RemoteVersion {
+  if (!data || typeof data !== 'object') return false;
+  const obj = data as Record<string, unknown>;
+  return (
+    typeof obj.version === 'string' &&
+    typeof obj.apkUrl === 'string' &&
+    typeof obj.notes === 'string'
+  );
 }
 
 function getCurrentVersion(): string | null {

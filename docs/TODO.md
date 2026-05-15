@@ -82,25 +82,6 @@ release`.
 
 ---
 
-### [6] Retry automatico su `gh release create`
-
-**Aperta**: 2026-05-01
-**Area**: build
-
-Se `gh release create` fallisce DOPO il push del tag (token scaduto,
-network), si ottiene un tag su GitHub senza release associata. Gli utenti
-non vedono il prompt di update perché Releases API torna ancora il latest
-precedente.
-
-Oggi `fattrack.bat` fa `pause + exit` lasciando l'utente a fixare a mano.
-Migliorabile con retry interattivo o `gh release create --draft` poi
-publish in step separato.
-
-**Done quando**: tag e release sono atomici (o almeno la release viene
-auto-ritentata).
-
----
-
 ### [15] Asset wordmark "FitTrack" definitivi
 
 **Aperta**: 2026-05-02
@@ -134,27 +115,6 @@ manuale su device).
 
 ## 🟢 Priorità bassa
 
-### [8] Persistere il consenso `REQUEST_INSTALL_PACKAGES`
-
-**Aperta**: 2026-05-01
-**Area**: UX
-**Effort**: M (rivalutato 2026-05-02 — richiede bridge nativo Android o
-`expo-intent-launcher`, non è una semplice riga in app.json)
-
-Ogni volta che l'utente preme "Aggiorna" sull'alert di update, Android
-chiede di nuovo "Consenti install da fonti sconosciute" (anche se l'ha
-già concesso una volta). È fastidioso.
-
-`PackageManager.canRequestPackageInstalls()` su Android 8+ permette di
-sapere se il consenso è già attivo. Si potrebbe mostrare un'istruzione
-one-shot la prima volta e saltare l'alert nelle successive.
-
-**Done quando**: utente concede una volta, le successive l'app naviga
-direttamente al download senza chiedere di nuovo (a meno che il consenso
-sia stato revocato).
-
----
-
 ### [9] Pre-release env (canale "preview" ring)
 
 **Aperta**: 2026-05-01
@@ -167,21 +127,6 @@ Settings.
 
 **Done quando**: utenti possono opt-in a "ricevere anche le pre-release"
 e l'app legge sia le release stabili sia le pre-release.
-
----
-
-### [10] Cache più aggressiva del fetch versione
-
-**Aperta**: 2026-05-01
-**Area**: codice
-
-`updateChecker.ts` ha throttle 1h ma su rete instabile il fetch può
-fallire silenziosamente. Si potrebbe persistere l'ultima `RemoteVersion`
-fetchata in AsyncStorage e mostrare il prompt anche offline se il
-confronto era già stato calcolato.
-
-**Done quando**: una volta visto il prompt, l'utente lo rivede anche
-offline finché non lo dismissa o aggiorna.
 
 ---
 
@@ -234,59 +179,6 @@ linkare ai gif remoti via URL (con cache RN).
 **Done quando**: la libreria ha ≥150 esercizi; il bundle non cresce
 oltre +15MB; gli esercizi nuovi hanno descrizione + guideSteps +
 videoUrl o gif embed.
-
----
-
-### [21] CHECK constraint su `app_settings.weekly_target_days`
-
-**Aperta**: 2026-05-02
-**Area**: codice
-
-Lo stepper in `SportSettingsScreen` (Fase 5) mostra valori 1-7
-e l'UI gestisce il bound. Ma a livello DB la colonna
-`weekly_target_days` è `INTEGER NOT NULL DEFAULT 4`, senza CHECK
-constraint. Un import di backup malevolo o un bug futuro potrebbero
-scrivere valori illegali (0, -3, 100).
-
-Da fare: ALTER TABLE per aggiungere `CHECK (weekly_target_days
-BETWEEN 1 AND 7)` — su SQLite non si può ALTER aggiungendo CHECK,
-serve ricreare la tabella (rename + create new + insert select +
-drop old). Idempotente come gli altri pattern già nel db.ts. In
-alternativa, validare lato applicativo (più semplice, meno robusto).
-
-**Done quando**: il DB rifiuta scritture con valore fuori range
-1-7; l'errore viene gestito con Toast in `setWeeklyTarget` invece
-di crashare.
-
----
-
-### [22] Inserire conta pizze
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟢 bassa
-**Area**: feature
-**Effort**: M (rivalutato 2026-05-02 — richiede tabella DB nuova
-`pizza_log` + nuova screen + integrazione con backup/restore — interseca
-[14]; non è un fix isolato)
-
-Pagina scherzosa fuori dalla logica della dieta: contatore di pizze
-mangiate nell'anno corrente. Idea trattata come easter egg / stat
-divertente, non come voce nutrizionale tracciata.
-
-Proposta dell'utente per l'accesso: long-press sul tab "Storico" in
-diet (semantica: in fondo è uno storico anche quello), in alternativa
-pagina nascosta raggiungibile da un'icona dedicata. Da decidere quando
-si implementa.
-
-Schema indicativo: tabella `pizza_log (id, eaten_at, kind?, notes?)`
-con un + che incrementa di 1 e mostra il totale anno corrente, magari
-con breakdown mensile come barra/grafico. Nessuna integrazione coi
-pasti del diario (vita propria).
-
-**Done quando**: dalla home diet è raggiungibile in 1 gesto la
-"pizza counter screen", che mostra il totale anno + un + per
-incrementare; il dato è persistito in DB (sopravvive a reinstall via
-backup); export/import del backup la include.
 
 ---
 
@@ -401,6 +293,165 @@ contro spam.
 ---
 
 ## ✅ Fatto
+
+### [annullata] [8] Persistere il consenso `REQUEST_INSTALL_PACKAGES`
+
+**Aperta**: 2026-05-01 — **Chiusa**: 2026-05-15
+
+Annullata: la premessa del TODO non corrisponde al comportamento reale di
+Android. Dopo aver concesso una volta il permesso "fonti sconosciute" a
+FatTrack come installer, Android 8+ lo persiste a tempo indefinito (finché
+l'utente non lo revoca o disinstalla l'app); le update successive partono
+senza riproporre il prompt. Verificato sul device dell'autore: dopo il
+primo install non appare più la richiesta.
+
+Quello che ancora si vede ad ogni update è la **scansione Play Protect**
+("Google sta verificando l'app…"), che è una feature di sicurezza di sistema
+non disabilitabile da un'app: l'utente può solo toglierla globalmente da
+Play Store → Play Protect → Impostazioni. Non c'è API client per saltarla.
+
+Quindi non c'è attrito reale da rimuovere: il primo install richiede una
+configurazione manuale una tantum (Android porta da solo nelle Settings,
+l'utente attiva, torna), tutti i successivi sono dritti al download/install
++ scan Play Protect non scriptabile. Implementare
+`canRequestPackageInstalls()` via bridge nativo non gioverebbe a nessun
+flusso reale degli utenti correnti.
+
+Se in futuro emergesse un caso documentato di revoca involontaria del
+consenso (es. policy MDM, factory reset parziale), riaprire come voce nuova
+con repro chiara.
+
+---
+
+### [chiusa] [22] Inserire conta pizze
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-15
+
+Implementato come easter egg raggiungibile via long-press (~600ms) del tab
+"Storico" in modalità diet. Lo `SportTabNavigator` non passa il callback, quindi
+il gesto è no-op in sport (intenzionale).
+
+Pulsante "pizza" SVG con 6 fette (3 con pepperoni, 3 con basilico — pattern
+fisso) da tenere premuto per 1,5s: ogni 250ms una fetta sparisce (con
+`lightHaptic` tick), al completamento `successHaptic` + animazione "+1"
+sovrapposta, poi la pizza si ricompone. Rilascio anticipato → fette
+si rifondono, niente add. Cancel-safe (interrompere il gesto non scrive in DB).
+
+Tap sull'anno apre una `BottomSheet` con la lista degli anni con almeno una
+pizza (anno corrente sempre in cima, anche se a 0). Chevron `<` `>` saltano
+±1 anno tra quelli disponibili. Add è sempre registrata con `datetime('now')`:
+se l'utente sta navigando un anno passato, dopo l'add la vista torna
+automaticamente all'anno corrente.
+
+DB: tabella `pizza_log (id, eaten_at)` minimale (no kind/notes — il TODO li
+indicava come opzionali, MVP li ha omessi). Index su `eaten_at` per le query
+COUNT/strftime. Aggiunta a `dbBackup.ts TABLES` → export/import del backup
+include la tabella.
+
+File nuovi: `src/database/pizzaLogDB.ts`, `src/components/PizzaHoldButton.tsx`,
+`src/components/YearPickerSheet.tsx`, `src/screens/PizzaCounterScreen.tsx`.
+Modifiche: `src/database/db.ts` (CREATE TABLE), `src/database/index.ts`
+(export), `src/types/index.ts` (`PizzaCounter` in `TabParamList`),
+`src/components/BottomTabBar.tsx` (`onHistoryLongPress` prop),
+`src/navigation/MainTabNavigator.tsx` (registra Tab.Screen + cablaggio),
+`src/utils/dbBackup.ts` (`pizza_log` in TABLES).
+
+Colori pizza letterali nel componente (crust marrone, cheese giallo, pepperoni
+rosso, basilico verde): scoped al solo `PizzaHoldButton`, niente token nuovi
+nel theme.
+
+---
+
+### [chiusa] [21] CHECK constraint su `app_settings.weekly_target_days`
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-15
+
+Aggiunto `CHECK (weekly_target_days BETWEEN 1 AND 7)` sia al `CREATE
+TABLE` di `app_settings` (per i DB nuovi) sia tramite migrazione idempotente
+che ricrea la tabella per i DB esistenti.
+
+Pattern recreate in `src/database/db.ts` (rename + create new + insert
+select + drop old in transazione), gated da un check su
+`sqlite_master.sql` con regex `weekly_target_days[^,]*BETWEEN\s+1\s+AND\s+7`
+così la migrazione gira una sola volta per device. UPDATE difensivo PRIMA
+del recreate per clampare a 4 eventuali valori out-of-range (in pratica
+inesistenti: l'unica write path è `setWeeklyTarget` che già fa
+`Math.min(7, Math.max(1, ...))`). Errore non-fatale: try/catch wraps the
+whole migration so an unexpected failure degrades to "app senza CHECK" invece
+di crash al boot.
+
+Nessuna modifica alla UI o a `setWeeklyTarget`: il clamp applicativo è già
+la difesa primaria, la CHECK è defense-in-depth per scritture non-UI
+(import backup → `dbBackup.tryInsertRow` ha già try/catch riga-per-riga).
+
+Risk per gli utenti che aggiornano: praticamente zero. Tutti i DB
+deployati hanno `weekly_target_days ∈ {1..7}` per costruzione, il
+`INSERT INTO ... SELECT` non fallisce mai sulla CHECK. La FK analysis
+conferma: nessuna tabella ha FK verso `app_settings`, drop+rename è safe.
+
+File toccati: `src/database/db.ts` (CREATE TABLE + nuovo blocco
+migrazione dopo `INSERT OR IGNORE INTO app_settings`).
+
+---
+
+### [chiusa] [10] Cache più aggressiva del fetch versione
+
+**Aperta**: 2026-05-01 — **Chiusa**: 2026-05-15
+
+`src/utils/updateChecker.ts` ora persiste l'ultima `RemoteVersion`
+fetchata con successo in AsyncStorage (`@fattrack/updateCheck/cachedRemote`).
+Quando il fetch corrente fallisce — offline, timeout, payload malformato —
+o quando siamo dentro la finestra di throttle (1h) ma c'era già una cache,
+`runCheck` legge dalla cache e mostra comunque il prompt se la versione
+cached è strettamente > current.
+
+Comportamento:
+- Cold-start online: fetch ok, cache aggiornata, prompt se newer (come prima).
+- Cold-start offline con cache pregressa "newer": legge cache → prompt
+  comunque mostrato. Risolve il caso "l'utente è offline a casa ma sa che
+  c'è un update perché l'aveva visto prima".
+- Throttle (cold-start a meno di 1h dal precedente check): non rifa il
+  fetch ma legge la cache → prompt comunque mostrato se applicabile.
+- Versione cached <= current (utente ha appena aggiornato): nessun prompt,
+  la cache si invaliderà al prossimo fetch riuscito.
+- Dismissed version: cache mostrata solo se non dismissata (eccetto `force`).
+
+Nessuna TTL sulla cache: la compareVersions la invalida naturalmente
+quando current >= cached. Niente nuove dipendenze, niente cambi di schema
+DB, AsyncStorage già usato.
+
+File toccati: `src/utils/updateChecker.ts` (nuove costante
+`STORAGE_KEY_REMOTE_CACHE`, funzioni `readCachedRemote`/`writeCachedRemote`/
+`isCachedRemoteVersion`, refactor di `runCheck` con flusso fetch→cache→
+compareVersions unificato).
+
+---
+
+### [annullata] [6] Retry automatico su `gh release create`
+
+**Aperta**: 2026-05-01 — **Chiusa**: 2026-05-15
+
+Annullata: rischio reale basso, fix manuale di 30 secondi quando capita,
+retry automatico non giustifica la complessità nel batch.
+
+Quando `gh release create` fallisce dopo che il tag è già stato pushato,
+gli utenti non vedono un nuovo prompt update (Releases API torna ancora
+la release precedente). Ma: gli utenti stanno già usando la versione
+precedente, niente è "rotto" dal loro punto di vista. Il dev (single
+contributor) vede subito l'errore di `fattrack.bat` e fixa con un comando:
+`gh release create vX.Y.Z --title ... ./output.apk` (GitHub accetta la
+stessa tag) oppure delete-tag + bump al patch successivo. Frequenza
+attesa: rara (`gh release create` fallisce di rado in pratica).
+
+L'automazione costerebbe più del problema: branch logica nel batch (già
+non semplice), gestione idempotenza al retry, test difficile (simulare
+fallimento di `gh release`). Pattern già usato per la voce [4] (smoke
+test adb), annullata per lo stesso motivo.
+
+Se in futuro entrassero più contributor o si volesse pubblicare su Play
+Store, riaprire come voce nuova.
+
+---
 
 ### [chiusa] [13] Foto profilo (avatar reale invece dell'iniziale)
 

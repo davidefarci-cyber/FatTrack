@@ -59,12 +59,16 @@ type BottomTabBarExtraProps = {
   // gestita dentro il tab bar perché lo store di appSettings vive in un
   // hook che è meglio non consumare qui (la bar resta uno "stupido" renderer).
   onHomeLongPress?: () => void;
+  // Callback per il long-press sul tab "Storico". Usata in diet mode per
+  // aprire l'easter egg conta pizze.
+  onHistoryLongPress?: () => void;
 };
 
 export function BottomTabBar({
   state,
   navigation,
   onHomeLongPress,
+  onHistoryLongPress,
 }: BottomTabBarProps & BottomTabBarExtraProps) {
   const insets = useSafeAreaInsets();
   const { mode, accent } = useAppTheme();
@@ -169,8 +173,22 @@ export function BottomTabBar({
           );
         }
 
+        const onLongPress =
+          route.name === 'History' && onHistoryLongPress
+            ? () => {
+                void successHaptic();
+                onHistoryLongPress();
+              }
+            : undefined;
+
         return (
-          <Pressable key={route.key} onPress={onPress} style={styles.tab}>
+          <Pressable
+            key={route.key}
+            onPress={onPress}
+            onLongPress={onLongPress}
+            delayLongPress={LONG_PRESS_MS}
+            style={styles.tab}
+          >
             <Icon name={config.icon} size={22} color={tint} />
             <Text
               style={[
