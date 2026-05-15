@@ -203,36 +203,6 @@ videoUrl o gif embed.
 
 ---
 
-### [22] Inserire conta pizze
-
-**Aperta**: 2026-05-02
-**Priorità**: 🟢 bassa
-**Area**: feature
-**Effort**: M (rivalutato 2026-05-02 — richiede tabella DB nuova
-`pizza_log` + nuova screen + integrazione con backup/restore — interseca
-[14]; non è un fix isolato)
-
-Pagina scherzosa fuori dalla logica della dieta: contatore di pizze
-mangiate nell'anno corrente. Idea trattata come easter egg / stat
-divertente, non come voce nutrizionale tracciata.
-
-Proposta dell'utente per l'accesso: long-press sul tab "Storico" in
-diet (semantica: in fondo è uno storico anche quello), in alternativa
-pagina nascosta raggiungibile da un'icona dedicata. Da decidere quando
-si implementa.
-
-Schema indicativo: tabella `pizza_log (id, eaten_at, kind?, notes?)`
-con un + che incrementa di 1 e mostra il totale anno corrente, magari
-con breakdown mensile come barra/grafico. Nessuna integrazione coi
-pasti del diario (vita propria).
-
-**Done quando**: dalla home diet è raggiungibile in 1 gesto la
-"pizza counter screen", che mostra il totale anno + un + per
-incrementare; il dato è persistito in DB (sopravvive a reinstall via
-backup); export/import del backup la include.
-
----
-
 ### [34] Widget Android per la home screen
 
 **Aperta**: 2026-05-02
@@ -344,6 +314,45 @@ contro spam.
 ---
 
 ## ✅ Fatto
+
+### [chiusa] [22] Inserire conta pizze
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-15
+
+Implementato come easter egg raggiungibile via long-press (~600ms) del tab
+"Storico" in modalità diet. Lo `SportTabNavigator` non passa il callback, quindi
+il gesto è no-op in sport (intenzionale).
+
+Pulsante "pizza" SVG con 6 fette (3 con pepperoni, 3 con basilico — pattern
+fisso) da tenere premuto per 1,5s: ogni 250ms una fetta sparisce (con
+`lightHaptic` tick), al completamento `successHaptic` + animazione "+1"
+sovrapposta, poi la pizza si ricompone. Rilascio anticipato → fette
+si rifondono, niente add. Cancel-safe (interrompere il gesto non scrive in DB).
+
+Tap sull'anno apre una `BottomSheet` con la lista degli anni con almeno una
+pizza (anno corrente sempre in cima, anche se a 0). Chevron `<` `>` saltano
+±1 anno tra quelli disponibili. Add è sempre registrata con `datetime('now')`:
+se l'utente sta navigando un anno passato, dopo l'add la vista torna
+automaticamente all'anno corrente.
+
+DB: tabella `pizza_log (id, eaten_at)` minimale (no kind/notes — il TODO li
+indicava come opzionali, MVP li ha omessi). Index su `eaten_at` per le query
+COUNT/strftime. Aggiunta a `dbBackup.ts TABLES` → export/import del backup
+include la tabella.
+
+File nuovi: `src/database/pizzaLogDB.ts`, `src/components/PizzaHoldButton.tsx`,
+`src/components/YearPickerSheet.tsx`, `src/screens/PizzaCounterScreen.tsx`.
+Modifiche: `src/database/db.ts` (CREATE TABLE), `src/database/index.ts`
+(export), `src/types/index.ts` (`PizzaCounter` in `TabParamList`),
+`src/components/BottomTabBar.tsx` (`onHistoryLongPress` prop),
+`src/navigation/MainTabNavigator.tsx` (registra Tab.Screen + cablaggio),
+`src/utils/dbBackup.ts` (`pizza_log` in TABLES).
+
+Colori pizza letterali nel componente (crust marrone, cheese giallo, pepperoni
+rosso, basilico verde): scoped al solo `PizzaHoldButton`, niente token nuovi
+nel theme.
+
+---
 
 ### [chiusa] [21] CHECK constraint su `app_settings.weekly_target_days`
 
