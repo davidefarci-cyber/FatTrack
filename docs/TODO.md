@@ -82,25 +82,6 @@ release`.
 
 ---
 
-### [6] Retry automatico su `gh release create`
-
-**Aperta**: 2026-05-01
-**Area**: build
-
-Se `gh release create` fallisce DOPO il push del tag (token scaduto,
-network), si ottiene un tag su GitHub senza release associata. Gli utenti
-non vedono il prompt di update perché Releases API torna ancora il latest
-precedente.
-
-Oggi `fattrack.bat` fa `pause + exit` lasciando l'utente a fixare a mano.
-Migliorabile con retry interattivo o `gh release create --draft` poi
-publish in step separato.
-
-**Done quando**: tag e release sono atomici (o almeno la release viene
-auto-ritentata).
-
----
-
 ### [15] Asset wordmark "FitTrack" definitivi
 
 **Aperta**: 2026-05-02
@@ -170,21 +151,6 @@ e l'app legge sia le release stabili sia le pre-release.
 
 ---
 
-### [10] Cache più aggressiva del fetch versione
-
-**Aperta**: 2026-05-01
-**Area**: codice
-
-`updateChecker.ts` ha throttle 1h ma su rete instabile il fetch può
-fallire silenziosamente. Si potrebbe persistere l'ultima `RemoteVersion`
-fetchata in AsyncStorage e mostrare il prompt anche offline se il
-confronto era già stato calcolato.
-
-**Done quando**: una volta visto il prompt, l'utente lo rivede anche
-offline finché non lo dismissa o aggiorna.
-
----
-
 ### [18] Video URL veri sugli esercizi
 
 **Aperta**: 2026-05-02
@@ -234,29 +200,6 @@ linkare ai gif remoti via URL (con cache RN).
 **Done quando**: la libreria ha ≥150 esercizi; il bundle non cresce
 oltre +15MB; gli esercizi nuovi hanno descrizione + guideSteps +
 videoUrl o gif embed.
-
----
-
-### [21] CHECK constraint su `app_settings.weekly_target_days`
-
-**Aperta**: 2026-05-02
-**Area**: codice
-
-Lo stepper in `SportSettingsScreen` (Fase 5) mostra valori 1-7
-e l'UI gestisce il bound. Ma a livello DB la colonna
-`weekly_target_days` è `INTEGER NOT NULL DEFAULT 4`, senza CHECK
-constraint. Un import di backup malevolo o un bug futuro potrebbero
-scrivere valori illegali (0, -3, 100).
-
-Da fare: ALTER TABLE per aggiungere `CHECK (weekly_target_days
-BETWEEN 1 AND 7)` — su SQLite non si può ALTER aggiungendo CHECK,
-serve ricreare la tabella (rename + create new + insert select +
-drop old). Idempotente come gli altri pattern già nel db.ts. In
-alternativa, validare lato applicativo (più semplice, meno robusto).
-
-**Done quando**: il DB rifiuta scritture con valore fuori range
-1-7; l'errore viene gestito con Toast in `setWeeklyTarget` invece
-di crashare.
 
 ---
 
@@ -401,6 +344,97 @@ contro spam.
 ---
 
 ## ✅ Fatto
+
+### [chiusa] [21] CHECK constraint su `app_settings.weekly_target_days`
+
+**Aperta**: 2026-05-02 — **Chiusa**: 2026-05-15
+
+Aggiunto `CHECK (weekly_target_days BETWEEN 1 AND 7)` sia al `CREATE
+TABLE` di `app_settings` (per i DB nuovi) sia tramite migrazione idempotente
+che ricrea la tabella per i DB esistenti.
+
+Pattern recreate in `src/database/db.ts` (rename + create new + insert
+select + drop old in transazione), gated da un check su
+`sqlite_master.sql` con regex `weekly_target_days[^,]*BETWEEN\s+1\s+AND\s+7`
+così la migrazione gira una sola volta per device. UPDATE difensivo PRIMA
+del recreate per clampare a 4 eventuali valori out-of-range (in pratica
+inesistenti: l'unica write path è `setWeeklyTarget` che già fa
+`Math.min(7, Math.max(1, ...))`). Errore non-fatale: try/catch wraps the
+whole migration so an unexpected failure degrades to "app senza CHECK" invece
+di crash al boot.
+
+Nessuna modifica alla UI o a `setWeeklyTarget`: il clamp applicativo è già
+la difesa primaria, la CHECK è defense-in-depth per scritture non-UI
+(import backup → `dbBackup.tryInsertRow` ha già try/catch riga-per-riga).
+
+Risk per gli utenti che aggiornano: praticamente zero. Tutti i DB
+deployati hanno `weekly_target_days ∈ {1..7}` per costruzione, il
+`INSERT INTO ... SELECT` non fallisce mai sulla CHECK. La FK analysis
+conferma: nessuna tabella ha FK verso `app_settings`, drop+rename è safe.
+
+File toccati: `src/database/db.ts` (CREATE TABLE + nuovo blocco
+migrazione dopo `INSERT OR IGNORE INTO app_settings`).
+
+---
+
+### [chiusa] [10] Cache più aggressiva del fetch versione
+
+**Aperta**: 2026-05-01 — **Chiusa**: 2026-05-15
+
+`src/utils/updateChecker.ts` ora persiste l'ultima `RemoteVersion`
+fetchata con successo in AsyncStorage (`@fattrack/updateCheck/cachedRemote`).
+Quando il fetch corrente fallisce — offline, timeout, payload malformato —
+o quando siamo dentro la finestra di throttle (1h) ma c'era già una cache,
+`runCheck` legge dalla cache e mostra comunque il prompt se la versione
+cached è strettamente > current.
+
+Comportamento:
+- Cold-start online: fetch ok, cache aggiornata, prompt se newer (come prima).
+- Cold-start offline con cache pregressa "newer": legge cache → prompt
+  comunque mostrato. Risolve il caso "l'utente è offline a casa ma sa che
+  c'è un update perché l'aveva visto prima".
+- Throttle (cold-start a meno di 1h dal precedente check): non rifa il
+  fetch ma legge la cache → prompt comunque mostrato se applicabile.
+- Versione cached <= current (utente ha appena aggiornato): nessun prompt,
+  la cache si invaliderà al prossimo fetch riuscito.
+- Dismissed version: cache mostrata solo se non dismissata (eccetto `force`).
+
+Nessuna TTL sulla cache: la compareVersions la invalida naturalmente
+quando current >= cached. Niente nuove dipendenze, niente cambi di schema
+DB, AsyncStorage già usato.
+
+File toccati: `src/utils/updateChecker.ts` (nuove costante
+`STORAGE_KEY_REMOTE_CACHE`, funzioni `readCachedRemote`/`writeCachedRemote`/
+`isCachedRemoteVersion`, refactor di `runCheck` con flusso fetch→cache→
+compareVersions unificato).
+
+---
+
+### [annullata] [6] Retry automatico su `gh release create`
+
+**Aperta**: 2026-05-01 — **Chiusa**: 2026-05-15
+
+Annullata: rischio reale basso, fix manuale di 30 secondi quando capita,
+retry automatico non giustifica la complessità nel batch.
+
+Quando `gh release create` fallisce dopo che il tag è già stato pushato,
+gli utenti non vedono un nuovo prompt update (Releases API torna ancora
+la release precedente). Ma: gli utenti stanno già usando la versione
+precedente, niente è "rotto" dal loro punto di vista. Il dev (single
+contributor) vede subito l'errore di `fattrack.bat` e fixa con un comando:
+`gh release create vX.Y.Z --title ... ./output.apk` (GitHub accetta la
+stessa tag) oppure delete-tag + bump al patch successivo. Frequenza
+attesa: rara (`gh release create` fallisce di rado in pratica).
+
+L'automazione costerebbe più del problema: branch logica nel batch (già
+non semplice), gestione idempotenza al retry, test difficile (simulare
+fallimento di `gh release`). Pattern già usato per la voce [4] (smoke
+test adb), annullata per lo stesso motivo.
+
+Se in futuro entrassero più contributor o si volesse pubblicare su Play
+Store, riaprire come voce nuova.
+
+---
 
 ### [chiusa] [13] Foto profilo (avatar reale invece dell'iniziale)
 
