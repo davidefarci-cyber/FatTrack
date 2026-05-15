@@ -51,9 +51,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "FatTrack usa la galleria solo per scegliere la foto profilo.",
-          "cameraPermission": false,
-          "microphonePermission": false
+          "photosPermission": "FatTrack usa la galleria solo per scegliere la foto profilo."
         }
       ]
     ],
