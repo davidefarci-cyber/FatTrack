@@ -106,11 +106,20 @@ export async function offByBarcode(
 ): Promise<OffProduct | null> {
   const trimmed = code.trim();
   if (!trimmed) return null;
-  const url = `${PRODUCT_URL}/${encodeURIComponent(trimmed)}.json`;
+  // `fields` esplicito è necessario: dal 2025 il v2 product endpoint
+  // restituisce un product object minimale (solo `code`) se non specifichi
+  // i campi richiesti, anche se `status === 1`. Senza questo parametro
+  // nutriments e product_name mancano → normalizeProduct ritorna null →
+  // utente vede "Prodotto non trovato" anche per prodotti presenti nel DB.
+  const params = new URLSearchParams({ fields: SEARCH_FIELDS });
+  const url = `${PRODUCT_URL}/${encodeURIComponent(trimmed)}.json?${params.toString()}`;
   const res = await offFetch(url, signal);
   if (!res.ok) throw new Error(`OFF barcode HTTP ${res.status}`);
   const data = (await res.json()) as { status?: number; product?: OffRaw };
-  if (data.status !== 1 || !data.product) return null;
+  // Non ci basiamo su `data.status === 1`: se il payload include un product
+  // con i dati nutrizionali, lo accettiamo (alcune transizioni dell'API
+  // hanno cambiato il significato del campo status).
+  if (!data.product) return null;
   return normalizeProduct(data.product);
 }
 
